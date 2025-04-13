@@ -1,13 +1,12 @@
 use yaml_rust2::{Yaml, YamlLoader};
 
-use crate::util::error::{CpError, CpResult};
+use crate::util::error::{CpError, CpResult, SubResult};
 use std::{collections::HashMap, iter::Map, path::PathBuf};
 
 pub trait Configurable {
     fn get_node_name() -> &'static str;
+    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()>;
 }
-
-pub struct RawConfigPack {}
 
 pub fn read_configs(dir: &str, file_exts: Vec<&str>) -> CpResult<Vec<PathBuf>> {
     let paths = std::fs::read_dir(dir)?
@@ -28,18 +27,26 @@ pub fn read_configs(dir: &str, file_exts: Vec<&str>) -> CpResult<Vec<PathBuf>> {
     Ok(paths)
 }
 
+pub fn pack_configs_from_files(files: &Vec<PathBuf>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
+    let configs: Vec<Yaml> = files
+        .iter()
+        .flat_map(|path| {
+            let config_str = std::fs::read_to_string(path).unwrap();
+            YamlLoader::load_from_str(&config_str).unwrap()
+        })
+        .collect();
+    pack_configs(&configs)
+}
+
 fn unpack_yaml_map(
     config: &Yaml,
     config_pack: &mut HashMap<String, HashMap<String, Yaml>>,
     config_type: &str,
-) -> CpResult<()> {
+) -> SubResult<()> {
     let config_map = match config.as_hash() {
         Some(x) => x.iter(),
         None => {
-            return Err(CpError::ComponentError(
-                "config.common",
-                format!("Found a {} node that is not a map", config_type),
-            ));
+            return Err(format!("Found a {} node that is not a map", config_type));
         }
     };
     for (key_node, c) in config_map {
@@ -47,23 +54,14 @@ fn unpack_yaml_map(
         let key = match key_node.as_str() {
             Some(val) => val,
             None => {
-                return Err(CpError::ComponentError(
-                    "config.common",
-                    format!(
-                        "key {:?} of config_type {} is not a string",
-                        key_node, config_type
-                    ),
+                return Err(format!(
+                    "key {:?} of config_type {} is not a string",
+                    key_node, config_type
                 ));
             }
         };
         if pack.contains_key(key) {
-            return Err(CpError::ComponentError(
-                "config.common",
-                format!(
-                    "Invalid config: duplicate key for {} ({})",
-                    config_type, key,
-                ),
-            ));
+            return Err(format!("Invalid config: duplicate key for {} ({})", config_type, key,));
         }
         if !c.is_null() {
             pack.insert(String::from(key), Yaml::clone(c));
@@ -72,11 +70,8 @@ fn unpack_yaml_map(
     Ok(())
 }
 
-fn pack_configs(
-    configs: &Vec<Yaml>,
-) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let mut config_pack: HashMap<String, HashMap<String, Yaml>> =
-        HashMap::new();
+fn pack_configs(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
+    let mut config_pack: HashMap<String, HashMap<String, Yaml>> = HashMap::new();
     for config in configs {
         let config_map = match config.as_hash() {
             Some(x) => x.iter(),
@@ -94,24 +89,13 @@ fn pack_configs(
             }
             match unpack_yaml_map(c, &mut config_pack, ctype) {
                 Ok(()) => (),
-                Err(e) => return Err(e),
+                Err(e) => {
+                    return Err(CpError::ComponentError("config.common", e));
+                }
             }
         }
     }
     Ok(config_pack)
-}
-
-pub fn pack_configs_from_files(
-    files: &Vec<PathBuf>,
-) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let configs: Vec<Yaml> = files
-        .iter()
-        .flat_map(|path| {
-            let config_str = std::fs::read_to_string(path).unwrap();
-            YamlLoader::load_from_str(&config_str).unwrap()
-        })
-        .collect();
-    pack_configs(&configs)
 }
 
 #[cfg(test)]

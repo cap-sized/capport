@@ -1,3 +1,5 @@
+extern crate proc_macro;
+use proc_macro::TokenStream;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -15,3 +17,4 @@ impl From<std::io::Error> for CpError {
 }
 
 pub type CpResult<T, E = CpError> = std::result::Result<T, E>;
+pub type SubResult<T, E = String> = std::result::Result<T, E>;

@@ -1,0 +1,44 @@
+model:
+
+  # mandatory_key:
+  # optional_key?: value <-- parse similar to typescript
+  person:
+    id:
+      dtype: uuid
+      constraints: [primary]
+    full_name: str
+    first_name: str
+    last_name: str
+    birthdate: date
+    deathdate: date
+    birth_city: str
+    birth_country_code: varchar
+    birth_state_province_code: varchar
+
+  player:
+    person_id:
+      dtype: uuid
+      constraints: [primary, foreign, indexed]
+    nhl_player_id?: # some guys simply don't have id yet
+      dtype: int
+      constraints: [unique, indexed]
+    shoots_catches:
+      dtype: varchar
+    positions: list[str]
+  
+  draft:
+
+    
+  coach:
+
+
+  manager:
+
+
+  agent:
+
+
+  nickname:
+    person_id: uuid
+    nickname: str
+

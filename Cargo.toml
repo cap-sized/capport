@@ -1,0 +1,17 @@
+[package]
+name = "capport"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+argh = "0.1.13"
+chrono-tz = "0.10.3"
+polars = "0.46.0"
+reqwest = "0.12.15"
+thiserror = "2.0.12"
+yaml-rust2 = "0.10.1"
+
+[lints.rust]
+unused_imports = "allow"
+unused_variables = "allow"
+dead_code = "allow"

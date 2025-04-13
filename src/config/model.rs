@@ -43,7 +43,6 @@ fn parse_dtype(dtype: &str) -> Option<polars::datatypes::DataType> {
 fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
     let constraint_key = Yaml::from_str(CONSTRAINT_KEYWORD);
     let dtype_key = Yaml::from_str(DTYPE_KEYWORD);
-    // TODO: figure out how to make these static
     if node.is_null() {
         return Err(format!("Field {} is null", name));
     }
@@ -51,8 +50,10 @@ fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
         Ok(ModelField {
             label: name.to_string(),
             constraints: vec![],
-            // TODO: handle invalid node type
-            dtype: parse_dtype(node.as_str().unwrap()).unwrap(),
+            dtype: match parse_dtype(node.as_str().unwrap()) {
+                Some(x) => x,
+                None => return Err(format!("Field {} contains invalid dtype {:?}", name, node)),
+            },
         })
     } else {
         let node_map = node.as_hash().unwrap();
@@ -67,9 +68,8 @@ fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
                     .collect::<Vec<_>>(),
                 None => vec![],
             },
-            // TODO: handle invalid node type
             dtype: match node_map.get(&dtype_key) {
-                Some(x) => match parse_dtype(x.as_str().unwrap()) {
+                Some(x) => match parse_dtype(x.as_str().unwrap_or(format!("{:?}", x).as_str())) {
                     Some(dt) => dt,
                     None => {
                         return Err(format!("Field {}'s dtype is not recognised", name));
@@ -116,12 +116,19 @@ fn parse_model(name: &str, node: &Yaml) -> SubResult<Model> {
 }
 
 impl ModelRegistry {
-    fn new() -> ModelRegistry {
+    pub fn new() -> ModelRegistry {
         ModelRegistry {
             registry: HashMap::new(),
         }
     }
-    fn get_model(&self, model_name: &str) -> Option<Model> {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> ModelRegistry {
+        let mut reg = ModelRegistry {
+            registry: HashMap::new(),
+        };
+        reg.extract_parse_config(config_pack).unwrap();
+        reg
+    }
+    pub fn get_model(&self, model_name: &str) -> Option<Model> {
         match self.registry.get(model_name) {
             Some(x) => Some(x.to_owned()),
             None => None,
@@ -155,27 +162,27 @@ impl Configurable for ModelRegistry {
 
 #[cfg(test)]
 mod tests {
-    use yaml_rust2::YamlLoader;
+    use yaml_rust2::{YamlLoader, yaml};
+
+    use crate::util::common::create_config_pack;
 
     use super::*;
+
     fn create_model_registry(yaml_str: &str) -> ModelRegistry {
-        let mut mr = ModelRegistry::new();
-        let configs = YamlLoader::load_from_str(yaml_str)
-            .unwrap()
-            .first()
-            .unwrap()
-            .as_hash()
-            .unwrap()
-            .iter()
-            .map(|(name, yamlconf)| (name.as_str().unwrap().to_string(), yamlconf.to_owned()))
-            .collect::<HashMap<String, Yaml>>();
-        let mut config_pack = HashMap::from([(String::from("model"), configs)]);
-        mr.extract_parse_config(&mut config_pack).unwrap();
-        mr
+        let mut reg = ModelRegistry::new();
+        let mut config_pack = create_config_pack(yaml_str);
+        reg.extract_parse_config(&mut config_pack).unwrap();
+        reg
+    }
+
+    fn assert_invalid_model(yaml_str: &str) {
+        let mut reg = ModelRegistry::new();
+        let mut config_pack = create_config_pack(yaml_str);
+        reg.extract_parse_config(&mut config_pack).unwrap_err();
     }
 
     #[test]
-    fn basic_model() {
+    fn valid_basic_model() {
         let mr = create_model_registry(
             "
 person:
@@ -197,7 +204,7 @@ person:
     }
 
     #[test]
-    fn basic_model_details() {
+    fn valid_basic_model_details() {
         let mr = create_model_registry(
             "
 person:
@@ -226,7 +233,7 @@ person:
     }
 
     #[test]
-    fn multiple_models() {
+    fn valid_multiple_models() {
         let mr = create_model_registry(
             "
 person:
@@ -268,5 +275,42 @@ player:
             );
             assert_eq!(actual_model, expected_model);
         }
+    }
+
+    #[test]
+    fn invalid_models() {
+        assert_invalid_model(
+            "
+person:
+    id:
+",
+        );
+        assert_invalid_model(
+            "
+person:
+    id: int6
+",
+        );
+        assert_invalid_model(
+            "
+person:
+    id: 
+        constraints: [primary]
+",
+        );
+        assert_invalid_model(
+            "
+person:
+    id: 
+        dtype: [primary]
+",
+        );
+        assert_invalid_model(
+            "
+person:
+    id: 
+        type: int64
+",
+        );
     }
 }

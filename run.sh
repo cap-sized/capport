@@ -1,0 +1,1 @@
+cargo run -- -c config -o output -p trial

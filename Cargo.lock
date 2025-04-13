@@ -233,6 +233,7 @@ dependencies = [
  "argh",
  "chrono-tz",
  "polars",
+ "polars-lazy",
  "reqwest",
  "thiserror",
  "yaml-rust2",

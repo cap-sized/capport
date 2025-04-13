@@ -35,7 +35,8 @@ pub fn pack_configs_from_files(files: &Vec<PathBuf>) -> CpResult<HashMap<String,
             YamlLoader::load_from_str(&config_str).unwrap()
         })
         .collect();
-    pack_configs(&configs)
+    pack_yaml_configs(&configs)
+    // pack_json_configs()
 }
 
 fn unpack_yaml_map(
@@ -70,7 +71,7 @@ fn unpack_yaml_map(
     Ok(())
 }
 
-fn pack_configs(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
+fn pack_yaml_configs(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
     let mut config_pack: HashMap<String, HashMap<String, Yaml>> = HashMap::new();
     for config in configs {
         let config_map = match config.as_hash() {
@@ -118,7 +119,7 @@ bar:
     - bar2.0
 ",
         );
-        pack_configs(&configs).unwrap_err();
+        pack_yaml_configs(&configs).unwrap_err();
     }
 
     #[test]
@@ -133,7 +134,7 @@ bar:
     bar2.0:
 ",
         );
-        pack_configs(&configs).unwrap_err();
+        pack_yaml_configs(&configs).unwrap_err();
     }
 
     #[test]
@@ -146,7 +147,7 @@ foo:
 bar:
 ",
         );
-        pack_configs(&configs).unwrap_err();
+        pack_yaml_configs(&configs).unwrap_err();
     }
 
     #[test]
@@ -161,7 +162,7 @@ bar:
     2.0:
 ",
         );
-        pack_configs(&configs).unwrap_err();
+        pack_yaml_configs(&configs).unwrap_err();
     }
 
     #[test]
@@ -177,7 +178,7 @@ bar:
     x: 
 ",
         );
-        let result = pack_configs(&configs).unwrap();
+        let result = pack_yaml_configs(&configs).unwrap();
         let mut expected = HashMap::new();
         expected.insert(
             String::from("foo"),

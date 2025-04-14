@@ -1,16 +1,18 @@
 use crate::config::common::Configurable;
-use crate::task::transform::{MappingField, MappingTransform};
+use crate::task::transform::common::Transform;
+use crate::task::transform::mapping::{self, MappingField, MappingTransform};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::collections::HashMap;
-use std::fs;
+use std::{fmt, fs};
 use yaml_rust2::Yaml;
 
+const MAPPING_KEYWORD: &str = "mapping";
 const ACTION_KEYWORD: &str = "action";
 const ARGS_KEYWORD: &str = "args";
 const KWARGS_KEYWORD: &str = "kwargs";
 
 pub struct TransformRegistry {
-    registry: HashMap<String, MappingTransform>,
+    registry: HashMap<String, Box<dyn Transform>>,
 }
 
 fn parse_mapping_field(name: &str, node: &Yaml) -> SubResult<MappingField> {
@@ -48,7 +50,7 @@ fn parse_mapping_field(name: &str, node: &Yaml) -> SubResult<MappingField> {
     }
 }
 
-fn parse_transform(name: &str, node: &Yaml) -> SubResult<MappingTransform> {
+fn parse_mapping_transform(name: &str, node: &Yaml) -> SubResult<MappingTransform> {
     let nodemap = match node.as_hash() {
         Some(x) => x.iter(),
         None => {
@@ -80,6 +82,27 @@ fn parse_transform(name: &str, node: &Yaml) -> SubResult<MappingTransform> {
     })
 }
 
+fn parse_transform(name: &str, node: &Yaml) -> SubResult<Box<dyn Transform>> {
+    let mapping_keyword = Yaml::from_str(MAPPING_KEYWORD);
+    if !node.is_hash() {
+        return Err(format!(
+            "Child of transform node {} is not a map, invalid: {:?}",
+            name, node
+        ));
+    }
+    let transform_args = node.as_hash().unwrap();
+    if transform_args.contains_key(&mapping_keyword) {
+        return match parse_mapping_transform(name, transform_args.get(&mapping_keyword).unwrap()) {
+            Ok(x) => Ok(Box::new(x)),
+            Err(e) => Err(e),
+        };
+    }
+    Err(format!(
+        "Transform {}'s type and args unrecognized: {:?}",
+        name, transform_args
+    ))
+}
+
 impl TransformRegistry {
     pub fn new() -> TransformRegistry {
         TransformRegistry {
@@ -93,11 +116,22 @@ impl TransformRegistry {
         reg.extract_parse_config(config_pack).unwrap();
         reg
     }
-    pub fn get_transform(&self, transform_name: &str) -> Option<MappingTransform> {
+    pub fn get_transform(&self, transform_name: &str) -> Option<&Box<dyn Transform>> {
         match self.registry.get(transform_name) {
-            Some(x) => Some(x.to_owned()),
+            Some(x) => Some(x),
             None => None,
         }
+    }
+}
+
+impl fmt::Debug for TransformRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ = write!(f, "TransformRegistry [ ");
+        self.registry.iter().for_each(|(_, transform)| {
+            let _ = transform.as_ref().fmt(f).unwrap();
+            let _ = write!(f, ", ");
+        });
+        write!(f, " ]")
     }
 }
 

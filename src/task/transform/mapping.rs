@@ -4,6 +4,8 @@ use yaml_rust2::Yaml;
 
 use crate::util::error::{CpResult, PlResult, SubResult};
 
+use super::common::Transform;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MappingField {
     pub label: String,
@@ -14,12 +16,7 @@ pub struct MappingField {
 
 const COL_EXPR_DELIMITERS: [char; 3] = ['.', '@', '*'];
 
-pub trait Transform {
-    fn to_lazy_map(&self, df: DataFrame) -> SubResult<LazyFrame>;
-    fn map(&self, df: LazyFrame) -> SubResult<LazyFrame>;
-}
-
-pub fn parse_col_expr<F>(fields: &mut Vec<&str>, transformer: F, acc_expr: Option<Expr>) -> Option<Expr>
+pub fn parse_mapping_col_expr<F>(fields: &mut Vec<&str>, transformer: F, acc_expr: Option<Expr>) -> Option<Expr>
 where
     F: Fn(Option<Expr>, &str) -> Option<Expr>,
 {
@@ -34,7 +31,7 @@ where
     let field = head
         .strip_suffix(|delim: char| COL_EXPR_DELIMITERS.clone().contains(&delim))
         .unwrap_or(head);
-    return parse_col_expr(fields, next_transform, transformer(acc_expr, field));
+    return parse_mapping_col_expr(fields, next_transform, transformer(acc_expr, field));
 }
 
 impl MappingField {
@@ -58,7 +55,8 @@ impl MappingField {
                 None => return Err(format!("no string expression found for field {}", self.label)),
             };
             let mut fields: Vec<&str> = rawexpr.split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-            let col_expr = match parse_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None) {
+            let col_expr = match parse_mapping_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None)
+            {
                 Some(expr) => expr,
                 None => {
                     return Err(format!(
@@ -102,6 +100,9 @@ impl Transform for MappingTransform {
         }
         Ok(df.select(mapping_cols))
     }
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}: {:?}", &self.label, &self.mappings)
+    }
 }
 
 #[cfg(test)]
@@ -110,14 +111,14 @@ mod tests {
     use polars_lazy::dsl::col;
     use polars_lazy::prelude::Expr;
 
-    use crate::task::transform::{COL_EXPR_DELIMITERS, parse_col_expr};
+    use crate::task::transform::mapping::{COL_EXPR_DELIMITERS, parse_mapping_col_expr};
 
     use super::{MappingField, MappingTransform, Transform};
 
     #[test]
     fn parse_col_expr_one_level() {
         let mut fields: Vec<&str> = "args".split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-        let col_expr = parse_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
+        let col_expr = parse_mapping_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
         // println!("{:?}", col_expr);
         assert_eq!(col_expr.unwrap(), col("args"));
     }
@@ -125,7 +126,7 @@ mod tests {
     #[test]
     fn parse_col_expr_dots() {
         let mut fields: Vec<&str> = "args.test.once".split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-        let col_expr = parse_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
+        let col_expr = parse_mapping_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
         // println!("{:?}", col_expr);
         assert_eq!(
             col_expr.unwrap(),

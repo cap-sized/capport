@@ -11,6 +11,7 @@ use std::fs;
 const CONSTRAINT_KEYWORD: &str = "constraints";
 const DTYPE_KEYWORD: &str = "dtype";
 
+#[derive(Debug)]
 pub struct ModelRegistry {
     registry: HashMap<String, Model>,
 }
@@ -18,14 +19,21 @@ pub struct ModelRegistry {
 fn parse_dtype(dtype: &str) -> Option<polars::datatypes::DataType> {
     match dtype {
         "int" => Some(DataType::Int64),
-        "int64" => Some(DataType::Int64),
+        "int8" => Some(DataType::Int8),
+        "int16" => Some(DataType::Int16),
         "int32" => Some(DataType::Int32),
+        "int64" => Some(DataType::Int64),
+        "uint8" => Some(DataType::UInt8),
+        "uint16" => Some(DataType::UInt16),
+        "uint32" => Some(DataType::UInt32),
+        "uint64" => Some(DataType::UInt64),
         "float" => Some(DataType::Float32),
         "double" => Some(DataType::Float64),
         "str" => Some(DataType::String),
+        "char" => Some(DataType::UInt8),
         "time" => Some(DataType::Time),
         "date" => Some(DataType::Date),
-        "datetime_ny" => Some(DataType::Datetime(
+        "datetime_nyt" => Some(DataType::Datetime(
             TimeUnit::Milliseconds,
             Some(TimeZone::from_str(NYT)),
         )),

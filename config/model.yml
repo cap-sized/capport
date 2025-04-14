@@ -4,7 +4,7 @@ model:
   # optional_key?: value <-- parse similar to typescript
   person:
     id:
-      dtype: uuid
+      dtype: uint64
       constraints: [primary]
     full_name: str
     first_name: str
@@ -12,18 +12,18 @@ model:
     birthdate: date
     deathdate: date
     birth_city: str
-    birth_country_code: varchar
-    birth_state_province_code: varchar
+    birth_country_code: str
+    birth_state_province_code: str
 
   player:
     person_id:
-      dtype: uuid
+      dtype: uint64
       constraints: [primary, foreign, indexed]
     nhl_player_id?: # some guys simply don't have id yet
-      dtype: int
+      dtype: uint64
       constraints: [unique, indexed]
     shoots_catches:
-      dtype: varchar
+      dtype: char
     positions: list[str]
   
   draft:
@@ -39,6 +39,6 @@ model:
 
 
   nickname:
-    person_id: uuid
+    person_id: uint64
     nickname: str
 

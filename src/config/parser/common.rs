@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use yaml_rust2::Yaml;
+use yaml_rust2::{Yaml, YamlEmitter};
 
 use crate::util::error::SubResult;
 

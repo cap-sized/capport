@@ -1,4 +1,5 @@
-use polars_lazy::{dsl::Expr, frame::LazyFrame};
+use polars::prelude::*;
+use polars_lazy::prelude::*;
 
 use crate::{pipeline::results::PipelineResults, util::error::SubResult};
 
@@ -48,18 +49,14 @@ impl DropField {
     }
 
     pub fn expr(&self) -> SubResult<Expr> {
-        match parse_str_to_col_expr(&self.target) {
-            Some(x) => Ok(x),
-            None => Err(format!(
-                "Dropped field cannot be parsed to polars Expr: {:?}",
-                &self.target
-            )),
-        }
+        // Currently only supports top level column deletion, structs cannot be modified
+        Ok(col(&self.target))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use polars::prelude::PlSmallStr;
     use polars::{df, docs::lazy};
     use polars_lazy::prelude::Expr;
     use polars_lazy::{dsl::col, frame::IntoLazy};
@@ -69,7 +66,7 @@ mod tests {
     use super::{DropField, DropTransform, Transform};
 
     #[test]
-    fn drop_transform_test() {
+    fn valid_drop_basic() {
         let sample_df = df![
             "Price" => [2.3, 102.023, 19.88],
             "Instr" => ["ABAB", "TORO", "PKJT"],

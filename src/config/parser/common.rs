@@ -102,17 +102,22 @@ impl YamlMapRead for HashMap<String, &Yaml> {
         }
     }
     fn get_list_str(&self, key: &str, msg_if_fail: String) -> SubResult<Vec<String>> {
-        let vec = match &self.get(key).is_some_and(|x| x.as_vec().is_some()) {
-            true => self.get(key).unwrap().as_vec().unwrap(),
-            false => return Err(msg_if_fail),
-        };
-        let mut vecstr: Vec<String> = vec![];
-        for v in vec {
-            match v._to_str(&msg_if_fail) {
-                Ok(x) => vecstr.push(x),
-                Err(e) => return Err(e),
-            };
+        match &self.get(key).is_some_and(|x| x.as_vec().is_some()) {
+            true => {
+                let vec = self.get(key).unwrap().as_vec().unwrap();
+                let mut vecstr: Vec<String> = vec![];
+                for v in vec {
+                    match v._to_str(&msg_if_fail) {
+                        Ok(x) => vecstr.push(x),
+                        Err(e) => return Err(e),
+                    };
+                }
+                Ok(vecstr)
+            }
+            false => match &self.get_str(key, msg_if_fail.clone()) {
+                Ok(x) => Ok(vec![x.to_string()]),
+                Err(e) => Err(e.clone()),
+            },
         }
-        Ok(vecstr)
     }
 }

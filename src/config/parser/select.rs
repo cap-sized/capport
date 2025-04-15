@@ -74,6 +74,7 @@ last_name: lastName.default
             SelectField::new("first_name", "firstName.default"),
             SelectField::new("last_name", "lastName.default"),
         ]);
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -101,6 +102,7 @@ full_name:
                 Some("{separator: \" \"}"),
             ),
         ]);
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -124,6 +126,7 @@ positions:
             SelectField::new("shoots_catches", "shootsCatches"),
             SelectField::from("positions", "position", Some("to_list"), None),
         ]);
+        assert_eq!(actual, expected);
     }
 
     #[test]

@@ -15,7 +15,7 @@ const ARGS_KEYWORD: &str = "args";
 
 pub fn parse_task(task_key: &str) -> Option<PipelineTask> {
     match task_key {
-        "__noop" => Some(|x| Ok(x)),
+        "__noop" => Some(Ok),
         _ => None,
     }
 }
@@ -35,10 +35,7 @@ pub fn parse_pipeline_stage(node: &Yaml) -> SubResult<PipelineStage> {
         None => return Err(format!("Task not recognized: {}", &task_key)),
     };
     let args_yaml_str = match nodemap.get(ARGS_KEYWORD) {
-        Some(x) => match yaml_to_str(x) {
-            Ok(args_str) => args_str,
-            Err(e) => return Err(e),
-        },
+        Some(x) => yaml_to_str(x)?,
         None => return Err(format!("PipelineStage requires `{}`: {:?}", ARGS_KEYWORD, &node)),
     };
     Ok(PipelineStage {

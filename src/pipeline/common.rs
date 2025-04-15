@@ -38,7 +38,7 @@ impl PartialEq for PipelineStage {
             Some(x) => x,
             None => return false,
         };
-        &self.label == &other.label && this_args == other_args
+        self.label == other.label && this_args == other_args
     }
 }
 

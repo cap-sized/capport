@@ -30,6 +30,6 @@ pub fn yaml_to_str(doc: &Yaml) -> SubResult<String> {
     // dump the YAML object to a String
     match emitter.dump(doc) {
         Ok(_) => Ok(out_str),
-        Err(e) => return Err(format!("{:?}", e)),
+        Err(e) => Err(format!("{:?}", e)),
     }
 }

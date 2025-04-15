@@ -44,9 +44,7 @@ impl Configurable for ModelRegistry {
         "model"
     }
     fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
-        let configs = config_pack
-            .remove(ModelRegistry::get_node_name())
-            .unwrap_or_default();
+        let configs = config_pack.remove(ModelRegistry::get_node_name()).unwrap_or_default();
         for (config_name, node) in configs {
             let model = match parse_model(&config_name, &node) {
                 Ok(x) => x,

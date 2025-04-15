@@ -4,7 +4,10 @@ use polars::prelude::*;
 use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
-use crate::{pipeline::results::PipelineResults, util::error::{CpResult, PlResult, SubResult}};
+use crate::{
+    pipeline::results::PipelineResults,
+    util::error::{CpResult, PlResult, SubResult},
+};
 
 pub trait Transform {
     fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame>;

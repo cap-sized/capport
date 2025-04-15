@@ -32,7 +32,10 @@ pub fn parse_join_transform(node: &Yaml) -> SubResult<JoinTransform> {
     let nodemap = node.to_map(format!("Transform config is not a map: {:?}", node))?;
     let join = nodemap.get_str(
         JOIN_KEYWORD,
-        format!("`join` (name of table to join on) not found or invalid str: {:?}", nodemap.get(HOW_KEYWORD)),
+        format!(
+            "`join` (name of table to join on) not found or invalid str: {:?}",
+            nodemap.get(HOW_KEYWORD)
+        ),
     )?;
     let left_on = nodemap.get_list_str(
         LEFT_ON_KEYWORD,

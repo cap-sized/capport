@@ -3,15 +3,15 @@ use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
 use crate::{
-    config::parser::common::YamlRead, pipeline::results::PipelineResults, util::{
+    config::parser::common::YamlRead,
+    pipeline::results::PipelineResults,
+    util::{
         common::yaml_from_str,
         error::{CpResult, PlResult, SubResult},
-    }
+    },
 };
 
-use super::common::Transform;
-
-const COL_EXPR_DELIMITERS: [char; 3] = ['.', '@', '*'];
+use super::{common::Transform, expr::parse_str_to_col_expr};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SelectTransform {
@@ -74,23 +74,13 @@ impl SelectField {
     }
 
     pub fn expr(&self) -> SubResult<Expr> {
-        // (.xxx : struct.field(xxx)) DONE
-        // TODO: Parse expression
-        // (@idx : list.get(idx))
-        // (*xxx : list.eval(element().struct.field(xxx)))
         if self.action.is_none() {
             let rawexpr = self
                 .args
                 .to_str(format!("no string expression found for field {}", self.label))?;
-            let mut fields: Vec<&str> = rawexpr.split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-            let col_expr = match parse_select_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None) {
-                Some(expr) => expr,
-                None => {
-                    return Err(format!(
-                        "invalid expression found for field {}: {}",
-                        self.label, rawexpr
-                    ));
-                }
+            let col_expr = match parse_str_to_col_expr(&rawexpr) {
+                Some(x) => x,
+                None => return Err(format!("Selected field cannot be parsed to polars Expr: {:?}", rawexpr)),
             };
             return Ok(col_expr.alias(&self.label));
         }
@@ -98,56 +88,15 @@ impl SelectField {
     }
 }
 
-pub fn parse_select_col_expr<F>(fields: &mut Vec<&str>, transformer: F, acc_expr: Option<Expr>) -> Option<Expr>
-where
-    F: Fn(Option<Expr>, &str) -> Option<Expr>,
-{
-    if fields.is_empty() || fields.last().unwrap().is_empty() {
-        return acc_expr;
-    }
-    let head = fields.pop().unwrap();
-    let next_transform = match head.chars().last().unwrap() {
-        '.' => |left: Option<Expr>, next_arg: &str| Some(left.unwrap().struct_().field_by_name(next_arg)),
-        unknown => |left: Option<Expr>, _: &str| left,
-    };
-    let field = head
-        .strip_suffix(|delim: char| COL_EXPR_DELIMITERS.clone().contains(&delim))
-        .unwrap_or(head);
-    parse_select_col_expr(fields, next_transform, transformer(acc_expr, field))
-}
-
 #[cfg(test)]
 mod tests {
     use polars::{df, docs::lazy};
-    use polars_lazy::{dsl::col, frame::IntoLazy};
     use polars_lazy::prelude::Expr;
+    use polars_lazy::{dsl::col, frame::IntoLazy};
 
-    use crate::{pipeline::results::PipelineResults, task::transform::select::{parse_select_col_expr, COL_EXPR_DELIMITERS}};
+    use crate::pipeline::results::PipelineResults;
 
     use super::{SelectField, SelectTransform, Transform};
-
-    #[test]
-    fn parse_col_expr_one_level() {
-        let mut fields: Vec<&str> = "args".split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-        let col_expr = parse_select_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
-        // println!("{:?}", col_expr);
-        assert_eq!(col_expr.unwrap(), col("args"));
-    }
-
-    #[test]
-    fn parse_col_expr_dots() {
-        let mut fields: Vec<&str> = "args.test.once".split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
-        let col_expr = parse_select_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None);
-        // println!("{:?}", col_expr);
-        assert_eq!(
-            col_expr.unwrap(),
-            col("args")
-                .struct_()
-                .field_by_name("test")
-                .struct_()
-                .field_by_name("once")
-        );
-    }
 
     #[test]
     fn select_field_parse() {
@@ -175,7 +124,8 @@ mod tests {
             "Price" => [2.3, 102.023, 19.88],
             "Instr" => ["ABAB", "TORO", "PKJT"],
         ]
-        .unwrap().lazy();
+        .unwrap()
+        .lazy();
         let transform = SelectTransform::new(vec![
             SelectField::new("price", "Price"),
             SelectField::new("instrument", "Instr"),

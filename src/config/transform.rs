@@ -103,7 +103,9 @@ mod tests {
         let sample_df = df![
             "csid" => [1, 2, 3],
             "test" => [1, 2, 3],
-        ].unwrap().lazy();
+        ]
+        .unwrap()
+        .lazy();
         let tr = create_transform_registry(
             "
 player_to_person:
@@ -113,12 +115,21 @@ player_to_person:
         );
         println!("{:?}", tr);
         let actual_transform = tr.get_transform("player_to_person").unwrap();
-        let expected_transform: RootTransform = RootTransform::new("player_to_person", vec![
-            Box::new(SelectTransform::new(vec![SelectField::new("id", "csid")]))
-        ]);
+        let expected_transform: RootTransform = RootTransform::new(
+            "player_to_person",
+            vec![Box::new(SelectTransform::new(vec![SelectField::new("id", "csid")]))],
+        );
         let results = PipelineResults::new();
-        let actual_result = actual_transform.run(sample_df.clone(), &results).unwrap().collect().unwrap();
-        let expected_result = expected_transform.run(sample_df.clone(), &results).unwrap().collect().unwrap();
+        let actual_result = actual_transform
+            .run(sample_df.clone(), &results)
+            .unwrap()
+            .collect()
+            .unwrap();
+        let expected_result = expected_transform
+            .run(sample_df.clone(), &results)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(actual_result, expected_result);
     }
 }

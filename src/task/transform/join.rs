@@ -25,8 +25,8 @@ impl JoinTransform {
         JoinTransform {
             left_on: left.split(',').map(|x| x.to_owned()).collect(),
             right_on: right.split(',').map(|x| x.to_owned()).collect(),
-            right_select: right_select,
-            how: how,
+            right_select,
+            how,
         }
     }
 }
@@ -46,8 +46,8 @@ impl Transform for JoinTransform {
                 Err(err_msg) => return Err(format!("JoinTransform: {}", err_msg)),
             }
         }
-        let left_on = self.left_on.iter().map(|x| col(x)).collect::<Vec<_>>();
-        let right_on = self.right_on.iter().map(|x| col(x)).collect::<Vec<_>>();
+        let left_on = self.left_on.iter().map(col).collect::<Vec<_>>();
+        let right_on = self.right_on.iter().map(col).collect::<Vec<_>>();
         Ok(left.join(
             right.select(select_cols),
             left_on,

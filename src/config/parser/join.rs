@@ -28,16 +28,10 @@ pub fn parse_join_transform(node: &Yaml) -> SubResult<JoinTransform> {
     //     Ok(selects) => Ok(SelectTransform { selects }),
     //     Err(e) => Err(e),
     // }
-    let nodemap = match node.to_map(format!("Transform config is not a map: {:?}", node)) {
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
-    let left_on = match nodemap.get_str(
+    let nodemap = node.to_map(format!("Transform config is not a map: {:?}", node))?;
+    let left_on = nodemap.get_str(
         LEFT_ON_KEYWORD,
         format!("left_on not found or invalid: {:?}", nodemap.get(LEFT_ON_KEYWORD)),
-    ) {
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
+    )?;
     Err("not done".to_owned())
 }

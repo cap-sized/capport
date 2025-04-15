@@ -52,10 +52,7 @@ pub fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
         return Err(format!("Field {} is null", name));
     }
     if !node.is_hash() {
-        let raw_dtype = match node.to_str(format!("Field {:?} is not a str", &node)) {
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let raw_dtype = node.to_str(format!("Field {:?} is not a str", &node))?;
         Ok(ModelField {
             label: name.to_string(),
             constraints: vec![],
@@ -65,13 +62,10 @@ pub fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
             },
         })
     } else {
-        let node_map = match node.to_map(format!(
+        let node_map = node.to_map(format!(
             "Expected key {} to have the fields '{}' and (optional) '{}': {:?}",
             name, DTYPE_KEYWORD, CONSTRAINT_KEYWORD, node
-        )) {
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        ))?;
         let constraints = match node_map.get(CONSTRAINT_KEYWORD) {
             Some(x) => match x.to_list_str(format!(
                 "Expected constraints of {} to be a list of keywords, received: {:?}",

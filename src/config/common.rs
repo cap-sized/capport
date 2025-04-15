@@ -17,7 +17,7 @@ pub fn read_configs(dir: &str, file_exts: Vec<&str>) -> CpResult<Vec<PathBuf>> {
         .filter_map(|path| {
             if path
                 .extension()
-                .map_or(false, |ext| file_exts.contains(&ext.to_str().unwrap()))
+                .is_some_and(|ext| file_exts.contains(&ext.to_str().unwrap()))
             {
                 Some(path)
             } else {
@@ -29,7 +29,7 @@ pub fn read_configs(dir: &str, file_exts: Vec<&str>) -> CpResult<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn pack_configs_from_files(files: &Vec<PathBuf>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
+pub fn pack_configs_from_files(files: &[PathBuf]) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
     let configs: Vec<Yaml> = files
         .iter()
         .flat_map(|path| {
@@ -68,19 +68,16 @@ fn unpack_named_configs(
     if !configurables_map.contains_key(config_type) {
         configurables_map.insert(config_type.to_owned(), HashMap::new());
     }
-    let config_map = match named_configs.to_map(format!(
+    let config_map = named_configs.to_map(format!(
         "The following named {} config is not a map: {:?}",
         config_type, named_configs
-    )) {
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
+    ))?;
     for (key, c) in config_map {
         let pack = configurables_map
             .get_mut(config_type)
-            .expect(format!("Configurable not initialized: {}", config_type).as_str());
+            .unwrap_or_else(|| panic!("Configurable not initialized: {}", config_type));
         if !c.is_null() {
-            pack.insert(String::from(key), Yaml::clone(c));
+            pack.insert(key, Yaml::clone(c));
         } else {
             return Err(format!("Key {} has null value", &key));
         }

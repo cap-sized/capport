@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::{fmt, fs};
 use yaml_rust2::Yaml;
 
-use super::common::YamlRead;
+use super::common::{YamlMapRead, YamlRead};
 
 const SELECT_KEYWORD: &str = "select";
 const ARGS_KEYWORD: &str = "args";
@@ -27,13 +27,7 @@ pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
         })
     } else {
         let node_map = node.to_map("Unexpected non-hash".to_owned()).unwrap();
-        let action = match node_map.get(ACTION_KEYWORD) {
-            Some(x) => match x.to_str(format!("action in field {:?} is not a string", node_map)) {
-                Ok(a) => String::from(a),
-                Err(e) => return Err(e),
-            },
-            None => return Err(format!("no action found for SelectField {}", name)),
-        };
+        let action = node_map.get_str(ACTION_KEYWORD, format!("no action found for SelectField {}", name))?;
         Ok(SelectField {
             label: String::from(name),
             action: Some(action),
@@ -134,7 +128,7 @@ positions:
 
     #[test]
     fn invalid_missing_fields_map_select_transform() {
-        vec![
+        [
             "
 positions: 
     args: position

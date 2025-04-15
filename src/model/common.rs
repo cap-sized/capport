@@ -29,8 +29,8 @@ impl ModelField {
     pub fn new(label: &str, dtype: polars::datatypes::DataType, constraints: Option<Vec<&str>>) -> ModelField {
         ModelField {
             label: label.to_string(),
-            dtype: dtype,
-            constraints: constraints.unwrap_or(vec![]).iter().map(|x| x.to_string()).collect(),
+            dtype,
+            constraints: constraints.unwrap_or_default().iter().map(|x| x.to_string()).collect(),
         }
     }
 

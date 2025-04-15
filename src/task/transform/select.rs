@@ -24,7 +24,7 @@ impl SelectTransform {
         "select"
     }
     pub fn new(selects: Vec<SelectField>) -> SelectTransform {
-        SelectTransform { selects: selects }
+        SelectTransform { selects }
     }
 }
 
@@ -71,10 +71,7 @@ impl SelectField {
     pub fn from(label: &str, args: &str, action: Option<&str>, kwargs: Option<&str>) -> SelectField {
         SelectField {
             label: label.to_string(),
-            action: match action {
-                Some(x) => Some(x.to_string()),
-                None => None,
-            },
+            action: action.map(|x| x.to_string()),
             args: Yaml::from_str(args),
             kwargs: match kwargs {
                 Some(x) => yaml_from_str(x),
@@ -89,13 +86,9 @@ impl SelectField {
         // (@idx : list.get(idx))
         // (*xxx : list.eval(element().struct.field(xxx)))
         if self.action.is_none() {
-            let rawexpr = match self
+            let rawexpr = self
                 .args
-                .to_str(format!("no string expression found for field {}", self.label))
-            {
-                Ok(ex) => ex,
-                Err(e) => return Err(e),
-            };
+                .to_str(format!("no string expression found for field {}", self.label))?;
             let mut fields: Vec<&str> = rawexpr.split_inclusive(&COL_EXPR_DELIMITERS).rev().collect();
             let col_expr = match parse_select_col_expr(&mut fields, |_: Option<Expr>, arg: &str| Some(col(arg)), None) {
                 Some(expr) => expr,

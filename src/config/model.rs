@@ -15,6 +15,12 @@ pub struct ModelRegistry {
     registry: HashMap<String, Model>,
 }
 
+impl Default for ModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelRegistry {
     pub fn new() -> ModelRegistry {
         ModelRegistry {
@@ -29,10 +35,7 @@ impl ModelRegistry {
         reg
     }
     pub fn get_model(&self, model_name: &str) -> Option<Model> {
-        match self.registry.get(model_name) {
-            Some(x) => Some(x.to_owned()),
-            None => None,
-        }
+        self.registry.get(model_name).map(|x| x.to_owned())
     }
 }
 
@@ -43,7 +46,7 @@ impl Configurable for ModelRegistry {
     fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
         let configs = config_pack
             .remove(ModelRegistry::get_node_name())
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         for (config_name, node) in configs {
             let model = match parse_model(&config_name, &node) {
                 Ok(x) => x,

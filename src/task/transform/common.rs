@@ -23,7 +23,7 @@ impl RootTransform {
     pub fn new(label: &str, stages: Vec<Box<dyn Transform>>) -> RootTransform {
         RootTransform {
             label: label.to_string(),
-            stages: stages,
+            stages,
         }
     }
 }
@@ -32,7 +32,7 @@ impl fmt::Debug for RootTransform {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let _ = write!(f, "{} [ ", &self.label);
         self.stages.iter().for_each(|transform| {
-            let _ = transform.as_ref().fmt(f).unwrap();
+            transform.as_ref().fmt(f).unwrap();
             let _ = write!(f, ", ");
         });
         write!(f, " ]")

@@ -84,10 +84,7 @@ impl YamlRead for Yaml {
             None => return Err(msg_if_fail),
         };
         for (key, val) in itermap {
-            let keystr = match key._to_str(&msg_if_fail) {
-                Ok(x) => x,
-                Err(e) => return Err(e),
-            };
+            let keystr = key._to_str(&msg_if_fail)?;
             match func(&keystr, val) {
                 Ok(x) => list_out.push(x),
                 Err(e) => return Err(e),

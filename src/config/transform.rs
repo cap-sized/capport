@@ -13,6 +13,12 @@ pub struct TransformRegistry {
     registry: HashMap<String, RootTransform>,
 }
 
+impl Default for TransformRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TransformRegistry {
     pub fn new() -> TransformRegistry {
         TransformRegistry {
@@ -41,7 +47,7 @@ impl Configurable for TransformRegistry {
     fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
         let configs = config_pack
             .remove(TransformRegistry::get_node_name())
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         for (config_name, node) in configs {
             let model = match parse_root_transform(&config_name, &node) {
                 Ok(x) => x,

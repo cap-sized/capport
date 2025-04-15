@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use yaml_rust2::{Yaml, YamlLoader};
+use yaml_rust2::{Yaml, YamlEmitter, YamlLoader};
+
+use super::error::SubResult;
 
 pub const NYT: &str = "America/New_York";
 pub const UTC: &str = "UTC";
@@ -20,4 +22,14 @@ pub fn create_config_pack(yaml_str: &str, configurable: &str) -> HashMap<String,
 
 pub fn yaml_from_str(s: &str) -> Option<Yaml> {
     YamlLoader::load_from_str(s).unwrap().first().cloned()
+}
+
+pub fn yaml_to_str(doc: &Yaml) -> SubResult<String> {
+    let mut out_str = String::new();
+    let mut emitter = YamlEmitter::new(&mut out_str);
+    // dump the YAML object to a String
+    match emitter.dump(doc) {
+        Ok(_) => Ok(out_str),
+        Err(e) => Err(format!("{:?}", e)),
+    }
 }

@@ -12,9 +12,8 @@ pub trait Action {
 pub struct FormatActArgs {
     pub label: String,
     pub template: String,
-    pub args: Vec<String>
+    pub args: Vec<String>,
 }
-
 
 // pub struct ConcatActionArgs {
 //     pub method: dyn Fn(&Vec<T>) -> U,

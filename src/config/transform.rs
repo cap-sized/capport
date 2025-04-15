@@ -8,7 +8,7 @@ use yaml_rust2::Yaml;
 
 use super::parser::transform::parse_root_transform;
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct TransformRegistry {
     registry: HashMap<String, RootTransform>,
 }
@@ -16,6 +16,18 @@ pub struct TransformRegistry {
 impl Default for TransformRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Debug for TransformRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ = write!(f, "TransformRegistry: [ ");
+        for (key, trf) in &self.registry {
+            let _ = write!(f, "{} : ", key);
+            let _ = trf.fmt(f);
+            let _ = write!(f, ", ");
+        }
+        write!(f, " ]")
     }
 }
 
@@ -66,9 +78,11 @@ impl Configurable for TransformRegistry {
 
 #[cfg(test)]
 mod tests {
+    use polars::df;
+    use polars_lazy::frame::IntoLazy;
     use yaml_rust2::{YamlLoader, yaml};
 
-    use crate::util::common::create_config_pack;
+    use crate::{pipeline::results::PipelineResults, util::common::create_config_pack};
 
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
@@ -86,6 +100,10 @@ mod tests {
 
     #[test]
     fn valid_one_stage_mapping_transform() {
+        let sample_df = df![
+            "csid" => [1, 2, 3],
+            "test" => [1, 2, 3],
+        ].unwrap().lazy();
         let tr = create_transform_registry(
             "
 player_to_person:
@@ -95,6 +113,12 @@ player_to_person:
         );
         println!("{:?}", tr);
         let actual_transform = tr.get_transform("player_to_person").unwrap();
-        // let expected_transform: RootTransform = RootTransform::new("player_to_person", vec![]);
+        let expected_transform: RootTransform = RootTransform::new("player_to_person", vec![
+            Box::new(SelectTransform::new(vec![SelectField::new("id", "csid")]))
+        ]);
+        let results = PipelineResults::new();
+        let actual_result = actual_transform.run(sample_df.clone(), &results).unwrap().collect().unwrap();
+        let expected_result = expected_transform.run(sample_df.clone(), &results).unwrap().collect().unwrap();
+        assert_eq!(actual_result, expected_result);
     }
 }

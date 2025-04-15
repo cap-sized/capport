@@ -2,6 +2,11 @@ model:
 
   # mandatory_key:
   # optional_key?: value <-- parse similar to typescript
+  state_province:
+    id: uint64
+    name: str
+    code: str
+
   person:
     id:
       dtype: uint64

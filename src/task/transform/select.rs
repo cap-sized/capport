@@ -3,11 +3,10 @@ use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
 use crate::{
-    config::parser::common::YamlRead,
-    util::{
+    config::parser::common::YamlRead, pipeline::results::PipelineResults, util::{
         common::yaml_from_str,
         error::{CpResult, PlResult, SubResult},
-    },
+    }
 };
 
 use super::common::Transform;
@@ -29,13 +28,7 @@ impl SelectTransform {
 }
 
 impl Transform for SelectTransform {
-    fn binary(&self, left: LazyFrame, right: LazyFrame) -> SubResult<LazyFrame> {
-        Err("Binary op not implemented for SelectTransform".to_owned())
-    }
-    fn lazy_unary(&self, df: DataFrame) -> SubResult<LazyFrame> {
-        self.unary(df.lazy())
-    }
-    fn unary(&self, df: LazyFrame) -> SubResult<LazyFrame> {
+    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.selects {
             match select.expr() {
@@ -43,7 +36,7 @@ impl Transform for SelectTransform {
                 Err(err_msg) => return Err(format!("SelectTransform: {}", err_msg)),
             }
         }
-        Ok(df.select(select_cols))
+        Ok(curr.select(select_cols))
     }
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", &self.selects)
@@ -126,10 +119,10 @@ where
 #[cfg(test)]
 mod tests {
     use polars::{df, docs::lazy};
-    use polars_lazy::dsl::col;
+    use polars_lazy::{dsl::col, frame::IntoLazy};
     use polars_lazy::prelude::Expr;
 
-    use crate::task::transform::select::{COL_EXPR_DELIMITERS, parse_select_col_expr};
+    use crate::{pipeline::results::PipelineResults, task::transform::select::{parse_select_col_expr, COL_EXPR_DELIMITERS}};
 
     use super::{SelectField, SelectTransform, Transform};
 
@@ -182,13 +175,13 @@ mod tests {
             "Price" => [2.3, 102.023, 19.88],
             "Instr" => ["ABAB", "TORO", "PKJT"],
         ]
-        .unwrap();
+        .unwrap().lazy();
         let transform = SelectTransform::new(vec![
             SelectField::new("price", "Price"),
             SelectField::new("instrument", "Instr"),
         ]);
-        let actual_df = transform.lazy_unary(sample_df).unwrap().collect().unwrap();
-        // println!("{:?}", actual_df);
+        let results = PipelineResults::new();
+        let actual_df = transform.run(sample_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
             df![

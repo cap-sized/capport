@@ -1,0 +1,143 @@
+pipeline:
+
+  mass_load_player:
+    - label: load_state_province
+      job: load_csvs # mongo_csdb
+      args:
+        - filepath: "data/csv/state_province.csv"
+          model: state_province
+          save_df: STATE_PROVINCE
+
+    - label: fetch_cs_player_data
+      job: mongo
+      args: 
+        database: csdb
+        table: players
+        action: match
+        match: {}
+        save_df: CS_PLAYER_DATA
+
+    - label: nhl_player_urls
+      job: transform
+      args: 
+        name: cs_player_to_nhl_player_url
+        input: NHL_PLAYER_URLS
+
+    - label: nhl_player
+      job: http_request_json
+      args: 
+        df: NHL_PLAYER_URLS
+        select: nhl_url
+        save_df: NHL_PLAYER
+
+    - label: cs_person
+      job: transform
+      args: 
+        name: nhl_player_to_person
+        input: NHL_PLAYER
+        save_df: PERSON
+
+    - label: cs_player
+      job: transform
+      args: 
+        name: nhl_player_to_player
+        input: NHL_PLAYER
+        save_df: PLAYER
+
+    - label: store_players_persons
+      job: save_csvs # mongo_csdb
+      args:
+        - filepath: "output/data/person.csv"
+          model: person
+          from_df: PERSON
+        - filepath: "output/data/player.csv"
+          model: player
+          from_df: PLAYER
+
+  player_recon:
+    - label: fetch_players
+      job: postgres # mongo_csdb
+      args:
+        database: csdb
+        table: players
+        cmd: "SELECT * FROM PLAYERS;"
+        model: player
+        save_df: PLAYER
+
+    - label: nhl_player_urls
+      job: transform
+      args: 
+        name: cs_player_to_nhl_player_url
+        input: NHL_PLAYER_URLS
+
+    - label: nhl_player
+      job: http_request_json
+      args: 
+        df: NHL_PLAYER_URLS
+        select: nhl_url
+        save_df: NHL_PLAYER
+
+    - label: cs_player
+      job: transform
+      args: 
+        name: nhl_player_to_player
+        input: NHL_PLAYER
+        save_df: NHL_PLAYER
+    
+    - label: recon_player
+      job: recon
+      args:
+        left_df: PLAYER
+        right_df: NHL_PLAYER
+        save_neq_rows: RECON_PLAYER
+    
+    - label: inform_recon
+      job: discord
+      args:
+        level: WARN
+        job_type: recon
+        args: { df: RECON_PLAYER }
+
+  player_recon:
+    - label: fetch_players
+      job: postgres # mongo_csdb
+      args:
+        database: csdb
+        table: players
+        cmd: "SELECT * FROM PLAYERS;"
+        model: player
+        save_df: PLAYER
+
+    - label: nhl_player_urls
+      job: transform
+      args: 
+        name: cs_player_to_nhl_player_url
+        input: NHL_PLAYER_URLS
+
+    - label: nhl_player
+      job: http_request_json
+      args: 
+        df: NHL_PLAYER_URLS
+        select: nhl_url
+        save_df: NHL_PLAYER
+
+    - label: cs_player
+      job: transform
+      args: 
+        name: nhl_player_to_player
+        input: NHL_PLAYER
+        save_df: NHL_PLAYER
+    
+    - label: recon_player
+      job: recon
+      args:
+        left_df: PLAYER
+        right_df: NHL_PLAYER
+        save_neq_rows: RECON_PLAYER
+    
+    - label: inform_recon
+      job: discord
+      args:
+        level: WARN
+        job_type: recon
+        args: { df: RECON_PLAYER }

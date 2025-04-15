@@ -15,6 +15,7 @@ const LEFT_ON_KEYWORD: &str = "left_on";
 const RIGHT_ON_KEYWORD: &str = "right_on";
 const RIGHT_SELECT_KEYWORD: &str = "right_select";
 const HOW_KEYWORD: &str = "how";
+const JOIN_KEYWORD: &str = "join";
 
 pub fn parse_jointype(jtype: &str) -> Option<JoinType> {
     match jtype {
@@ -29,17 +30,21 @@ pub fn parse_jointype(jtype: &str) -> Option<JoinType> {
 
 pub fn parse_join_transform(node: &Yaml) -> SubResult<JoinTransform> {
     let nodemap = node.to_map(format!("Transform config is not a map: {:?}", node))?;
+    let join = nodemap.get_str(
+        JOIN_KEYWORD,
+        format!("`join` (name of table to join on) not found or invalid str: {:?}", nodemap.get(HOW_KEYWORD)),
+    )?;
     let left_on = nodemap.get_list_str(
         LEFT_ON_KEYWORD,
         format!(
-            "left_on not found or invalid str/list[str]: {:?}",
+            "`left_on` not found or invalid str/list[str]: {:?}",
             nodemap.get(LEFT_ON_KEYWORD)
         ),
     )?;
     let right_on = nodemap.get_list_str(
         RIGHT_ON_KEYWORD,
         format!(
-            "right_on not found or invalid str/list[str]: {:?}",
+            "`right_on` not found or invalid str/list[str]: {:?}",
             nodemap.get(RIGHT_ON_KEYWORD)
         ),
     )?;
@@ -56,11 +61,12 @@ pub fn parse_join_transform(node: &Yaml) -> SubResult<JoinTransform> {
     let right_select = match nodemap.get(RIGHT_SELECT_KEYWORD) {
         Some(&x) => x.over_map(
             parse_select_field,
-            format!("right_select is not a valid map of SelectFields: {:?}", node),
+            format!("`right_select` is not a valid map of SelectFields: {:?}", node),
         )?,
-        None => return Err(format!("right_select not found: {:?}", nodemap)),
+        None => return Err(format!("`right_select` not found: {:?}", nodemap)),
     };
     Ok(JoinTransform {
+        join,
         how,
         left_on,
         right_on,
@@ -83,6 +89,7 @@ mod tests {
     fn valid_basic_join_transform() {
         let config = yaml_from_str(
             "
+join: test
 right_select:
     birth_state_province_code: code
     birth_state_province_name: name
@@ -94,6 +101,7 @@ how: left
         .unwrap();
         let actual = parse_join_transform(&config).unwrap();
         let expected = JoinTransform::new(
+            "test",
             "birth_state_province_name",
             "birth_state_province_name",
             vec![
@@ -109,6 +117,7 @@ how: left
     fn valid_multiple_on_transform() {
         let config = yaml_from_str(
             "
+join: player
 right_select:
     first: playerFirstName.default
     last: playerLastName.default
@@ -120,6 +129,7 @@ how: right
         .unwrap();
         let actual = parse_join_transform(&config).unwrap();
         let expected = JoinTransform::new(
+            "player",
             "firstName,lastName",
             "first,last",
             vec![

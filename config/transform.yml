@@ -1,7 +1,11 @@
 transform:
 
-  # Mapping tasks only map fields from schema A to schema B.
-  # It does not perform complicated dataframe manipulation.
+  cs_player_to_nhl_player_url:
+    - map:
+        nhl_url: 
+          action: format
+          args: [ "player_ids.NHL" ]
+          kwargs: { template: "https://api-web.nhle.com/v1/player/{}/landing" }
 
   # Get fresh NHL data
   # example: https://api-web.nhle.com/v1/player/8476453/landing
@@ -12,9 +16,8 @@ transform:
         last_name: lastName.default # handle subpaths
         full_name: 
           action: concat_str # str concat, default with space
-          args: [ firstName.default, lastName.default ] 
-          kwargs:
-            separator: " "
+          args: [ "firstName.default", "lastName.default" ] 
+          kwargs: { "separator" : " " }
         birthdate: birthDate
         birth_city: birthCity.default
         birth_state_province_name: birthStateProvince.default
@@ -25,7 +28,8 @@ transform:
         #     value: true
         #     dtype: bool
     - join:
-        right_select:
+        right: STATE_PROVINCE #  << named df
+        right_select: 
           birth_state_province_code: code
           birth_state_province_name: name
         left_on: birth_state_province_name

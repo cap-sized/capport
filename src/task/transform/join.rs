@@ -1,7 +1,7 @@
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
-use crate::{config::parser::join::parse_jointype, util::error::SubResult};
+use crate::{config::parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
 
 use super::{
     common::Transform,
@@ -10,19 +10,20 @@ use super::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JoinTransform {
+    pub join: String,
     pub right_select: Vec<SelectField>,
-    pub how: JoinType, // TODO: Enum
+    pub how: JoinType,
     pub left_on: Vec<String>,
     pub right_on: Vec<String>,
 }
 
-// TODO: implement join transform.
 impl JoinTransform {
     pub const fn keyword() -> &'static str {
         "join"
     }
-    pub fn new(left: &str, right: &str, right_select: Vec<SelectField>, how: JoinType) -> JoinTransform {
+    pub fn new(join:&str, left: &str, right: &str, right_select: Vec<SelectField>, how: JoinType) -> JoinTransform {
         JoinTransform {
+            join: join.to_owned(),
             left_on: left.split(',').map(|x| x.to_owned()).collect(),
             right_on: right.split(',').map(|x| x.to_owned()).collect(),
             right_select,
@@ -35,10 +36,11 @@ impl Transform for JoinTransform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", &self)
     }
-    fn lazy_unary(&self, df: DataFrame) -> SubResult<LazyFrame> {
-        self.unary(df.lazy())
-    }
-    fn binary(&self, left: LazyFrame, right: LazyFrame) -> SubResult<LazyFrame> {
+    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+        let right = match results.get_unchecked(&self.join) {
+            Some(x) => x,
+            None => return Err(format!("Dataframe named {} not found in results", &self.join)),
+        };
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.right_select {
             match select.expr() {
@@ -48,7 +50,7 @@ impl Transform for JoinTransform {
         }
         let left_on = self.left_on.iter().map(col).collect::<Vec<_>>();
         let right_on = self.right_on.iter().map(col).collect::<Vec<_>>();
-        Ok(left.join(
+        Ok(curr.join(
             right.select(select_cols),
             left_on,
             right_on,
@@ -56,7 +58,4 @@ impl Transform for JoinTransform {
         ))
     }
 
-    fn unary(&self, df: LazyFrame) -> SubResult<LazyFrame> {
-        Err("Unary op not implemented for SelectTransform".to_owned())
-    }
 }

@@ -235,6 +235,7 @@ dependencies = [
  "polars",
  "polars-lazy",
  "reqwest",
+ "serde_json",
  "thiserror",
  "yaml-rust2",
 ]

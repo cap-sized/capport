@@ -4,13 +4,10 @@ use polars::prelude::*;
 use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
-use crate::util::error::{CpResult, PlResult, SubResult};
+use crate::{pipeline::results::PipelineResults, util::error::{CpResult, PlResult, SubResult}};
 
 pub trait Transform {
-    // TODO: Handle multiple joins
-    fn binary(&self, left: LazyFrame, right: LazyFrame) -> SubResult<LazyFrame>;
-    fn lazy_unary(&self, df: DataFrame) -> SubResult<LazyFrame>;
-    fn unary(&self, df: LazyFrame) -> SubResult<LazyFrame>;
+    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame>;
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
@@ -28,13 +25,21 @@ impl RootTransform {
     }
 }
 
-impl fmt::Debug for RootTransform {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Transform for RootTransform {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let _ = write!(f, "{} [ ", &self.label);
         self.stages.iter().for_each(|transform| {
             transform.as_ref().fmt(f).unwrap();
             let _ = write!(f, ", ");
         });
         write!(f, " ]")
+    }
+
+    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+        let mut next = curr;
+        for stage in &self.stages {
+            next = stage.as_ref().run(next, results)?
+        }
+        Ok(next)
     }
 }

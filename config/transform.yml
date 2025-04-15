@@ -3,45 +3,43 @@ transform:
   # Mapping tasks only map fields from schema A to schema B.
   # It does not perform complicated dataframe manipulation.
 
-  # Only retain the player _id from my old mongodb
-  cs_player_ids_to_nhl_landing_urls:
-    mapping: 
-      csid: _id
-      url: # template: format the id into the template
-        action: format
-        args: id # always the key from the previous data structure
-        kwargs: 
-          template: "https://api-web.nhle.com/v1/player/%s/landing"
-        # unless it's supposed to be a literal, then parse "`my_literal" 
-        # i.e. literals have the backtick in front
-
   # Get fresh NHL data
   # example: https://api-web.nhle.com/v1/player/8476453/landing
   nhl_player_to_person:
-    mapping:
-      id: csid # from the previous step
-      first_name: firstName.default # handle subpaths
-      last_name: lastName.default # handle subpaths
-      full_name: 
-        action: concat_space # str concat, default with space
-        args: [ firstName.default, lastName.default ] 
-        kwargs:
-          separator: " "
-      birthdate: birthDate
-      birth_city: birthCity.default
-      birth_state_province: birthStateProvince.default
-      birth_state_country_code: birthCountry.default
+    - map:
+        id: csid # from the previous step
+        first_name: firstName.default # handle subpaths
+        last_name: lastName.default # handle subpaths
+        full_name: 
+          action: concat_str # str concat, default with space
+          args: [ firstName.default, lastName.default ] 
+          kwargs:
+            separator: " "
+        birthdate: birthDate
+        birth_city: birthCity.default
+        birth_state_province_name: birthStateProvince.default
+        birth_state_country_code: birthCountry.default
+        # is_nhl: <-- literal sample
+        #   action: lit
+        #   kwargs: 
+        #     value: true
+        #     dtype: bool
+    - join:
+        right_select:
+          birth_state_province_code: code
+          birth_state_province_name: name
+        left_on: birth_state_province_name
+        right_on: birth_state_province_name
+        how: left
+    - drop:
+        birth_state_province_name: True
 
-    # notice there is not player_id here, 
-    # the program needs to keep track of the mapping
-      
   nhl_player_to_player:
-    mapping:
-      person_id: csid # from the previous step
-      player_id: playerId
-      shoots_catches: shootsCatches
-      positions: 
-        action: to_list
-        args: position
-
+    - mapping:
+        person_id: csid # from the previous step
+        player_id: playerId
+        shoots_catches: shootsCatches
+        positions: 
+          action: to_list
+          args: position
       

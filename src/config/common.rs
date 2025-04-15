@@ -3,6 +3,8 @@ use yaml_rust2::{Yaml, YamlLoader};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::{collections::HashMap, iter::Map, path::PathBuf};
 
+use super::parser::common::YamlRead;
+
 pub trait Configurable {
     fn get_node_name() -> &'static str;
     fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()>;
@@ -35,68 +37,55 @@ pub fn pack_configs_from_files(files: &Vec<PathBuf>) -> CpResult<HashMap<String,
             YamlLoader::load_from_str(&config_str).unwrap()
         })
         .collect();
-    pack_yaml_configs(&configs)
-    // pack_json_configs()
+    pack_configurables(&configs)
 }
 
-fn unpack_yaml_map(
-    config: &Yaml,
-    config_pack: &mut HashMap<String, HashMap<String, Yaml>>,
+fn pack_configurables(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
+    let mut configurables_map: HashMap<String, HashMap<String, Yaml>> = HashMap::new();
+    for config in configs {
+        match config.to_map(format!("The following top-level config is not a map: {:?}", config)) {
+            Ok(x) => {
+                for (configurable, named_configs) in x {
+                    match unpack_named_configs(named_configs, &mut configurables_map, &configurable) {
+                        Ok(()) => (),
+                        Err(e) => return Err(CpError::ComponentError("config.common", e)),
+                    }
+                }
+            }
+            Err(e) => {
+                return Err(CpError::ComponentError("config.common", e));
+            }
+        }
+    }
+    Ok(configurables_map)
+}
+
+fn unpack_named_configs(
+    named_configs: &Yaml,
+    configurables_map: &mut HashMap<String, HashMap<String, Yaml>>,
     config_type: &str,
 ) -> SubResult<()> {
-    let config_map = match config.as_hash() {
-        Some(x) => x.iter(),
-        None => {
-            return Err(format!("Found a {} node that is not a map", config_type));
-        }
+    if !configurables_map.contains_key(config_type) {
+        configurables_map.insert(config_type.to_owned(), HashMap::new());
+    }
+    let config_map = match named_configs.to_map(format!(
+        "The following named {} config is not a map: {:?}",
+        config_type, named_configs
+    )) {
+        Ok(x) => x,
+        Err(e) => return Err(e),
     };
-    for (key_node, c) in config_map {
-        let pack = config_pack.get_mut(config_type).unwrap();
-        let key = match key_node.as_str() {
-            Some(val) => val,
-            None => {
-                return Err(format!(
-                    "key {:?} of config_type {} is not a string",
-                    key_node, config_type
-                ));
-            }
-        };
-        if pack.contains_key(key) {
-            return Err(format!("Invalid config: duplicate key for {} ({})", config_type, key,));
-        }
+    for (key, c) in config_map {
+        let pack = configurables_map
+            .get_mut(config_type)
+            .expect(format!("Configurable not initialized: {}", config_type).as_str());
         if !c.is_null() {
             pack.insert(String::from(key), Yaml::clone(c));
+        } else {
+            return Err(format!("Key {} has null value", &key));
         }
     }
     Ok(())
-}
-
-fn pack_yaml_configs(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let mut config_pack: HashMap<String, HashMap<String, Yaml>> = HashMap::new();
-    for config in configs {
-        let config_map = match config.as_hash() {
-            Some(x) => x.iter(),
-            None => {
-                return Err(CpError::ComponentError(
-                    "config.common",
-                    String::from("All config files must be maps"),
-                ));
-            }
-        };
-        for (config_type_node, c) in config_map {
-            let ctype = config_type_node.as_str().unwrap();
-            if !config_pack.contains_key(ctype) {
-                config_pack.insert(String::from(ctype), HashMap::new());
-            }
-            match unpack_yaml_map(c, &mut config_pack, ctype) {
-                Ok(()) => (),
-                Err(e) => {
-                    return Err(CpError::ComponentError("config.common", e));
-                }
-            }
-        }
-    }
-    Ok(config_pack)
 }
 
 #[cfg(test)]
@@ -119,7 +108,7 @@ bar:
     - bar2.0
 ",
         );
-        pack_yaml_configs(&configs).unwrap_err();
+        pack_configurables(&configs).unwrap_err();
     }
 
     #[test]
@@ -134,7 +123,7 @@ bar:
     bar2.0:
 ",
         );
-        pack_yaml_configs(&configs).unwrap_err();
+        pack_configurables(&configs).unwrap_err();
     }
 
     #[test]
@@ -147,7 +136,7 @@ foo:
 bar:
 ",
         );
-        pack_yaml_configs(&configs).unwrap_err();
+        pack_configurables(&configs).unwrap_err();
     }
 
     #[test]
@@ -162,7 +151,7 @@ bar:
     2.0:
 ",
         );
-        pack_yaml_configs(&configs).unwrap_err();
+        pack_configurables(&configs).unwrap_err();
     }
 
     #[test]
@@ -175,10 +164,9 @@ foo:
 bar:
     BarA: x
     BarB2.0: b
-    x: 
 ",
         );
-        let result = pack_yaml_configs(&configs).unwrap();
+        let result = pack_configurables(&configs).unwrap();
         let mut expected = HashMap::new();
         expected.insert(
             String::from("foo"),

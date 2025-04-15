@@ -20,7 +20,7 @@ impl Model {
     pub fn new(name: &str, fields: Vec<ModelField>) -> Model {
         Model {
             name: name.to_string(),
-            fields: fields,
+            fields,
         }
     }
 }

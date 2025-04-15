@@ -72,7 +72,7 @@ impl SelectField {
         SelectField {
             label: label.to_string(),
             action: action.map(|x| x.to_string()),
-            args: yaml_from_str(args).expect(format!("[args] invalid yaml to parse: {}", args).as_str()),
+            args: yaml_from_str(args).unwrap_or_else(|| panic!("[args] invalid yaml to parse: {}", args)),
             kwargs: match kwargs {
                 Some(x) => yaml_from_str(x),
                 None => None,

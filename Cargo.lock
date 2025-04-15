@@ -235,7 +235,7 @@ dependencies = [
  "polars",
  "polars-lazy",
  "reqwest",
- "serde_json",
+ "serde",
  "serde_yaml_ng",
  "thiserror",
  "yaml-rust2",

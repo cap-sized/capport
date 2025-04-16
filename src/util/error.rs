@@ -5,8 +5,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CpError {
-    #[error("ERROR [{0}]: {1}")]
+    #[error("ERROR [COMPONENT >> {0}]: {1}")]
     ComponentError(&'static str, String),
+    #[error("ERROR [PIPELINE >> {0}]: {1}")]
+    PipelineError(&'static str, String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
 }

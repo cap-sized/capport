@@ -42,8 +42,8 @@ impl PartialEq for PipelineStage {
     }
 }
 
-pub trait RunTaskStage {
-    fn run(results: PipelineResults) -> CpResult<PipelineResults>;
+pub trait RunTask {
+    fn task(&self) -> PipelineTask;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.
@@ -53,4 +53,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineTask = fn(PipelineResults) -> SubResult<PipelineResults>;
+pub type PipelineTask = fn(PipelineResults) -> CpResult<PipelineResults>;

@@ -95,7 +95,7 @@ mod tests {
     };
 
     use crate::{
-        task::transform::select::SelectTransform,
+        transform::select::SelectTransform,
         util::{common::yaml_from_str, tmp::TempFile},
     };
 

@@ -72,7 +72,7 @@ mod tests {
 
     use crate::{
         pipeline::results::PipelineResults,
-        task::transform::{common::Transform, select::SelectField},
+        transform::{common::Transform, select::SelectField},
         util::common::DummyData,
     };
 

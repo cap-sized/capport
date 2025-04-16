@@ -1,6 +1,6 @@
 use crate::config::common::Configurable;
-use crate::task::transform::common::Transform;
-use crate::task::transform::select::{SelectField, SelectTransform};
+use crate::transform::common::Transform;
+use crate::transform::select::{SelectField, SelectTransform};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::collections::HashMap;
 use std::{fmt, fs};
@@ -55,7 +55,7 @@ mod tests {
     use yaml_rust2::{Yaml, YamlLoader};
 
     use crate::{
-        task::transform::select::{SelectField, SelectTransform},
+        transform::select::{SelectField, SelectTransform},
         util::common::yaml_from_str,
     };
 

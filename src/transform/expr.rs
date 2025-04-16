@@ -39,7 +39,7 @@ mod tests {
     use polars_lazy::prelude::Expr;
     use polars_lazy::{dsl::col, frame::IntoLazy};
 
-    use crate::task::transform::expr::{COL_EXPR_DELIMITERS, parse_col_expr};
+    use crate::transform::expr::{COL_EXPR_DELIMITERS, parse_col_expr};
 
     #[test]
     fn parse_col_expr_one_level() {

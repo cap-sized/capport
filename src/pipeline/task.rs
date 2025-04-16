@@ -8,8 +8,8 @@ pub type TaskDictionary = HashMap<String, PipelineTask>;
 
 impl CpDefault for TaskDictionary {
     fn get_default() -> Self {
-        let dictionary = HashMap::new();
+        
         // let dictionary = HashMap::from([]);
-        dictionary
+        HashMap::new()
     }
 }

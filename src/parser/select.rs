@@ -1,4 +1,3 @@
-use crate::config::common::Configurable;
 use crate::transform::common::Transform;
 use crate::transform::select::{SelectField, SelectTransform};
 use crate::util::error::{CpError, CpResult, SubResult};

@@ -1,4 +1,4 @@
-use crate::config::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
+use crate::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
 
 pub struct Context {
     model_registry: ModelRegistry,

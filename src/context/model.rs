@@ -1,6 +1,5 @@
 use yaml_rust2::Yaml;
 
-use crate::config::common::Configurable;
 use crate::model::common::{Model, ModelField};
 use crate::util::common::{NYT, UTC};
 use crate::util::error::{CpError, CpResult, SubResult};
@@ -8,7 +7,9 @@ use polars::datatypes::{DataType, TimeUnit, TimeZone};
 use std::collections::HashMap;
 use std::fs;
 
-use super::parser::model::parse_model;
+use crate::parser::model::parse_model;
+
+use super::common::Configurable;
 
 #[derive(Debug)]
 pub struct ModelRegistry {

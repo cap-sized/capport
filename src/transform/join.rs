@@ -1,7 +1,7 @@
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
-use crate::{config::parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
+use crate::{parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
 
 use super::{
     common::Transform,

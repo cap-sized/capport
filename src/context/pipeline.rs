@@ -1,12 +1,13 @@
 use yaml_rust2::Yaml;
 
-use crate::config::common::Configurable;
 use crate::pipeline::common::Pipeline;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
 use std::fs;
 
-use super::parser::pipeline::parse_pipeline;
+use crate::parser::pipeline::parse_pipeline;
+
+use super::common::Configurable;
 
 pub struct PipelineRegistry {
     registry: HashMap<String, Pipeline>,

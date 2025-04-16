@@ -3,7 +3,7 @@ use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
 use crate::{
-    config::parser::common::YamlRead,
+    parser::common::YamlRead,
     pipeline::results::PipelineResults,
     util::{
         common::yaml_from_str,

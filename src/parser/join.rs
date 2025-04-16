@@ -1,7 +1,6 @@
 use polars::prelude::JoinType;
 use yaml_rust2::Yaml;
 
-use crate::config::common::Configurable;
 use crate::model::common::{Model, ModelField};
 use crate::transform::join::JoinTransform;
 use crate::util::common::{NYT, UTC};

@@ -1,5 +1,5 @@
 use crate::{
-    config::transform::TransformRegistry,
+    context::transform::TransformRegistry,
     pipeline::common::{PipelineTask, RunTask},
     transform::common::RootTransform,
 };

@@ -20,8 +20,8 @@ impl DropTransform {
     pub const fn keyword() -> &'static str {
         "drop"
     }
-    pub fn new(deletes: Vec<DropField>) -> DropTransform {
-        DropTransform { deletes }
+    pub fn new(deletes: &[DropField]) -> DropTransform {
+        DropTransform { deletes: deletes.to_vec() }
     }
 }
 
@@ -74,7 +74,7 @@ mod tests {
         ]
         .unwrap()
         .lazy();
-        let transform = DropTransform::new(vec![DropField::new("Price")]);
+        let transform = DropTransform::new([DropField::new("Price")].as_slice());
         let results = PipelineResults::new();
         let actual_df = transform.run(sample_df, &results).unwrap().collect().unwrap();
         assert_eq!(

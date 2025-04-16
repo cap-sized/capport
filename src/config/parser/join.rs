@@ -107,7 +107,7 @@ how: left
             "test",
             "birth_state_province_name",
             "birth_state_province_name",
-            vec![
+            &[
                 SelectField::new("birth_state_province_code", "code"),
                 SelectField::new("birth_state_province_name", "name"),
             ],
@@ -135,7 +135,7 @@ how: right
             "player",
             "firstName,lastName",
             "first,last",
-            vec![
+            &[
                 SelectField::new("first", "playerFirstName.default"),
                 SelectField::new("last", "playerLastName.default"),
             ],

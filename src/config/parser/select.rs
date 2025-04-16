@@ -72,7 +72,7 @@ last_name: lastName.default
         )
         .unwrap();
         let actual = parse_select_transform(&config).unwrap();
-        let expected = SelectTransform::new(vec![
+        let expected = SelectTransform::new(&[
             SelectField::new("id", "csid"),
             SelectField::new("first_name", "firstName.default"),
             SelectField::new("last_name", "lastName.default"),
@@ -95,7 +95,7 @@ full_name:
         )
         .unwrap();
         let actual = parse_select_transform(&config).unwrap();
-        let expected = SelectTransform::new(vec![
+        let expected = SelectTransform::new(&[
             SelectField::new("first_name", "firstName.default"),
             SelectField::new("last_name", "lastName.default"),
             SelectField::from(
@@ -123,7 +123,7 @@ positions:
         )
         .unwrap();
         let actual = parse_select_transform(&config).unwrap();
-        let expected = SelectTransform::new(vec![
+        let expected = SelectTransform::new(&[
             SelectField::new("person_id", "csid"),
             SelectField::new("player_id", "playerId"),
             SelectField::new("shoots_catches", "shootsCatches"),

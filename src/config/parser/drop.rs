@@ -46,7 +46,7 @@ full.name: True
         )
         .unwrap();
         let actual = parse_drop_transform(&config).unwrap();
-        let expected = DropTransform::new(vec![
+        let expected = DropTransform::new(&[
             DropField::new("first_name"),
             DropField::new("last_name"),
             DropField::new("full.name"),

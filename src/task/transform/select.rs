@@ -22,8 +22,8 @@ impl SelectTransform {
     pub const fn keyword() -> &'static str {
         "select"
     }
-    pub fn new(selects: Vec<SelectField>) -> SelectTransform {
-        SelectTransform { selects }
+    pub fn new(selects: &[SelectField]) -> SelectTransform {
+        SelectTransform { selects: selects.to_vec() }
     }
 }
 
@@ -127,7 +127,7 @@ mod tests {
         ]
         .unwrap()
         .lazy();
-        let transform = SelectTransform::new(vec![
+        let transform = SelectTransform::new(&[
             SelectField::new("price", "Price"),
             SelectField::new("instrument", "Ticker"),
         ]);
@@ -154,7 +154,7 @@ mod tests {
         ]
         .unwrap()
         .lazy();
-        let transform = SelectTransform::new(vec![
+        let transform = SelectTransform::new(&[
             SelectField::new("instrument", "Instrument.Ticker"),
             SelectField::new("price", "Instrument.Price"),
             SelectField::new("position", "Position"),

@@ -95,7 +95,7 @@ person:
         let actual_model = mr.get_model("person").unwrap();
         let expected_model: Model = Model::new(
             "person",
-            vec![
+            &[
                 ModelField::new("full_name", DataType::String, None),
                 ModelField::new("first_name", DataType::String, None),
                 ModelField::new("last_name", DataType::String, None),
@@ -122,9 +122,9 @@ person:
         let actual_model = mr.get_model("person").unwrap();
         let expected_model: Model = Model::new(
             "person",
-            vec![
+            &[
                 ModelField::new("id", DataType::Int64, None),
-                ModelField::new("pid", DataType::String, Some(vec!["primary"])),
+                ModelField::new("pid", DataType::String, Some(&["primary"])),
                 ModelField::new("full_name", DataType::String, None),
                 ModelField::new("first_name", DataType::String, None),
                 ModelField::new("last_name", DataType::String, None),
@@ -157,7 +157,7 @@ player:
             let actual_model = mr.get_model("person").unwrap();
             let expected_model: Model = Model::new(
                 "person",
-                vec![
+                &[
                     ModelField::new("id", DataType::Int64, None),
                     ModelField::new("full_name", DataType::String, None),
                 ],
@@ -168,9 +168,9 @@ player:
             let actual_model = mr.get_model("player").unwrap();
             let expected_model: Model = Model::new(
                 "player",
-                vec![
-                    ModelField::new("id", DataType::Int64, Some(vec!["foreign", "unique"])),
-                    ModelField::new("pid", DataType::Int32, Some(vec!["primary", "unique"])),
+                &[
+                    ModelField::new("id", DataType::Int64, Some(&["foreign", "unique"])),
+                    ModelField::new("pid", DataType::Int32, Some(&["primary", "unique"])),
                     ModelField::new("positions", DataType::List(Box::new(DataType::String)), None),
                 ],
             );

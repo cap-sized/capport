@@ -17,16 +17,16 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(name: &str, fields: Vec<ModelField>) -> Model {
+    pub fn new(name: &str, fields: &[ModelField]) -> Model {
         Model {
             name: name.to_string(),
-            fields,
+            fields: fields.to_vec(),
         }
     }
 }
 
 impl ModelField {
-    pub fn new(label: &str, dtype: polars::datatypes::DataType, constraints: Option<Vec<&str>>) -> ModelField {
+    pub fn new(label: &str, dtype: polars::datatypes::DataType, constraints: Option<&[&str]>) -> ModelField {
         ModelField {
             label: label.to_string(),
             dtype,
@@ -66,7 +66,7 @@ mod tests {
         .lazy();
         let model = Model::new(
             "pxtable",
-            vec![
+            &[
                 ModelField::new("price", DataType::Int32, None),
                 ModelField::new("instrument", DataType::String, None),
             ],

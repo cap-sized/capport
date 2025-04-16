@@ -21,7 +21,9 @@ impl DropTransform {
         "drop"
     }
     pub fn new(deletes: &[DropField]) -> DropTransform {
-        DropTransform { deletes: deletes.to_vec() }
+        DropTransform {
+            deletes: deletes.to_vec(),
+        }
     }
 }
 

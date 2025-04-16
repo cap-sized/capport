@@ -23,7 +23,9 @@ impl SelectTransform {
         "select"
     }
     pub fn new(selects: &[SelectField]) -> SelectTransform {
-        SelectTransform { selects: selects.to_vec() }
+        SelectTransform {
+            selects: selects.to_vec(),
+        }
     }
 }
 

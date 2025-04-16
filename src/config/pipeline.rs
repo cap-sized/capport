@@ -12,6 +12,12 @@ pub struct PipelineRegistry {
     registry: HashMap<String, Pipeline>,
 }
 
+impl Default for PipelineRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PipelineRegistry {
     pub fn new() -> PipelineRegistry {
         PipelineRegistry {

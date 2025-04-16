@@ -138,6 +138,7 @@ mod tests {
             .unwrap()
         );
     }
+
     fn valid_root_transform_join_only() {
         let mut res_before = PipelineResults::new();
         res_before.insert("STATE_CODE", state_code());
@@ -163,6 +164,7 @@ mod tests {
                 .unwrap()
         );
     }
+
     fn valid_root_transform_drop_only() {
         let config = yaml_from_str(
             "
@@ -185,7 +187,108 @@ mod tests {
             .unwrap()
         );
     }
-    // fn valid_root_transform_select_join() {}
-    // fn valid_root_transform_join_drop() {}
-    // fn valid_root_transform_join_select() {}
+
+    fn valid_root_transform_select_join() {
+        let config = yaml_from_str(
+            "
+- select:
+    player_id: playerId
+    state: state
+    shoots_catches: shootsCatches
+    first_name: first.name
+    last_name: last.name
+- join:
+    right: STATE_CODE
+    right_select:
+        state: code
+        tin: tin
+    left_on: state
+    right_on: state
+    how: left
+",
+        )
+        .unwrap();
+        let root = parse_root_transform("player", &config).unwrap();
+        let res_before = PipelineResults::new();
+        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        assert_eq!(
+            actual_df,
+            df![
+                "player_id" => [8872631, 82938842, 86543102],
+                "state" => ["TN", "DL", "GA"],
+                "tin" => [33, 7, 30],
+                "first_name" => ["Darren", "Hunter", "Varya"],
+                "last_name" => ["Hutnaby", "O'Connor", "Zeb"],
+            ]
+            .unwrap()
+        );
+    }
+
+    fn valid_root_transform_join_drop() {
+        let config = yaml_from_str(
+            "
+- join:
+    right: STATE_CODE
+    right_select:
+        state: code
+        tin: tin
+    left_on: state
+    right_on: state
+    how: left
+- drop:
+    shootsCatches: True
+    name: True
+    csid: True
+",
+        )
+        .unwrap();
+        let root = parse_root_transform("player", &config).unwrap();
+        let res_before = PipelineResults::new();
+        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        assert_eq!(
+            actual_df,
+            df![
+                "playerId" => [8872631, 82938842, 86543102],
+                "state" => ["TN", "DL", "GA"],
+                "tin" => [33, 7, 30],
+            ]
+            .unwrap()
+        );
+    }
+
+    fn valid_root_transform_join_select() {
+        let config = yaml_from_str(
+            "
+- join:
+    right: STATE_CODE
+    right_select:
+        state: code
+        tin: tin
+    left_on: state
+    right_on: state
+    how: left
+- select:
+    player_id: playerId
+    state: state
+    shoots_catches: shootsCatches
+    first_name: first.name
+    last_name: last.name
+",
+        )
+        .unwrap();
+        let root = parse_root_transform("player", &config).unwrap();
+        let res_before = PipelineResults::new();
+        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        assert_eq!(
+            actual_df,
+            df![
+                "player_id" => [8872631, 82938842, 86543102],
+                "state" => ["TN", "DL", "GA"],
+                "tin" => [33, 7, 30],
+                "first_name" => ["Darren", "Hunter", "Varya"],
+                "last_name" => ["Hutnaby", "O'Connor", "Zeb"],
+            ]
+            .unwrap()
+        );
+    }
 }

@@ -34,7 +34,7 @@ impl Default for TempFile {
 
 impl Drop for TempFile {
     fn drop(&mut self) {
-        fs::remove_file(&self.filepath).expect(format!("Failed to delete TempFile {}", &self.filepath).as_str());
+        fs::remove_file(&self.filepath).unwrap_or_else(|_| panic!("Failed to delete TempFile {}", &self.filepath));
     }
 }
 

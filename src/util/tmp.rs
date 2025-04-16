@@ -2,6 +2,7 @@ use std::fs::{self, File};
 
 use super::{common::rng_str, error::SubResult};
 
+#[derive(Debug)]
 pub struct TempFile {
     pub filepath: String,
 }
@@ -46,7 +47,7 @@ mod tests {
 
     #[test]
     fn valid_create_write_delete() {
-        let tf = TempFile::new("/tmp/__valid_create_write_delete_7862af50be.log").unwrap();
+        let tf = TempFile::default();
         {
             let mut filehandle  = tf.get_mut().unwrap();
             filehandle.write_all( b"Lorem ipsum").unwrap();
@@ -60,12 +61,18 @@ mod tests {
     }
 
     #[test]
-    fn fail_to_delete() {
-        let fp = "/tmp/__fail_to_delete_7862af50be.log";
+    fn check_delete_on_drop() {
+        let fp = "/tmp/__delete_on_drop_7862af50be.log";
         {
             let tf = TempFile::new(fp).unwrap();
         }
         assert!(!fs::exists(fp).unwrap());
 
+    }
+
+    #[test]
+    fn invalid_file_no_dir() {
+        let fp = "/tmp/__nondir_7862/__fail_to_delete_7862af50be.log";
+        TempFile::new(fp).unwrap_err();
     }
 }

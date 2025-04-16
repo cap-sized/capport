@@ -113,6 +113,7 @@ how: left
             ],
             JoinType::Left,
         );
+        println!("{:?}", actual);
         assert_eq!(actual, expected);
     }
 
@@ -141,6 +142,7 @@ how: right
             ],
             JoinType::Right,
         );
+        println!("{:?}", actual);
         assert_eq!(actual, expected);
     }
 }

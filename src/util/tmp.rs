@@ -1,4 +1,8 @@
-use std::fs::{self, File};
+use core::time;
+use std::{
+    fs::{self, File},
+    thread::sleep,
+};
 
 use super::{common::rng_str, error::SubResult};
 
@@ -15,6 +19,13 @@ impl TempFile {
             }),
             Err(e) => Err(e.to_string()),
         }
+    }
+    pub fn default_in_dir(dir: &str, ext: &str) -> SubResult<TempFile> {
+        let rndstr = rng_str(12);
+        let filepath = format!("{}/{}.{}", dir, &rndstr, ext);
+        println!("test {}", &filepath);
+        // sleep(time::Duration::from_secs(2000));
+        TempFile::new(&filepath)
     }
     pub fn get(&self) -> Result<File, std::io::Error> {
         File::open(&self.filepath)

@@ -62,26 +62,26 @@ mod tests {
 
     use super::parse_pipeline_stage;
 
-    #[test]
-    fn valid_basic_pipeline_stage() {
-        #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-        struct TestArgs {
-            database: String,
-            table: String,
-            find: String,
-            save_df: String,
-        }
-        impl TestArgs {
-            fn new(database: &str, table: &str, find: &str, save_df: &str) -> TestArgs {
-                TestArgs {
-                    database: database.to_string(),
-                    table: table.to_string(),
-                    find: find.to_string(),
-                    save_df: save_df.to_string(),
-                }
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+    struct TestArgs {
+        database: String,
+        table: String,
+        find: String,
+        save_df: String,
+    }
+    impl TestArgs {
+        fn new(database: &str, table: &str, find: &str, save_df: &str) -> TestArgs {
+            TestArgs {
+                database: database.to_string(),
+                table: table.to_string(),
+                find: find.to_string(),
+                save_df: save_df.to_string(),
             }
         }
+    }
 
+    #[test]
+    fn valid_basic_pipeline_stage() {
         let config = yaml_from_str(
             "
 label: fetch_cs_player_data
@@ -110,5 +110,52 @@ save_df: CS_PLAYER_DATA
         let expected_args: TestArgs =
             TestArgs::new("csdb", "players", "{ player.id : {$in: [1, 2, 3]} }", "CS_PLAYER_DATA");
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn valid_empty_args() {
+        let config = yaml_from_str(
+            "
+label: fetch_cs_player_data
+task: __noop
+args: 
+",
+        )
+        .unwrap();
+        let actual = parse_pipeline_stage(&config).unwrap();
+        assert_eq!(actual, PipelineStage::noop(
+            "fetch_cs_player_data",
+            "---",
+        ));
+    }
+
+    #[test]
+    fn check_yaml_str_maintain_arg_integrity() {
+        let config = yaml_from_str(
+            "
+label: fetch_cs_player_data
+task: __noop
+args: 
+    database: csdb
+    table: players
+    find: '{ player.id : {$in: [1, 2, 3]} }'
+    save_df: CS_PLAYER_DATA
+",
+        )
+        .unwrap();
+        let actual = parse_pipeline_stage(&config).unwrap();
+        assert_ne!(actual, PipelineStage::noop(
+            "fetch_cs_player_data",
+            "---",
+        ));
+        assert_ne!(actual, PipelineStage::noop(
+            "fetch_cs_player_data",
+            "
+database: csdb
+table: players
+find: '{ player.id:{$in: [1, 2, 3]} }'
+save_df: CS_PLAYER_DATA
+"
+        ));
     }
 }

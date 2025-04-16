@@ -13,7 +13,7 @@ pub fn parse_drop_field(name: &str, node: &Yaml) -> SubResult<DropField> {
     }
     Ok(DropField {
         target: String::from(name),
-        delete: node.as_bool().unwrap_or(false),
+        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("False") == "True"),
     })
 }
 
@@ -36,11 +36,12 @@ mod tests {
 
     use super::parse_drop_transform;
 
+    #[test]
     fn valid_basic_drop_transform() {
         let config = yaml_from_str(
             "
-first_name: True
-last_name: True
+first_name: true
+last_name: true
 full.name: True
 ",
         )
@@ -51,9 +52,11 @@ full.name: True
             DropField::new("last_name"),
             DropField::new("full.name"),
         ]);
+        println!("{:?}", actual);
         assert_eq!(actual, expected);
     }
 
+    #[test]
     fn invalid_basic_drop_transform() {
         let config = yaml_from_str(
             "

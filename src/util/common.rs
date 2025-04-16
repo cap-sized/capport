@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rand::{distr::Alphanumeric, Rng};
 use yaml_rust2::{Yaml, YamlEmitter, YamlLoader};
 
 use super::error::SubResult;
@@ -32,4 +33,12 @@ pub fn yaml_to_str(doc: &Yaml) -> SubResult<String> {
         Ok(_) => Ok(out_str),
         Err(e) => Err(format!("{:?}", e)),
     }
+}
+
+pub fn rng_str(len: usize) -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
 }

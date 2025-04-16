@@ -3,8 +3,15 @@ use std::collections::HashMap;
 use yaml_rust2::{Yaml, YamlEmitter};
 
 use crate::{
-    pipeline::common::{Pipeline, PipelineStage, PipelineTask},
-    util::{common::yaml_to_str, error::SubResult},
+    pipeline::{
+        common::{Pipeline, PipelineStage, PipelineTask, RunTask},
+        context::Context,
+    },
+    task::noop::NoopTask,
+    util::{
+        common::yaml_to_str,
+        error::{CpError, CpResult, SubResult},
+    },
 };
 
 use super::common::{YamlMapRead, YamlRead};
@@ -13,10 +20,12 @@ const LABEL_KEYWORD: &str = "label";
 const TASK_KEYWORD: &str = "task";
 const ARGS_KEYWORD: &str = "args";
 
-pub fn parse_task(task_key: &str) -> Option<PipelineTask> {
+pub fn parse_task(task_key: &str) -> SubResult<PipelineTask> {
     match task_key {
-        "__noop" => Some(Ok),
-        _ => None,
+        "__noop" => NoopTask::default().task(),
+        _ => {
+            return Err(format!("Parser did not recognize task key {}", task_key));
+        }
     }
 }
 
@@ -30,10 +39,7 @@ pub fn parse_pipeline_stage(node: &Yaml) -> SubResult<PipelineStage> {
         TASK_KEYWORD,
         format!("PipelineStage requires `{}`: {:?}", TASK_KEYWORD, &node),
     )?;
-    let task = match parse_task(&task_key) {
-        Some(x) => x,
-        None => return Err(format!("Task not recognized: {}", &task_key)),
-    };
+    let task = parse_task(&task_key)?;
     let args_yaml_str = match nodemap.get(ARGS_KEYWORD) {
         Some(x) => yaml_to_str(x)?,
         None => return Err(format!("PipelineStage requires `{}`: {:?}", ARGS_KEYWORD, &node)),
@@ -57,7 +63,11 @@ pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pipeline::common::PipelineStage, util::common::yaml_from_str};
+    use crate::{
+        pipeline::common::{PipelineStage, PipelineTask, RunTask},
+        task::noop::NoopTask,
+        util::common::yaml_from_str,
+    };
     use serde::{Deserialize, Serialize};
 
     use super::parse_pipeline_stage;
@@ -80,6 +90,14 @@ mod tests {
         }
     }
 
+    fn noop(label: &str, args_yaml_str: &str) -> PipelineStage {
+        PipelineStage {
+            label: label.to_string(),
+            task: NoopTask::default().task().unwrap(),
+            args_yaml_str: args_yaml_str.to_owned(),
+        }
+    }
+
     #[test]
     fn valid_basic_pipeline_stage() {
         let config = yaml_from_str(
@@ -95,7 +113,7 @@ args:
         )
         .unwrap();
         let actual = parse_pipeline_stage(&config).unwrap();
-        let expected = PipelineStage::noop(
+        let expected = noop(
             "fetch_cs_player_data",
             "
 database: csdb
@@ -123,7 +141,7 @@ args:
         )
         .unwrap();
         let actual = parse_pipeline_stage(&config).unwrap();
-        assert_eq!(actual, PipelineStage::noop("fetch_cs_player_data", "---",));
+        assert_eq!(actual, noop("fetch_cs_player_data", "---",));
     }
 
     #[test]
@@ -141,10 +159,10 @@ args:
         )
         .unwrap();
         let actual = parse_pipeline_stage(&config).unwrap();
-        assert_ne!(actual, PipelineStage::noop("fetch_cs_player_data", "---",));
+        assert_ne!(actual, noop("fetch_cs_player_data", "---",));
         assert_ne!(
             actual,
-            PipelineStage::noop(
+            noop(
                 "fetch_cs_player_data",
                 "
 database: csdb

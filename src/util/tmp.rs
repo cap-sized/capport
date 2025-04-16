@@ -80,6 +80,7 @@ mod tests {
     fn check_delete_on_drop() {
         let fp = "/tmp/__delete_on_drop_7862af50be.log";
         {
+            // TODO: Use default in dir
             let tf = TempFile::new(fp).unwrap();
         }
         assert!(!fs::exists(fp).unwrap());
@@ -87,6 +88,7 @@ mod tests {
 
     #[test]
     fn invalid_file_no_dir() {
+        // TODO: Check for non-existence
         let fp = "/tmp/__nondir_7862/__fail_to_delete_7862af50be.log";
         TempFile::new(fp).unwrap_err();
     }

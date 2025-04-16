@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use polars_lazy::frame::LazyFrame;
 
+#[derive(Clone)]
 pub struct PipelineResults {
     pub dataframes: HashMap<String, LazyFrame>,
 }

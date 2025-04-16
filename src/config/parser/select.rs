@@ -41,7 +41,10 @@ pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
 }
 
 pub fn parse_select_transform(node: &Yaml) -> SubResult<SelectTransform> {
-    match node.over_map(parse_select_field, format!("Transform config is not a map: {:?}", node)) {
+    match node.over_map(
+        parse_select_field,
+        format!("SelectTransform config is not a map: {:?}", node),
+    ) {
         Ok(selects) => Ok(SelectTransform { selects }),
         Err(e) => Err(e),
     }

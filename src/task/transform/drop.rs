@@ -5,12 +5,13 @@ use crate::{pipeline::results::PipelineResults, util::error::SubResult};
 
 use super::{common::Transform, expr::parse_str_to_col_expr, select::SelectField};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropField {
     pub target: String,
     pub delete: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropTransform {
     pub deletes: Vec<DropField>,
 }

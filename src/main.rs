@@ -12,6 +12,7 @@ fn main() {
     let mut pack = pack_configs_from_files(&config_files).unwrap();
     let model_reg = ModelRegistry::from(&mut pack);
     let transform_reg = TransformRegistry::from(&mut pack);
-    println!("Models: {:?}", model_reg);
-    println!("Transform: {:?}", transform_reg);
+    let pipieline_reg = PipelineRegistry::from(&mut pack);
+    // println!("Models: {:?}", model_reg);
+    // println!("Transform: {:?}", transform_reg);
 }

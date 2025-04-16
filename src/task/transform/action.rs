@@ -1,4 +1,5 @@
 use polars_lazy::dsl::Expr;
+use serde::{Deserialize, Serialize};
 use yaml_rust2::Yaml;
 
 use crate::util::error::SubResult;
@@ -9,16 +10,9 @@ pub trait Action {
     fn expr(&self) -> SubResult<Expr>;
 }
 
-pub struct FormatActArgs {
+#[derive(Serialize, Deserialize)]
+pub struct FormatActionArgs {
     pub label: String,
     pub template: String,
     pub args: Vec<String>,
 }
-
-// pub struct ConcatActionArgs {
-//     pub method: dyn Fn(&Vec<T>) -> U,
-// }
-
-// pub struct ConcatAction<T, U = T> {
-//     pub method: dyn Fn(&Vec<T>) -> U,
-// }

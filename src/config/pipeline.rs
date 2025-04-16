@@ -12,6 +12,27 @@ pub struct PipelineRegistry {
     registry: HashMap<String, Pipeline>,
 }
 
+impl PipelineRegistry {
+    pub fn new() -> PipelineRegistry {
+        PipelineRegistry {
+            registry: HashMap::new(),
+        }
+    }
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> PipelineRegistry {
+        let mut reg = PipelineRegistry {
+            registry: HashMap::new(),
+        };
+        reg.extract_parse_config(config_pack).unwrap();
+        reg
+    }
+    pub fn get_pipeline(&self, pipeline_name: &str) -> Option<&Pipeline> {
+        match self.registry.get(pipeline_name) {
+            Some(x) => Some(x),
+            None => None,
+        }
+    }
+}
+
 impl Configurable for PipelineRegistry {
     fn get_node_name() -> &'static str {
         "pipeline"

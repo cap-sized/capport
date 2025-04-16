@@ -10,7 +10,7 @@ transform:
   # Get fresh NHL data
   # example: https://api-web.nhle.com/v1/player/8476453/landing
   nhl_player_to_person:
-    - map:
+    - select:
         id: csid # from the previous step
         first_name: firstName.default # handle subpaths
         last_name: lastName.default # handle subpaths
@@ -39,7 +39,7 @@ transform:
         birth_state_province_name: True
 
   nhl_player_to_player:
-    - mapping:
+    - select:
         person_id: csid # from the previous step
         player_id: playerId
         shoots_catches: shootsCatches

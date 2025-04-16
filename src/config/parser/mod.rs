@@ -1,4 +1,5 @@
 pub mod common;
+pub mod drop;
 pub mod join;
 pub mod model;
 pub mod pipeline;

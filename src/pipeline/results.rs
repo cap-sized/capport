@@ -21,4 +21,9 @@ impl PipelineResults {
     pub fn get_unchecked(&self, key: &str) -> Option<LazyFrame> {
         self.dataframes.get(key).cloned()
     }
+    pub fn insert(&mut self, key: &str, lf: LazyFrame) -> Option<LazyFrame> {
+        let old = self.dataframes.remove(key);
+        self.dataframes.insert(key.to_owned(), lf);
+        old
+    }
 }

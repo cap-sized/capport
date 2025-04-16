@@ -2,6 +2,8 @@ use yaml_rust2::Yaml;
 
 use crate::config::common::Configurable;
 use crate::pipeline::common::Pipeline;
+use crate::pipeline::task::TaskDictionary;
+use crate::util::common::CpDefault;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
 use std::fs;
@@ -10,6 +12,7 @@ use super::parser::pipeline::parse_pipeline;
 
 pub struct PipelineRegistry {
     registry: HashMap<String, Pipeline>,
+    task_dictionary: TaskDictionary,
 }
 
 impl Default for PipelineRegistry {
@@ -22,11 +25,13 @@ impl PipelineRegistry {
     pub fn new() -> PipelineRegistry {
         PipelineRegistry {
             registry: HashMap::new(),
+            task_dictionary: TaskDictionary::get_default(),
         }
     }
     pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> PipelineRegistry {
         let mut reg = PipelineRegistry {
             registry: HashMap::new(),
+            task_dictionary: TaskDictionary::get_default(),
         };
         reg.extract_parse_config(config_pack).unwrap();
         reg

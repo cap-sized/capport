@@ -33,3 +33,7 @@ pub fn yaml_to_str(doc: &Yaml) -> SubResult<String> {
         Err(e) => Err(format!("{:?}", e)),
     }
 }
+
+pub trait CpDefault {
+    fn get_default() -> Self;
+}

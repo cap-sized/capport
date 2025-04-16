@@ -27,3 +27,24 @@ impl PipelineResults {
         old
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::util::common::DummyData;
+
+    use super::PipelineResults;
+
+    #[test]
+    fn valid_pipeline_results_insert() {
+        let mut results = PipelineResults::default();
+        assert!(results.insert("foo", DummyData::player_data()).is_none());
+        assert_eq!(
+            results
+                .insert("foo", DummyData::player_scores())
+                .unwrap()
+                .collect()
+                .unwrap(),
+            DummyData::player_data().collect().unwrap()
+        );
+    }
+}

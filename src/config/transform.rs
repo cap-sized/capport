@@ -38,9 +38,7 @@ impl TransformRegistry {
         }
     }
     pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> TransformRegistry {
-        let mut reg = TransformRegistry {
-            registry: HashMap::new(),
-        };
+        let mut reg = TransformRegistry::default();
         reg.extract_parse_config(config_pack).unwrap();
         reg
     }
@@ -86,8 +84,9 @@ mod tests {
 
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
-        let mut reg = TransformRegistry::new();
+        // let mut reg = TransformRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "transform");
+        let mut reg = TransformRegistry::from(&mut config_pack);
         reg.extract_parse_config(&mut config_pack).unwrap();
         reg
     }
@@ -96,6 +95,12 @@ mod tests {
         let mut reg = TransformRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "transform");
         reg.extract_parse_config(&mut config_pack).unwrap_err();
+    }
+
+    #[test]
+    fn valid_empty_transform() {
+        let tr = TransformRegistry::default();
+        assert!(tr.registry.is_empty());
     }
 
     #[test]

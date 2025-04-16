@@ -1,4 +1,8 @@
-use std::fs::{self, File};
+use core::time;
+use std::{
+    fs::{self, File},
+    thread::sleep,
+};
 
 use super::{common::rng_str, error::SubResult};
 
@@ -10,9 +14,18 @@ pub struct TempFile {
 impl TempFile {
     pub fn new(filepath: &str) -> SubResult<TempFile> {
         match File::create(filepath) {
-            Ok(x) => Ok(TempFile { filepath: filepath.to_owned(), }),
+            Ok(x) => Ok(TempFile {
+                filepath: filepath.to_owned(),
+            }),
             Err(e) => Err(e.to_string()),
         }
+    }
+    pub fn default_in_dir(dir: &str, ext: &str) -> SubResult<TempFile> {
+        let rndstr = rng_str(12);
+        let filepath = format!("{}/{}.{}", dir, &rndstr, ext);
+        println!("test {}", &filepath);
+        // sleep(time::Duration::from_secs(2000));
+        TempFile::new(&filepath)
     }
     pub fn get(&self) -> Result<File, std::io::Error> {
         File::open(&self.filepath)
@@ -29,7 +42,6 @@ impl Default for TempFile {
         let filepath = format!("/tmp/{}", &rndstr);
         TempFile::new(&filepath).unwrap()
     }
-
 }
 
 impl Drop for TempFile {
@@ -41,7 +53,11 @@ impl Drop for TempFile {
 #[cfg(test)]
 mod tests {
     use core::time;
-    use std::{fs, io::{Read, Write}, thread::sleep};
+    use std::{
+        fs,
+        io::{Read, Write},
+        thread::sleep,
+    };
 
     use super::TempFile;
 
@@ -49,11 +65,11 @@ mod tests {
     fn valid_create_write_delete() {
         let tf = TempFile::default();
         {
-            let mut filehandle  = tf.get_mut().unwrap();
-            filehandle.write_all( b"Lorem ipsum").unwrap();
+            let mut filehandle = tf.get_mut().unwrap();
+            filehandle.write_all(b"Lorem ipsum").unwrap();
         }
         {
-            let mut filehandle  = tf.get().unwrap();
+            let mut filehandle = tf.get().unwrap();
             let mut contents = String::new();
             filehandle.read_to_string(&mut contents).unwrap();
             assert_eq!(contents, "Lorem ipsum");
@@ -67,7 +83,6 @@ mod tests {
             let tf = TempFile::new(fp).unwrap();
         }
         assert!(!fs::exists(fp).unwrap());
-
     }
 
     #[test]

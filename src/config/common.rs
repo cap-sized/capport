@@ -87,6 +87,18 @@ fn unpack_named_configs(
 
 #[cfg(test)]
 mod tests {
+    use core::time;
+    use std::{
+        fs::{self, DirBuilder},
+        io::Write,
+        str::FromStr,
+    };
+
+    use crate::{
+        task::transform::select::SelectTransform,
+        util::{common::yaml_from_str, tmp::TempFile},
+    };
+
     use super::*;
 
     fn get_yaml_sample(s: &str) -> Vec<Yaml> {
@@ -152,6 +164,20 @@ bar:
     }
 
     #[test]
+    fn invalid_null_arg_named_configs() {
+        let configs = get_yaml_sample(
+            "
+main: 
+    foo:
+    bar:
+        1: 
+        2.0:
+",
+        );
+        pack_configurables(&configs).unwrap_err();
+    }
+
+    #[test]
     fn valid_config_list_nodes() {
         let configs = get_yaml_sample(
             "
@@ -180,5 +206,97 @@ bar:
             ]),
         );
         assert_eq!(result, expected);
+    }
+
+    fn generate_tmp_config_files(dir_path: &str) -> Vec<TempFile> {
+        fs::create_dir_all(dir_path).unwrap();
+
+        let tmp_a = TempFile::default_in_dir(dir_path, "yml").unwrap();
+        let tmp_b = TempFile::default_in_dir(dir_path, "yaml").unwrap();
+        let tmp_c = TempFile::default_in_dir(dir_path, "log").unwrap();
+        let mut file_a = tmp_a.get_mut().unwrap();
+        let mut file_b = tmp_b.get_mut().unwrap();
+        let mut file_c = tmp_c.get_mut().unwrap();
+        file_a
+            .write_all(
+                b"
+foo:
+    list1: a
+    list2: b
+bar:
+    BarA: x
+    BarB2.0: b
+",
+            )
+            .unwrap();
+        file_b
+            .write_all(
+                b"
+bar:
+    oi: x
+",
+            )
+            .unwrap();
+        file_c
+            .write_all(
+                b"
+foo:
+    io: x
+",
+            )
+            .unwrap();
+        println!("wrote to tmps: [{:?}, {:?}]", tmp_a, tmp_b);
+        vec![tmp_a, tmp_b, tmp_c]
+    }
+
+    #[test]
+    fn valid_pack_configs_from_files() {
+        let dir_path = "/tmp/capport_testing/valid_pack_configs_from_files/";
+        {
+            let tmp_paths = generate_tmp_config_files(dir_path);
+            let paths = tmp_paths
+                .iter()
+                .filter(|&x| x.filepath.ends_with("ml"))
+                .map(|x| PathBuf::from_str(&x.filepath).unwrap())
+                .collect::<Vec<_>>();
+            let actual = pack_configs_from_files(&paths).unwrap();
+            let expected = HashMap::from([
+                (
+                    "foo".to_owned(),
+                    HashMap::from([
+                        ("list1".to_owned(), yaml_from_str("a").unwrap()),
+                        ("list2".to_owned(), yaml_from_str("b").unwrap()),
+                    ]),
+                ),
+                (
+                    "bar".to_owned(),
+                    HashMap::from([
+                        ("BarA".to_owned(), yaml_from_str("x").unwrap()),
+                        ("BarB2.0".to_owned(), yaml_from_str("b").unwrap()),
+                        ("oi".to_owned(), yaml_from_str("x").unwrap()),
+                    ]),
+                ),
+            ]);
+            assert_eq!(actual, expected);
+        }
+        fs::remove_dir(dir_path).unwrap();
+    }
+
+    #[test]
+    fn valid_read_configs() {
+        let dir_path = "/tmp/capport_testing/valid_read_configs/";
+        {
+            let tmp_paths = generate_tmp_config_files(dir_path);
+            let mut actual = read_configs(dir_path, &["yml", "yaml"]).unwrap();
+            let mut expected = tmp_paths
+                .iter()
+                .filter(|&x| x.filepath.ends_with("ml"))
+                .map(|x| PathBuf::from_str(&x.filepath).unwrap())
+                .collect::<Vec<_>>();
+            actual.sort();
+            expected.sort();
+            assert_eq!(actual, expected);
+        }
+        fs::remove_dir(dir_path).unwrap();
     }
 }

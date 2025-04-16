@@ -79,38 +79,30 @@ mod tests {
 
     use crate::{
         pipeline::results::PipelineResults,
-        task::transform::common::{RootTransform, Transform},
-        util::common::yaml_from_str,
+        task::transform::{
+            common::{RootTransform, Transform},
+            drop::DropTransform,
+            join::JoinTransform,
+            select::SelectTransform,
+        },
+        util::common::{DummyData, yaml_from_str},
     };
 
-    use super::parse_root_transform;
+    use super::{ALLOWED_NODES, parse_root_transform};
 
-    fn state_code() -> LazyFrame {
-        // https://ddvat.gov.in/docs/List%20of%20State%20Code.pdf
-        df! [
-            "state" => ["Karnataka", "Goa", "Tamil Nadu", "Delhi"],
-            "state_code" => ["KA", "GA", "TN", "DL"],
-            "tin" => [29, 30, 33, 7],
-        ]
-        .unwrap()
-        .lazy()
+    #[test]
+    fn check_valid_transform_types() {
+        assert_eq!(
+            ALLOWED_NODES,
+            [
+                SelectTransform::keyword(),
+                JoinTransform::keyword(),
+                DropTransform::keyword(),
+            ]
+        );
     }
 
-    fn lf() -> LazyFrame {
-        df![
-            "csid" => [8872631, 82938842, 86543102],
-            "playerId" => ["abcd", "88ef", "1988"],
-            "shootsCatches" => ["L", "R", "L"],
-            "state" => ["TN", "DL", "GA"],
-            "name" => df![
-                "first" => ["Darren", "Hunter", "Varya"],
-                "last" => ["Hutnaby", "O'Connor", "Zeb"],
-            ].unwrap().into_struct(PlSmallStr::from_str("name")),
-        ]
-        .unwrap()
-        .lazy()
-    }
-
+    #[test]
     fn valid_root_transform_select_only() {
         let config = yaml_from_str(
             "
@@ -118,19 +110,23 @@ mod tests {
     person_id: csid # from the previous step
     player_id: playerId
     shoots_catches: shootsCatches
-    first_name: first.name
-    last_name: last.name
+    first_name: name.first
+    last_name: name.last
 ",
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
         let res_before = PipelineResults::new();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
             df![
-                "person_id" => ["abcd", "88ef", "1988"],
-                "player_id" => [8872631, 82938842, 86543102],
+                "person_id" => [8872631, 82938842, 86543102],
+                "player_id" => ["abcd", "88ef", "1988"],
                 "shoots_catches" => ["L", "R", "L"],
                 "first_name" => ["Darren", "Hunter", "Varya"],
                 "last_name" => ["Hutnaby", "O'Connor", "Zeb"],
@@ -139,13 +135,14 @@ mod tests {
         );
     }
 
+    #[test]
     fn valid_root_transform_join_only() {
         let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", state_code());
+        res_before.insert("STATE_CODE", DummyData::state_code());
         let config = yaml_from_str(
             "
 - join:
-    right: STATE_CODE
+    join: STATE_CODE
     right_select:
         state_name: state
         state_code: state_code
@@ -156,15 +153,21 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
-            lf().left_join(state_code().drop([col("tin")]), "state", "state")
+            DummyData::player_data()
+                .left_join(DummyData::state_code().drop([col("tin")]), "state", "state_code")
                 .collect()
                 .unwrap()
         );
     }
 
+    #[test]
     fn valid_root_transform_drop_only() {
         let config = yaml_from_str(
             "
@@ -174,8 +177,13 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let res_before = PipelineResults::new();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let mut res_before = PipelineResults::new();
+        res_before.insert("STATE_CODE", DummyData::state_code());
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
             df![
@@ -188,19 +196,19 @@ mod tests {
         );
     }
 
+    #[test]
     fn valid_root_transform_select_join() {
         let config = yaml_from_str(
             "
 - select:
     player_id: playerId
     state: state
-    shoots_catches: shootsCatches
-    first_name: first.name
-    last_name: last.name
+    first_name: name.first
+    last_name: name.last
 - join:
-    right: STATE_CODE
+    join: STATE_CODE
     right_select:
-        state: code
+        state: state_code
         tin: tin
     left_on: state
     right_on: state
@@ -209,28 +217,34 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let res_before = PipelineResults::new();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let mut res_before = PipelineResults::new();
+        res_before.insert("STATE_CODE", DummyData::state_code());
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
             df![
-                "player_id" => [8872631, 82938842, 86543102],
+                "player_id" => ["abcd", "88ef", "1988"],
                 "state" => ["TN", "DL", "GA"],
-                "tin" => [33, 7, 30],
                 "first_name" => ["Darren", "Hunter", "Varya"],
                 "last_name" => ["Hutnaby", "O'Connor", "Zeb"],
+                "tin" => [33, 7, 30],
             ]
             .unwrap()
         );
     }
 
+    #[test]
     fn valid_root_transform_join_drop() {
         let config = yaml_from_str(
             "
 - join:
-    right: STATE_CODE
+    join: STATE_CODE
     right_select:
-        state: code
+        state: state_code
         tin: tin
     left_on: state
     right_on: state
@@ -238,17 +252,22 @@ mod tests {
 - drop:
     shootsCatches: True
     name: True
-    csid: True
+    playerId: True
 ",
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let res_before = PipelineResults::new();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let mut res_before = PipelineResults::new();
+        res_before.insert("STATE_CODE", DummyData::state_code());
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
             df![
-                "playerId" => [8872631, 82938842, 86543102],
+                "csid" => [8872631, 82938842, 86543102],
                 "state" => ["TN", "DL", "GA"],
                 "tin" => [33, 7, 30],
             ]
@@ -256,13 +275,14 @@ mod tests {
         );
     }
 
+    #[test]
     fn valid_root_transform_join_select() {
         let config = yaml_from_str(
             "
 - join:
-    right: STATE_CODE
+    join: STATE_CODE
     right_select:
-        state: code
+        state: state_code
         tin: tin
     left_on: state
     right_on: state
@@ -270,19 +290,24 @@ mod tests {
 - select:
     player_id: playerId
     state: state
-    shoots_catches: shootsCatches
-    first_name: first.name
-    last_name: last.name
+    tin: tin
+    first_name: name.first
+    last_name: name.last
 ",
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let res_before = PipelineResults::new();
-        let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
+        let mut res_before = PipelineResults::new();
+        res_before.insert("STATE_CODE", DummyData::state_code());
+        let actual_df = root
+            .run(DummyData::player_data(), &res_before)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual_df,
             df![
-                "player_id" => [8872631, 82938842, 86543102],
+                "player_id" => ["abcd", "88ef", "1988"],
                 "state" => ["TN", "DL", "GA"],
                 "tin" => [33, 7, 30],
                 "first_name" => ["Darren", "Hunter", "Varya"],

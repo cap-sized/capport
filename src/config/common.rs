@@ -10,7 +10,7 @@ pub trait Configurable {
     fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()>;
 }
 
-pub fn read_configs(dir: &str, file_exts: Vec<&str>) -> CpResult<Vec<PathBuf>> {
+pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
     let paths = std::fs::read_dir(dir)?
         .filter_map(|res| res.ok())
         .map(|dir_entry| dir_entry.path())

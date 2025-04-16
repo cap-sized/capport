@@ -117,7 +117,7 @@ player_to_person:
         let actual_transform = tr.get_transform("player_to_person").unwrap();
         let expected_transform: RootTransform = RootTransform::new(
             "player_to_person",
-            vec![Box::new(SelectTransform::new(vec![SelectField::new("id", "csid")]))],
+            vec![Box::new(SelectTransform::new(&[SelectField::new("id", "csid")]))],
         );
         let results = PipelineResults::new();
         let actual_result = actual_transform

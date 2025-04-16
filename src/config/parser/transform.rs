@@ -159,7 +159,7 @@ mod tests {
         let actual_df = root.run(lf(), &res_before).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
-            lf().left_join(state_code().drop(vec![col("tin")]), "state", "state")
+            lf().left_join(state_code().drop([col("tin")]), "state", "state")
                 .collect()
                 .unwrap()
         );

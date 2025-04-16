@@ -21,12 +21,12 @@ impl JoinTransform {
     pub const fn keyword() -> &'static str {
         "join"
     }
-    pub fn new(join: &str, left: &str, right: &str, right_select: Vec<SelectField>, how: JoinType) -> JoinTransform {
+    pub fn new(join: &str, left: &str, right: &str, right_select: &[SelectField], how: JoinType) -> JoinTransform {
         JoinTransform {
             join: join.to_owned(),
             left_on: left.split(',').map(|x| x.to_owned()).collect(),
             right_on: right.split(',').map(|x| x.to_owned()).collect(),
-            right_select,
+            right_select: right_select.to_vec(),
             how,
         }
     }

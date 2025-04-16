@@ -208,8 +208,7 @@ bar:
         assert_eq!(result, expected);
     }
 
-    fn generate_tmp_config_files() -> (&'static str, Vec<TempFile>) {
-        let dir_path = "/tmp/capport_testing/";
+    fn generate_tmp_config_files(dir_path: &str) -> Vec<TempFile> {
         fs::create_dir_all(dir_path).unwrap();
 
         let tmp_a = TempFile::default_in_dir(dir_path, "yml").unwrap();
@@ -247,47 +246,57 @@ foo:
             )
             .unwrap();
         println!("wrote to tmps: [{:?}, {:?}]", tmp_a, tmp_b);
-        (dir_path, vec![tmp_a, tmp_b, tmp_c])
+        vec![tmp_a, tmp_b, tmp_c]
     }
 
     #[test]
     fn valid_pack_configs_from_files() {
-        let (tmp_dir, tmp_paths) = generate_tmp_config_files();
-        let paths = tmp_paths
-            .iter()
-            .filter(|&x| x.filepath.ends_with("ml"))
-            .map(|x| PathBuf::from_str(&x.filepath).unwrap())
-            .collect::<Vec<_>>();
-        let actual = pack_configs_from_files(&paths).unwrap();
-        let expected = HashMap::from([
-            (
-                "foo".to_owned(),
-                HashMap::from([
-                    ("list1".to_owned(), yaml_from_str("a").unwrap()),
-                    ("list2".to_owned(), yaml_from_str("b").unwrap()),
-                ]),
-            ),
-            (
-                "bar".to_owned(),
-                HashMap::from([
-                    ("BarA".to_owned(), yaml_from_str("x").unwrap()),
-                    ("BarB2.0".to_owned(), yaml_from_str("b").unwrap()),
-                    ("oi".to_owned(), yaml_from_str("x").unwrap()),
-                ]),
-            ),
-        ]);
-        assert_eq!(actual, expected);
+        let dir_path = "/tmp/capport_testing/valid_pack_configs_from_files/";
+        {
+            let tmp_paths = generate_tmp_config_files(dir_path);
+            let paths = tmp_paths
+                .iter()
+                .filter(|&x| x.filepath.ends_with("ml"))
+                .map(|x| PathBuf::from_str(&x.filepath).unwrap())
+                .collect::<Vec<_>>();
+            let actual = pack_configs_from_files(&paths).unwrap();
+            let expected = HashMap::from([
+                (
+                    "foo".to_owned(),
+                    HashMap::from([
+                        ("list1".to_owned(), yaml_from_str("a").unwrap()),
+                        ("list2".to_owned(), yaml_from_str("b").unwrap()),
+                    ]),
+                ),
+                (
+                    "bar".to_owned(),
+                    HashMap::from([
+                        ("BarA".to_owned(), yaml_from_str("x").unwrap()),
+                        ("BarB2.0".to_owned(), yaml_from_str("b").unwrap()),
+                        ("oi".to_owned(), yaml_from_str("x").unwrap()),
+                    ]),
+                ),
+            ]);
+            assert_eq!(actual, expected);
+        }
+        fs::remove_dir(dir_path).unwrap();
     }
 
     #[test]
     fn valid_read_configs() {
-        let (tmp_dir, tmp_paths) = generate_tmp_config_files();
-        let mut actual = read_configs(tmp_dir, &["yml", "yaml"]).unwrap();
-        let mut expected = tmp_paths
-            .iter()
-            .filter(|&x| x.filepath.ends_with("ml"))
-            .map(|x| PathBuf::from_str(&x.filepath).unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(actual.sort(), expected.sort());
+        let dir_path = "/tmp/capport_testing/valid_read_configs/";
+        {
+            let tmp_paths = generate_tmp_config_files(dir_path);
+            let mut actual = read_configs(dir_path, &["yml", "yaml"]).unwrap();
+            let mut expected = tmp_paths
+                .iter()
+                .filter(|&x| x.filepath.ends_with("ml"))
+                .map(|x| PathBuf::from_str(&x.filepath).unwrap())
+                .collect::<Vec<_>>();
+            actual.sort();
+            expected.sort();
+            assert_eq!(actual, expected);
+        }
+        fs::remove_dir(dir_path).unwrap();
     }
 }

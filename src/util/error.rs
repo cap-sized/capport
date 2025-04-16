@@ -26,7 +26,7 @@ mod tests {
     use super::{CpError, CpResult};
 
     fn will_throw() -> Result<Vec<u8>, std::io::Error> {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "default"))
+        Err(std::io::Error::other("default"))
     }
 
     fn handle() -> CpResult<u8> {

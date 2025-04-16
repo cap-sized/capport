@@ -123,10 +123,7 @@ args:
         )
         .unwrap();
         let actual = parse_pipeline_stage(&config).unwrap();
-        assert_eq!(actual, PipelineStage::noop(
-            "fetch_cs_player_data",
-            "---",
-        ));
+        assert_eq!(actual, PipelineStage::noop("fetch_cs_player_data", "---",));
     }
 
     #[test]
@@ -144,18 +141,18 @@ args:
         )
         .unwrap();
         let actual = parse_pipeline_stage(&config).unwrap();
-        assert_ne!(actual, PipelineStage::noop(
-            "fetch_cs_player_data",
-            "---",
-        ));
-        assert_ne!(actual, PipelineStage::noop(
-            "fetch_cs_player_data",
-            "
+        assert_ne!(actual, PipelineStage::noop("fetch_cs_player_data", "---",));
+        assert_ne!(
+            actual,
+            PipelineStage::noop(
+                "fetch_cs_player_data",
+                "
 database: csdb
 table: players
 find: '{ player.id:{$in: [1, 2, 3]} }'
 save_df: CS_PLAYER_DATA
 "
-        ));
+            )
+        );
     }
 }

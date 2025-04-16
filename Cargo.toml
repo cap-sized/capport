@@ -8,6 +8,7 @@ argh = "0.1.13"
 chrono-tz = "0.10.3"
 polars = "0.46.0"
 polars-lazy = { version = "0.46.0", features = ['dtype-struct'] }
+rand = "0.9.0"
 reqwest = "0.12.15"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_ng = "0.10.0"

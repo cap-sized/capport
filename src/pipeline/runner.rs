@@ -37,13 +37,19 @@ mod tests {
     }
 
     #[test]
-    fn valid_noop_0to2_stages() {
-        let pipeline = Pipeline::new(
-            "noop",
-            &[noop_stage("_noop_1"), noop_stage("_noop_2"), noop_stage("_noop_3")],
-        );
-        let ctx = Context::new(ModelRegistry::new(), TransformRegistry::new());
-        let actual = PipelineRunner::run_once(ctx, &pipeline).unwrap();
-        assert_eq!(actual, PipelineResults::new());
+    fn valid_noop_n_stages() {
+        let n_pipelines = (0..4)
+            .map(|n| {
+                (1..n)
+                    .map(|i| noop_stage(format!("_noop_{}", i).as_str()))
+                    .collect::<Vec<PipelineStage>>()
+            })
+            .map(|x| Pipeline::new("noop", &x))
+            .collect::<Vec<_>>();
+        n_pipelines.iter().for_each(|pipeline| {
+            let ctx = Context::default();
+            let actual = PipelineRunner::run_once(ctx, pipeline).unwrap();
+            assert_eq!(actual, PipelineResults::new());
+        });
     }
 }

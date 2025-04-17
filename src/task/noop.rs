@@ -15,14 +15,23 @@ fn run(ctx: &Context, args_yaml_str: &str) -> CpResult<()> {
     Ok(())
 }
 
-impl Default for NoopTask {
-    fn default() -> Self {
-        NoopTask
-    }
-}
-
 impl HasTask for NoopTask {
     fn task(&self) -> SubResult<PipelineOnceTask> {
         Ok(run)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pipeline::{common::HasTask, context::Context, results::PipelineResults};
+
+    use super::NoopTask;
+
+    #[test]
+    fn valid_noop_behaviour() {
+        let ctx = Context::default();
+        let t = NoopTask.task().unwrap();
+        t(&ctx, "test").unwrap();
+        assert_eq!(ctx.clone_results(), PipelineResults::new());
     }
 }

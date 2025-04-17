@@ -63,3 +63,65 @@ impl Configurable for PipelineRegistry {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        pipeline::common::{HasTask, PipelineStage},
+        task::noop::NoopTask,
+        util::common::create_config_pack,
+    };
+
+    use super::*;
+    fn create_pipeline_registry(yaml_str: &str) -> PipelineRegistry {
+        let mut reg = PipelineRegistry::new();
+        let mut config_pack = create_config_pack(yaml_str, "pipeline");
+        reg.extract_parse_config(&mut config_pack).unwrap();
+        reg
+    }
+
+    fn assert_invalid_pipeline(yaml_str: &str) {
+        let mut reg = PipelineRegistry::new();
+        let mut config_pack = create_config_pack(yaml_str, "pipeline");
+        reg.extract_parse_config(&mut config_pack).unwrap_err();
+    }
+
+    #[test]
+    fn valid_basic_pipeline() {
+        let reg = create_pipeline_registry(
+            "
+mass_load_player:
+    - label: load_state_province
+      task: __noop
+      args:
+          - filepath: \"data/csv/state_province.csv\"
+            model: state_province
+            save_df: STATE_PROVINCE
+
+player_recon:
+    - label: fetch_players
+      task: __noop
+      args:
+          database: csdb
+          table: players
+          cmd: \"SELECT * FROM PLAYERS;\"
+          model: player
+          save_df: PLAYER
+",
+        );
+        let actual_pipeline = reg.get_pipeline("mass_load_player").unwrap();
+        let expected_pipeline: Pipeline = Pipeline::new(
+            "mass_load_player",
+            &[PipelineStage::new(
+                "load_state_province",
+                NoopTask.task().unwrap(),
+                "
+- filepath: \"data/csv/state_province.csv\"
+  model: state_province
+  save_df: STATE_PROVINCE
+        ",
+            )],
+        );
+        assert_eq!(actual_pipeline, &expected_pipeline);
+    }
+}

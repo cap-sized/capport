@@ -51,7 +51,13 @@ pub fn parse_pipeline_stage(node: &Yaml) -> SubResult<PipelineStage> {
 
 pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
     let stage_configs = node.to_list(format!("Pipeline is not a list of PipelineStage configs: {:?}", &node))?;
-    let stages: Vec<PipelineStage> = vec![];
+    let mut stages: Vec<PipelineStage> = vec![];
+    for config in stage_configs {
+        match parse_pipeline_stage(config) {
+            Ok(x) => stages.push(x),
+            Err(e) => return Err(e),
+        }
+    }
 
     Ok(Pipeline {
         label: name.to_string(),

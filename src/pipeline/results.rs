@@ -1,10 +1,29 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter},
+    sync::Mutex,
+};
 
+use polars::frame::DataFrame;
 use polars_lazy::frame::LazyFrame;
+
+use crate::util::error::{CpError, CpResult, SubResult};
 
 #[derive(Clone)]
 pub struct PipelineResults {
-    pub dataframes: HashMap<String, LazyFrame>,
+    pub lazyframes: HashMap<String, LazyFrame>,
+}
+
+impl Debug for PipelineResults {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self.to_dataframes())
+    }
+}
+
+impl PartialEq for PipelineResults {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_dataframes().unwrap() == other.to_dataframes().unwrap()
+    }
 }
 
 impl Default for PipelineResults {
@@ -16,16 +35,26 @@ impl Default for PipelineResults {
 impl PipelineResults {
     pub fn new() -> PipelineResults {
         PipelineResults {
-            dataframes: HashMap::new(),
+            lazyframes: HashMap::new(),
         }
     }
     pub fn get_unchecked(&self, key: &str) -> Option<LazyFrame> {
-        self.dataframes.get(key).cloned()
+        self.lazyframes.get(key).cloned()
     }
     pub fn insert(&mut self, key: &str, lf: LazyFrame) -> Option<LazyFrame> {
-        let old = self.dataframes.remove(key);
-        self.dataframes.insert(key.to_owned(), lf);
+        let old = self.lazyframes.remove(key);
+        self.lazyframes.insert(key.to_owned(), lf);
         old
+    }
+    pub fn to_dataframes(&self) -> CpResult<HashMap<String, DataFrame>> {
+        let mut dataframes = HashMap::new();
+        for (key, lf) in &self.lazyframes {
+            match lf.clone().collect() {
+                Ok(x) => dataframes.insert(key.clone(), x),
+                Err(e) => return Err(CpError::TableError(key.clone(), e)),
+            };
+        }
+        Ok(dataframes)
     }
 }
 

@@ -22,6 +22,25 @@ pub struct PipelineStage {
     pub args_yaml_str: String,
 }
 
+impl Pipeline {
+    pub fn new(label: &str, stages: &[PipelineStage]) -> Self {
+        Pipeline {
+            label: label.to_string(),
+            stages: stages.to_vec(),
+        }
+    }
+}
+
+impl PipelineStage {
+    pub fn new(label: &str, task: PipelineOnceTask, args_yaml_str: &str) -> Self {
+        PipelineStage {
+            label: label.to_string(),
+            task,
+            args_yaml_str: args_yaml_str.to_string(),
+        }
+    }
+}
+
 impl PartialEq for PipelineStage {
     fn eq(&self, other: &Self) -> bool {
         let this_args = match yaml_from_str(&self.args_yaml_str) {

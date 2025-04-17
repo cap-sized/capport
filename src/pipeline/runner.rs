@@ -11,3 +11,39 @@ impl PipelineRunner {
         Ok(ctx.clone_results())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        context::{model::ModelRegistry, transform::TransformRegistry},
+        pipeline::{
+            common::{Pipeline, PipelineStage},
+            context::Context,
+            results::PipelineResults,
+        },
+    };
+
+    use super::PipelineRunner;
+
+    fn noop_stage(name: &str) -> PipelineStage {
+        PipelineStage::new(
+            name,
+            |x, y| {
+                println!("{}", y);
+                Ok(())
+            },
+            "test",
+        )
+    }
+
+    #[test]
+    fn valid_noop_0to2_stages() {
+        let pipeline = Pipeline::new(
+            "noop",
+            &[noop_stage("_noop_1"), noop_stage("_noop_2"), noop_stage("_noop_3")],
+        );
+        let ctx = Context::new(ModelRegistry::new(), TransformRegistry::new());
+        let actual = PipelineRunner::run_once(ctx, &pipeline).unwrap();
+        assert_eq!(actual, PipelineResults::new());
+    }
+}

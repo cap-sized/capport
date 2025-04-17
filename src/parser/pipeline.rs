@@ -4,7 +4,7 @@ use yaml_rust2::{Yaml, YamlEmitter};
 
 use crate::{
     pipeline::{
-        common::{Pipeline, PipelineStage, PipelineTask, RunTask},
+        common::{HasTask, Pipeline, PipelineOnceTask, PipelineStage},
         context::Context,
     },
     task::noop::NoopTask,
@@ -20,12 +20,10 @@ const LABEL_KEYWORD: &str = "label";
 const TASK_KEYWORD: &str = "task";
 const ARGS_KEYWORD: &str = "args";
 
-pub fn parse_task(task_key: &str) -> SubResult<PipelineTask> {
+pub fn parse_task(task_key: &str) -> SubResult<PipelineOnceTask> {
     match task_key {
-        "__noop" => NoopTask::default().task(),
-        _ => {
-            return Err(format!("Parser did not recognize task key {}", task_key));
-        }
+        "__noop" => NoopTask.task(),
+        _ => Err(format!("Parser did not recognize task key {}", task_key)),
     }
 }
 
@@ -64,7 +62,7 @@ pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::common::{PipelineStage, PipelineTask, RunTask},
+        pipeline::common::{HasTask, PipelineOnceTask, PipelineStage},
         task::noop::NoopTask,
         util::common::yaml_from_str,
     };
@@ -93,7 +91,7 @@ mod tests {
     fn noop(label: &str, args_yaml_str: &str) -> PipelineStage {
         PipelineStage {
             label: label.to_string(),
-            task: NoopTask::default().task().unwrap(),
+            task: NoopTask.task().unwrap(),
             args_yaml_str: args_yaml_str.to_owned(),
         }
     }

@@ -18,7 +18,7 @@ pub struct Pipeline {
 #[derive(Clone, Debug, Eq)]
 pub struct PipelineStage {
     pub label: String,
-    pub task: PipelineTask,
+    pub task: PipelineOnceTask,
     pub args_yaml_str: String,
 }
 
@@ -36,8 +36,8 @@ impl PartialEq for PipelineStage {
     }
 }
 
-pub trait RunTask {
-    fn task(&self) -> SubResult<PipelineTask>;
+pub trait HasTask {
+    fn task(&self) -> SubResult<PipelineOnceTask>;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.
@@ -47,4 +47,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineTask = fn(Box<Context>) -> CpResult<PipelineResults>;
+pub type PipelineOnceTask = fn(&Context, &str) -> CpResult<()>;

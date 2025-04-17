@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     pipeline::{
-        common::{PipelineTask, RunTask},
+        common::{HasTask, PipelineOnceTask},
         context::Context,
         results::PipelineResults,
     },
@@ -10,8 +10,9 @@ use crate::{
 };
 pub struct NoopTask;
 
-fn run(ctx: Box<Context>) -> CpResult<PipelineResults> {
-    Ok(ctx.clone_results())
+fn run(ctx: &Context, args_yaml_str: &str) -> CpResult<()> {
+    println!("args: {}", args_yaml_str);
+    Ok(())
 }
 
 impl Default for NoopTask {
@@ -20,8 +21,8 @@ impl Default for NoopTask {
     }
 }
 
-impl RunTask for NoopTask {
-    fn task(&self) -> SubResult<PipelineTask> {
+impl HasTask for NoopTask {
+    fn task(&self) -> SubResult<PipelineOnceTask> {
         Ok(run)
     }
 }

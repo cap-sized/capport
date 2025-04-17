@@ -1,6 +1,6 @@
 use crate::{
     context::transform::TransformRegistry,
-    pipeline::common::{PipelineTask, RunTask},
+    pipeline::common::{PipelineOnceTask, HasTask},
     transform::common::RootTransform,
 };
 

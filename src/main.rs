@@ -1,9 +1,5 @@
-use capport::config::{
-    common::{Configurable, pack_configs_from_files, read_configs},
-    model::ModelRegistry,
-    pipeline::PipelineRegistry,
-    transform::TransformRegistry,
-};
+use capport::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
+use capport::parser::config::{pack_configs_from_files, read_configs};
 use capport::util::args::RunPipelineArgs;
 
 fn main() {

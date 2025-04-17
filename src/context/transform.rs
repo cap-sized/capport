@@ -1,12 +1,13 @@
-use crate::config::common::Configurable;
-use crate::task::transform::common::{RootTransform, Transform};
-use crate::task::transform::select::{SelectField, SelectTransform};
+use crate::transform::common::{RootTransform, Transform};
+use crate::transform::select::{SelectField, SelectTransform};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::collections::HashMap;
 use std::{fmt, fs};
 use yaml_rust2::Yaml;
 
-use super::parser::transform::parse_root_transform;
+use crate::parser::transform::parse_root_transform;
+
+use super::common::Configurable;
 
 // #[derive(Debug)]
 pub struct TransformRegistry {

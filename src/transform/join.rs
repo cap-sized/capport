@@ -1,7 +1,7 @@
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
-use crate::{config::parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
+use crate::{parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
 
 use super::{
     common::Transform,
@@ -72,7 +72,7 @@ mod tests {
 
     use crate::{
         pipeline::results::PipelineResults,
-        task::transform::{common::Transform, select::SelectField},
+        transform::{common::Transform, select::SelectField},
         util::common::DummyData,
     };
 
@@ -88,7 +88,7 @@ mod tests {
             polars::prelude::JoinType::Left,
         );
         let results = PipelineResults {
-            dataframes: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
+            lazyframes: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
         };
 
         let actual = jt.run(DummyData::player_data(), &results).unwrap().collect().unwrap();
@@ -124,7 +124,7 @@ mod tests {
             polars::prelude::JoinType::Full,
         );
         let results = PipelineResults {
-            dataframes: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
+            lazyframes: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
         };
 
         let orig_df = DummyData::player_scores().filter(col("csid").neq(lit(82938842)));
@@ -156,7 +156,7 @@ mod tests {
             polars::prelude::JoinType::Right,
         );
         let results = PipelineResults {
-            dataframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
+            lazyframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
         };
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
@@ -186,7 +186,7 @@ mod tests {
             polars::prelude::JoinType::Right,
         );
         let results = PipelineResults {
-            dataframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
+            lazyframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
         };
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);

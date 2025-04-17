@@ -1,9 +1,13 @@
-use crate::util::{
-    common::yaml_from_str,
-    error::{CpResult, SubResult},
+use crate::{
+    model::common::Model,
+    transform::common::{RootTransform, Transform},
+    util::{
+        common::yaml_from_str,
+        error::{CpResult, SubResult},
+    },
 };
 
-use super::results::PipelineResults;
+use super::{context::Context, results::PipelineResults};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pipeline {
@@ -14,15 +18,24 @@ pub struct Pipeline {
 #[derive(Clone, Debug, Eq)]
 pub struct PipelineStage {
     pub label: String,
-    pub task: PipelineTask,
-    pub args_yaml_str: String, // TODO: Replace with will be deserialized to run.
+    pub task: PipelineOnceTask,
+    pub args_yaml_str: String,
+}
+
+impl Pipeline {
+    pub fn new(label: &str, stages: &[PipelineStage]) -> Self {
+        Pipeline {
+            label: label.to_string(),
+            stages: stages.to_vec(),
+        }
+    }
 }
 
 impl PipelineStage {
-    pub fn noop(label: &str, args_yaml_str: &str) -> PipelineStage {
+    pub fn new(label: &str, task: PipelineOnceTask, args_yaml_str: &str) -> Self {
         PipelineStage {
             label: label.to_string(),
-            task: |r| Ok(r),
+            task,
             args_yaml_str: args_yaml_str.to_string(),
         }
     }
@@ -42,8 +55,8 @@ impl PartialEq for PipelineStage {
     }
 }
 
-pub trait RunTaskStage {
-    fn run(results: PipelineResults) -> CpResult<PipelineResults>;
+pub trait HasTask {
+    fn task(&self) -> SubResult<PipelineOnceTask>;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.
@@ -53,4 +66,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineTask = fn(PipelineResults) -> SubResult<PipelineResults>;
+pub type PipelineOnceTask = fn(&Context, &str) -> CpResult<()>;

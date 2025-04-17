@@ -1,9 +1,8 @@
 use polars::prelude::JoinType;
 use yaml_rust2::Yaml;
 
-use crate::config::common::Configurable;
 use crate::model::common::{Model, ModelField};
-use crate::task::transform::join::JoinTransform;
+use crate::transform::join::JoinTransform;
 use crate::util::common::{NYT, UTC};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::collections::HashMap;
@@ -82,7 +81,7 @@ mod tests {
     use polars::prelude::JoinType;
 
     use crate::{
-        task::transform::{join::JoinTransform, select::SelectField},
+        transform::{join::JoinTransform, select::SelectField},
         util::common::yaml_from_str,
     };
 

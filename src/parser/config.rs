@@ -3,12 +3,7 @@ use yaml_rust2::{Yaml, YamlLoader};
 use crate::util::error::{CpError, CpResult, SubResult};
 use std::{collections::HashMap, iter::Map, path::PathBuf};
 
-use super::parser::common::YamlRead;
-
-pub trait Configurable {
-    fn get_node_name() -> &'static str;
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()>;
-}
+use crate::parser::common::YamlRead;
 
 pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
     let paths = std::fs::read_dir(dir)?
@@ -95,7 +90,7 @@ mod tests {
     };
 
     use crate::{
-        task::transform::select::SelectTransform,
+        transform::select::SelectTransform,
         util::{common::yaml_from_str, tmp::TempFile},
     };
 

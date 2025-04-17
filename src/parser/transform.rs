@@ -1,7 +1,7 @@
 use yaml_rust2::Yaml;
 
 use crate::{
-    task::transform::{
+    transform::{
         common::{RootTransform, Transform},
         drop::DropTransform,
         join::JoinTransform,
@@ -79,7 +79,7 @@ mod tests {
 
     use crate::{
         pipeline::results::PipelineResults,
-        task::transform::{
+        transform::{
             common::{RootTransform, Transform},
             drop::DropTransform,
             join::JoinTransform,

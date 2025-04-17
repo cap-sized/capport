@@ -1,6 +1,5 @@
 use yaml_rust2::Yaml;
 
-use crate::config::common::Configurable;
 use crate::model::common::{Model, ModelField};
 use crate::util::common::{NYT, UTC};
 use crate::util::error::{CpError, CpResult, SubResult};

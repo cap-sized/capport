@@ -1,7 +1,7 @@
 use yaml_rust2::Yaml;
 
 use crate::{
-    task::transform::drop::{DropField, DropTransform},
+    transform::drop::{DropField, DropTransform},
     util::error::SubResult,
 };
 
@@ -30,7 +30,7 @@ pub fn parse_drop_transform(node: &Yaml) -> SubResult<DropTransform> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        task::transform::drop::{DropField, DropTransform},
+        transform::drop::{DropField, DropTransform},
         util::common::yaml_from_str,
     };
 

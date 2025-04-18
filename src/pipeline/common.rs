@@ -1,3 +1,7 @@
+use std::fmt;
+
+use yaml_rust2::Yaml;
+
 use crate::{
     model::common::Model,
     transform::common::{RootTransform, Transform},
@@ -15,11 +19,12 @@ pub struct Pipeline {
     pub stages: Vec<PipelineStage>,
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PipelineStage {
     pub label: String,
-    pub task: PipelineOnceTask,
-    pub args_yaml_str: String,
+    pub task_name: String,
+    pub args_node: Yaml, // pub task: PipelineOnceTask,
+                         // pub args_yaml_str: String,
 }
 
 impl Pipeline {
@@ -32,31 +37,17 @@ impl Pipeline {
 }
 
 impl PipelineStage {
-    pub fn new(label: &str, task: PipelineOnceTask, args_yaml_str: &str) -> Self {
+    pub fn new(label: &str, task_name: &str, args_node: &Yaml) -> Self {
         PipelineStage {
             label: label.to_string(),
-            task,
-            args_yaml_str: args_yaml_str.to_string(),
+            task_name: task_name.to_string(),
+            args_node: args_node.clone(),
         }
     }
 }
 
-impl PartialEq for PipelineStage {
-    fn eq(&self, other: &Self) -> bool {
-        let this_args = match yaml_from_str(&self.args_yaml_str) {
-            Some(x) => x,
-            None => return false,
-        };
-        let other_args = match yaml_from_str(&other.args_yaml_str) {
-            Some(x) => x,
-            None => return false,
-        };
-        self.label == other.label && this_args == other_args
-    }
-}
-
 pub trait HasTask {
-    fn task(&self) -> SubResult<PipelineOnceTask>;
+    fn task(args: &Yaml) -> CpResult<PipelineOnceTask>;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.
@@ -66,4 +57,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineOnceTask = fn(&Context, &str) -> CpResult<()>;
+pub type PipelineOnceTask = Box<dyn Fn(&Context) -> CpResult<()>>;

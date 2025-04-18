@@ -9,6 +9,8 @@ pub enum CpError {
     ComponentError(&'static str, String),
     #[error("ERROR [PIPELINE >> {0}]: {1}")]
     PipelineError(&'static str, String),
+    #[error("ERROR [TASK >> {0}]: {1}")]
+    TaskError(&'static str, String),
     #[error("ERROR [TABLE >> {0}]: {1}")]
     TableError(String, PolarsError),
     #[error("ERROR [_raw_]: {0}")]
@@ -33,11 +35,9 @@ mod tests {
         Err(std::io::Error::other("default"))
     }
 
-    fn handle() -> CpResult<u8> {
-        match will_throw()?.into_iter().reduce(|x, y| x + y) {
-            Some(x) => Ok(x),
-            None => Ok(0),
-        }
+    fn handle() -> CpResult<()> {
+        will_throw()?;
+        Ok(())
     }
 
     #[test]

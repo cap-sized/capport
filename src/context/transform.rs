@@ -9,7 +9,6 @@ use crate::parser::transform::parse_root_transform;
 
 use super::common::Configurable;
 
-// #[derive(Debug)]
 pub struct TransformRegistry {
     registry: HashMap<String, RootTransform>,
 }

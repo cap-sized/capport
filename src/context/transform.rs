@@ -42,6 +42,11 @@ impl TransformRegistry {
         reg.extract_parse_config(config_pack).unwrap();
         reg
     }
+    pub fn insert(&mut self, transform: RootTransform) -> Option<RootTransform> {
+        let prev = self.registry.remove(&transform.label);
+        self.registry.insert(transform.label.clone(), transform);
+        prev
+    }
     pub fn get_transform(&self, transform_name: &str) -> Option<&RootTransform> {
         match self.registry.get(transform_name) {
             Some(x) => Some(x),

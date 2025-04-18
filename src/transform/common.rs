@@ -15,7 +15,7 @@ pub trait Transform {
 }
 
 pub struct RootTransform {
-    label: String,
+    pub label: String,
     stages: Vec<Box<dyn Transform>>,
 }
 

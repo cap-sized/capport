@@ -41,6 +41,9 @@ impl PipelineResults {
     pub fn get_unchecked(&self, key: &str) -> Option<LazyFrame> {
         self.lazyframes.get(key).cloned()
     }
+    pub fn remove(&mut self, key: &str) -> Option<LazyFrame> {
+        self.lazyframes.remove(key)
+    }
     pub fn insert(&mut self, key: &str, lf: LazyFrame) -> Option<LazyFrame> {
         let old = self.lazyframes.remove(key);
         self.lazyframes.insert(key.to_owned(), lf);

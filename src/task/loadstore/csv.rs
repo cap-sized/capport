@@ -41,10 +41,9 @@ pub fn csv_load(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()
     for csv_model in &csv_models.models {
         let model: Model = ctx.get_model(&csv_model.model)?;
         let lf: LazyFrame = csv_model.build(&model)?;
-        match ctx.set_result(&csv_model.save_df, lf) {
+        if let Some(x) = ctx.set_result(&csv_model.save_df, lf) {
             // TODO: correct warning if replace
-            Some(x) => println!("previously contained the lazyframe of size:\n{:?}", x.count().collect()),
-            None => (),
+            println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
         }
     }
     Ok(())
@@ -109,7 +108,7 @@ mod tests {
         let temp = TempFile::default();
         temp.get_mut()
             .unwrap()
-            .write(
+            .write_all(
                 b"
 id,name
 1,ab

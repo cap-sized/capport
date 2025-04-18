@@ -15,7 +15,7 @@ pub struct TaskDictionary {
 }
 
 pub fn generate_task<T: HasTask>() -> TaskGenerator {
-    |yaml| T::task(&yaml)
+    |yaml| T::task(yaml)
 }
 
 impl Default for TaskDictionary {
@@ -40,7 +40,7 @@ impl TaskDictionary {
 
 impl fmt::Display for TaskDictionary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut vecstr = self.tasks.iter().map(|(x, _)| x.to_owned()).collect::<Vec<String>>();
+        let mut vecstr = self.tasks.keys().map(|x| x.to_owned()).collect::<Vec<String>>();
         vecstr.sort();
         write!(f, "{:?}", vecstr)
     }

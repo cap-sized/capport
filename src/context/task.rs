@@ -23,7 +23,7 @@ impl Default for TaskDictionary {
         Self {
             tasks: HashMap::from([
                 ("noop".to_string(), generate_task::<NoopTask>()),
-                ("csv_load".to_string(), generate_task::<CsvModelLoadTask>()),
+                ("load_csv".to_string(), generate_task::<CsvModelLoadTask>()),
             ]),
         }
     }

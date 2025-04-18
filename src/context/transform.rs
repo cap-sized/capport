@@ -84,11 +84,8 @@ mod tests {
 
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
-        // let mut reg = TransformRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "transform");
-        let mut reg = TransformRegistry::from(&mut config_pack);
-        reg.extract_parse_config(&mut config_pack).unwrap();
-        reg
+        TransformRegistry::from(&mut config_pack)
     }
 
     fn assert_invalid_transform(yaml_str: &str) {

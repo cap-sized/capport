@@ -1,3 +1,5 @@
+use std::fmt;
+
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
@@ -14,6 +16,12 @@ pub struct ModelField {
 pub struct Model {
     pub name: String,
     pub fields: Vec<ModelField>,
+}
+
+impl fmt::Display for Model {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl Model {

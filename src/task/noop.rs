@@ -17,7 +17,7 @@ use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
 #[derive(Serialize, Deserialize)]
 pub struct NoopTask;
 
-pub fn run(ctx: &Context, task: &NoopTask) -> CpResult<()> {
+pub fn run(ctx: &mut Context, task: &NoopTask) -> CpResult<()> {
     Ok(())
 }
 
@@ -40,10 +40,10 @@ mod tests {
 
     #[test]
     fn valid_noop_behaviour() {
-        let ctx = Context::default();
+        let mut ctx = Context::default();
         let args = yaml_from_str("---").unwrap();
         let t = NoopTask::task(&args).unwrap();
-        t(&ctx).unwrap();
+        t(&mut ctx).unwrap();
         assert_eq!(ctx.clone_results(), PipelineResults::new());
     }
 

@@ -51,7 +51,7 @@ impl PipelineResults {
         for (key, lf) in &self.lazyframes {
             match lf.clone().collect() {
                 Ok(x) => dataframes.insert(key.clone(), x),
-                Err(e) => return Err(CpError::TableError(key.clone(), e)),
+                Err(e) => return Err(CpError::TableError(e)),
             };
         }
         Ok(dataframes)

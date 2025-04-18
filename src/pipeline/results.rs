@@ -76,5 +76,6 @@ mod tests {
                 .unwrap(),
             DummyData::player_data().collect().unwrap()
         );
+        println!("{:?}", results);
     }
 }

@@ -46,4 +46,17 @@ mod tests {
         t(&ctx).unwrap();
         assert_eq!(ctx.clone_results(), PipelineResults::new());
     }
+
+    #[test]
+    fn invalid_noop_args() {
+        let ctx = Context::default();
+        let args = yaml_from_str(
+            "
+---
+a: b
+",
+        )
+        .unwrap();
+        assert!(NoopTask::task(&args).is_err());
+    }
 }

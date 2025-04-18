@@ -1,3 +1,5 @@
+use std::fmt;
+
 use yaml_rust2::Yaml;
 
 use crate::{

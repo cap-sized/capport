@@ -15,6 +15,8 @@ impl PipelineRunner {
 
 #[cfg(test)]
 mod tests {
+    use yaml_rust2::Yaml;
+
     use crate::{
         context::{
             model::ModelRegistry,
@@ -58,5 +60,12 @@ mod tests {
             let actual = PipelineRunner::run_once(ctx, pipeline).unwrap();
             assert_eq!(actual, PipelineResults::new());
         });
+    }
+
+    #[test]
+    fn invalid_task_not_found() {
+        let pipeline = Pipeline::new("invalid", &[PipelineStage::new("not_found", "nooop", &Yaml::Null)]);
+        let ctx = create_context();
+        assert!(PipelineRunner::run_once(ctx, &pipeline).is_err());
     }
 }

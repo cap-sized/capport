@@ -35,11 +35,9 @@ mod tests {
         Err(std::io::Error::other("default"))
     }
 
-    fn handle() -> CpResult<u8> {
-        match will_throw()?.into_iter().reduce(|x, y| x + y) {
-            Some(x) => Ok(x),
-            None => Ok(0),
-        }
+    fn handle() -> CpResult<()> {
+        will_throw()?;
+        Ok(())
     }
 
     #[test]

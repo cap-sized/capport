@@ -69,21 +69,74 @@ mod tests {
     use crate::{
         pipeline::common::{HasTask, PipelineStage},
         task::noop::NoopTask,
-        util::common::create_config_pack,
+        util::common::{create_config_pack, yaml_from_str},
     };
 
     use super::*;
     fn create_pipeline_registry(yaml_str: &str) -> PipelineRegistry {
-        let mut reg = PipelineRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "pipeline");
-        reg.extract_parse_config(&mut config_pack).unwrap();
-        reg
+        PipelineRegistry::from(&mut config_pack)
     }
 
     fn assert_invalid_pipeline(yaml_str: &str) {
         let mut reg = PipelineRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "pipeline");
         reg.extract_parse_config(&mut config_pack).unwrap_err();
+    }
+
+    #[test]
+    fn invalid_basic_pipeline() {
+        assert_invalid_pipeline(
+            "
+mass_load_player:
+",
+        );
+        assert_invalid_pipeline(
+            "
+mass_load_player:
+    - label: load_state_province
+      task: __noop
+",
+        );
+        assert_invalid_pipeline(
+            "
+mass_load_player:
+    label: load_state_province
+    task: __noop
+    args:
+",
+        );
+        assert_invalid_pipeline(
+            "
+mass_load_player:
+    - label: load_state_province
+      task: __noop
+      args: 
+    - label: load_state_province
+      task: __noop
+      args: 
+",
+        );
+    }
+
+    #[test]
+    fn valid_empty_stage_in_pipeline() {
+        let reg = create_pipeline_registry(
+            "
+mass_load_player:
+    - label: load_state_province
+      task: __noop
+      args:
+",
+        );
+        {
+            let actual_pipeline = reg.get_pipeline("mass_load_player").unwrap();
+            let expected_pipeline: Pipeline = Pipeline::new(
+                "mass_load_player",
+                &[PipelineStage::new("load_state_province", "__noop", &Yaml::Null)],
+            );
+            assert_eq!(actual_pipeline, &expected_pipeline);
+        }
     }
 
     #[test]
@@ -97,6 +150,9 @@ mass_load_player:
           - filepath: \"data/csv/state_province.csv\"
             model: state_province
             save_df: STATE_PROVINCE
+          - filepath: \"data/csv/state_province.csv\"
+            model: state_province
+            save_df: STATE_PROVINCE
 
 player_recon:
     - label: fetch_players
@@ -107,21 +163,66 @@ player_recon:
           cmd: \"SELECT * FROM PLAYERS;\"
           model: player
           save_df: PLAYER
+    - label: testing
+      task: test_ping
+      args:
+          endpoint: 1.1.1.1
 ",
         );
-        let actual_pipeline = reg.get_pipeline("mass_load_player").unwrap();
-        let expected_pipeline: Pipeline = Pipeline::new(
-            "mass_load_player",
-            &[PipelineStage::new(
-                "load_state_province",
-                NoopTask.task().unwrap(),
-                "
+        {
+            let actual_pipeline = reg.get_pipeline("mass_load_player").unwrap();
+            let expected_pipeline: Pipeline = Pipeline::new(
+                "mass_load_player",
+                &[PipelineStage::new(
+                    "load_state_province",
+                    "__noop",
+                    &yaml_from_str(
+                        "
+- filepath: \"data/csv/state_province.csv\"
+  model: state_province
+  save_df: STATE_PROVINCE
 - filepath: \"data/csv/state_province.csv\"
   model: state_province
   save_df: STATE_PROVINCE
         ",
-            )],
-        );
-        assert_eq!(actual_pipeline, &expected_pipeline);
+                    )
+                    .unwrap(),
+                )],
+            );
+            assert_eq!(actual_pipeline, &expected_pipeline);
+        }
+        {
+            let actual_pipeline = reg.get_pipeline("player_recon").unwrap();
+            let expected_pipeline: Pipeline = Pipeline::new(
+                "player_recon",
+                &[
+                    PipelineStage::new(
+                        "fetch_players",
+                        "__noop",
+                        &yaml_from_str(
+                            "
+database: csdb
+table: players
+cmd: \"SELECT * FROM PLAYERS;\"
+model: player
+save_df: PLAYER
+        ",
+                        )
+                        .unwrap(),
+                    ),
+                    PipelineStage::new(
+                        "testing",
+                        "test_ping",
+                        &yaml_from_str(
+                            "
+endpoint: 1.1.1.1
+        ",
+                        )
+                        .unwrap(),
+                    ),
+                ],
+            );
+            assert_eq!(actual_pipeline, &expected_pipeline);
+        }
     }
 }

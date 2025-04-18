@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, File};
 
 use polars::prelude::*;
 use polars_lazy::prelude::*;
@@ -19,10 +19,14 @@ use crate::{
 pub struct CsvModel {
     pub filepath: String,
     pub model: String,   // model name
-    pub save_df: String, // df name to save to in PipelineResults
+    pub df_name: String, // df name to save to/load from in PipelineResults
 }
 
 pub struct CsvModelLoadTask {
+    pub models: Vec<CsvModel>,
+}
+
+pub struct CsvModelSaveTask {
     pub models: Vec<CsvModel>,
 }
 
@@ -35,28 +39,14 @@ impl CsvModel {
             Err(e) => Err(CpError::TaskError("CsvModel.reshape", e.to_string())),
         }
     }
-}
 
-pub fn csv_load(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()> {
-    for csv_model in &csv_models.models {
-        let model: Model = ctx.get_model(&csv_model.model)?;
-        let lf: LazyFrame = csv_model.build(&model)?;
-        if let Some(x) = ctx.set_result(&csv_model.save_df, lf) {
-            // TODO: correct warning if replace
-            println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
-        }
-    }
-    Ok(())
-}
-
-impl HasTask for CsvModelLoadTask {
-    fn task(args: &Yaml) -> CpResult<PipelineOnceTask> {
+    pub fn build_vec(args: &Yaml) -> CpResult<Vec<Self>> {
         let csv_model_nodes = match args.as_vec() {
             Some(x) => x,
             None => {
                 return Err(CpError::TaskError(
                     "CsvModelLoadTask",
-                    "Not a list of objects with keys (`filepath`, `model` and `save_df`)".to_owned(),
+                    "Not a list of objects with keys (`filepath`, `model` and `df_name`)".to_owned(),
                 ));
             }
         };
@@ -67,14 +57,56 @@ impl HasTask for CsvModelLoadTask {
             let csv_model: CsvModel = deserialize_arg_str(&arg_str, "CsvModelLoadTask")?;
             models.push(csv_model);
         }
-        let csv_models = CsvModelLoadTask { models };
+        Ok(models)
+    }
+}
+
+pub fn csv_load(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()> {
+    for csv_model in &csv_models.models {
+        let model: Model = ctx.get_model(&csv_model.model)?;
+        let lf: LazyFrame = csv_model.build(&model)?;
+        if let Some(x) = ctx.set_result(&csv_model.df_name, lf) {
+            // TODO: correct warning if replace
+            println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
+        }
+    }
+    Ok(())
+}
+
+pub fn csv_save(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()> {
+    for csv_model in &csv_models.models {
+        let mut result: DataFrame = ctx.clone_result(&csv_model.df_name)?.collect()?;
+        let mut output_file = File::create(&csv_model.filepath)?;
+        let mut writer = CsvWriter::new(&mut output_file).include_header(true);
+        writer.finish(&mut result)?;
+    }
+    Ok(())
+}
+
+impl HasTask for CsvModelSaveTask {
+    fn task(args: &Yaml) -> CpResult<PipelineOnceTask> {
+        let csv_models = CsvModelLoadTask {
+            models: CsvModel::build_vec(args)?,
+        };
+        Ok(Box::new(move |ctx| csv_save(ctx, &csv_models)))
+    }
+}
+
+impl HasTask for CsvModelLoadTask {
+    fn task(args: &Yaml) -> CpResult<PipelineOnceTask> {
+        let csv_models = CsvModelLoadTask {
+            models: CsvModel::build_vec(args)?,
+        };
         Ok(Box::new(move |ctx| csv_load(ctx, &csv_models)))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io::Write};
+    use std::{
+        collections::HashMap,
+        io::{Read, Write},
+    };
 
     use polars::{
         df,
@@ -93,7 +125,7 @@ mod tests {
         util::{common::yaml_from_str, tmp::TempFile},
     };
 
-    use super::CsvModelLoadTask;
+    use super::{CsvModelLoadTask, CsvModelSaveTask};
 
     fn create_equiv_lf(force_str: bool) -> LazyFrame {
         let lf = df![
@@ -107,6 +139,14 @@ mod tests {
         } else {
             lf
         }
+    }
+
+    fn check_temp_csvs_identical(a: &TempFile, b: &TempFile) {
+        let mut astr = String::new();
+        let mut bstr = String::new();
+        a.get().unwrap().read_to_string(&mut astr).unwrap();
+        b.get().unwrap().read_to_string(&mut bstr).unwrap();
+        assert_eq!(astr.trim(), bstr.trim());
     }
 
     fn create_temp_csv() -> TempFile {
@@ -145,7 +185,10 @@ id,name
         Context::new(
             model_reg,
             TransformRegistry::new(),
-            TaskDictionary::new(vec![("load_csv", generate_task::<CsvModelLoadTask>())]),
+            TaskDictionary::new(vec![
+                ("load_csv", generate_task::<CsvModelLoadTask>()),
+                ("save_csv", generate_task::<CsvModelSaveTask>()),
+            ]),
         )
     }
 
@@ -158,7 +201,7 @@ id,name
 ---
 - filepath: {}
   model: idname
-  save_df: ID_NAME_MAP
+  df_name: ID_NAME_MAP
 ",
             &tmp.filepath
         );
@@ -180,7 +223,7 @@ id,name
 ---
 - filepath: {}
   model: idname
-  save_df: ID_NAME_MAP
+  df_name: ID_NAME_MAP
 ",
             &tmp.filepath
         );
@@ -191,5 +234,26 @@ id,name
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
         let actual_results = ctx.clone_results();
         assert_eq!(expected_results, actual_results);
+    }
+
+    #[test]
+    fn valid_save_csv_default() {
+        let intmp = create_temp_csv();
+        let outtmp = create_temp_csv();
+        let mut ctx = create_context(false);
+        ctx.insert_result("ID_NAME_MAP", create_equiv_lf(false)).unwrap();
+        let config = format!(
+            "
+---
+- filepath: {}
+  model: idname
+  df_name: ID_NAME_MAP
+",
+            &outtmp.filepath
+        );
+        let args = yaml_from_str(&config).unwrap();
+        let t = CsvModelSaveTask::task(&args).unwrap();
+        t(&mut ctx).unwrap();
+        check_temp_csvs_identical(&intmp, &outtmp);
     }
 }

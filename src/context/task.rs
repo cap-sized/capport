@@ -4,7 +4,10 @@ use yaml_rust2::Yaml;
 
 use crate::{
     pipeline::common::{HasTask, PipelineOnceTask},
-    task::{loadstore::csv::CsvModelLoadTask, noop::NoopTask},
+    task::{
+        loadstore::csv::{CsvModelLoadTask, CsvModelSaveTask},
+        noop::NoopTask,
+    },
     util::error::{CpError, CpResult},
 };
 
@@ -24,6 +27,7 @@ impl Default for TaskDictionary {
             tasks: HashMap::from([
                 ("noop".to_string(), generate_task::<NoopTask>()),
                 ("load_csv".to_string(), generate_task::<CsvModelLoadTask>()),
+                ("save_csv".to_string(), generate_task::<CsvModelSaveTask>()),
             ]),
         }
     }

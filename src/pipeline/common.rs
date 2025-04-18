@@ -57,4 +57,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineOnceTask = Box<dyn Fn(&Context) -> CpResult<()>>;
+pub type PipelineOnceTask = Box<dyn Fn(&mut Context) -> CpResult<()>>;

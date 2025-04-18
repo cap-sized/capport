@@ -4,10 +4,10 @@ use super::{common::Pipeline, context::Context, results::PipelineResults};
 
 pub struct PipelineRunner;
 impl PipelineRunner {
-    pub fn run_once(ctx: Context, pipeline: &Pipeline) -> CpResult<PipelineResults> {
+    pub fn run_once(ctx: &mut Context, pipeline: &Pipeline) -> CpResult<PipelineResults> {
         for stage in &pipeline.stages {
             let task = ctx.get_task(&stage.task_name, &stage.args_node)?;
-            task(&ctx)?;
+            task(ctx)?;
         }
         Ok(ctx.clone_results())
     }
@@ -56,8 +56,8 @@ mod tests {
             .map(|x| Pipeline::new("noop", &x))
             .collect::<Vec<_>>();
         n_pipelines.iter().for_each(|pipeline| {
-            let ctx = create_context();
-            let actual = PipelineRunner::run_once(ctx, pipeline).unwrap();
+            let mut ctx = create_context();
+            let actual = PipelineRunner::run_once(&mut ctx, pipeline).unwrap();
             assert_eq!(actual, PipelineResults::new());
         });
     }
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn invalid_task_not_found() {
         let pipeline = Pipeline::new("invalid", &[PipelineStage::new("not_found", "nooop", &Yaml::Null)]);
-        let ctx = create_context();
-        assert!(PipelineRunner::run_once(ctx, &pipeline).is_err());
+        let mut ctx = create_context();
+        assert!(PipelineRunner::run_once(&mut ctx, &pipeline).is_err());
     }
 }

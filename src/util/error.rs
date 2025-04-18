@@ -11,10 +11,16 @@ pub enum CpError {
     PipelineError(&'static str, String),
     #[error("ERROR [TASK >> {0}]: {1}")]
     TaskError(&'static str, String),
-    #[error("ERROR [TABLE >> {0}]: {1}")]
-    TableError(String, PolarsError),
+    #[error("ERROR [TABLE]: {0}")]
+    TableError(PolarsError),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
+}
+
+impl From<PolarsError> for CpError {
+    fn from(value: PolarsError) -> Self {
+        Self::TableError(value)
+    }
 }
 
 impl From<std::io::Error> for CpError {

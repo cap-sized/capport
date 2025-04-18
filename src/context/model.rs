@@ -5,7 +5,7 @@ use crate::util::common::{NYT, UTC};
 use crate::util::error::{CpError, CpResult, SubResult};
 use polars::datatypes::{DataType, TimeUnit, TimeZone};
 use std::collections::HashMap;
-use std::fs;
+use std::{fmt, fs};
 
 use crate::parser::model::parse_model;
 
@@ -22,11 +22,26 @@ impl Default for ModelRegistry {
     }
 }
 
+impl fmt::Display for ModelRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ = write!(f, "[ ");
+        self.registry.values().for_each(|x| {
+            let _ = write!(f, "{}, ", x);
+        });
+        write!(f, " ]")
+    }
+}
+
 impl ModelRegistry {
     pub fn new() -> ModelRegistry {
         ModelRegistry {
             registry: HashMap::new(),
         }
+    }
+    pub fn insert(&mut self, model: Model) -> Option<Model> {
+        let prev = self.registry.remove(&model.name);
+        self.registry.insert(model.name.clone(), model);
+        prev
     }
     pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> ModelRegistry {
         let mut reg = ModelRegistry {
@@ -71,10 +86,8 @@ mod tests {
     use super::*;
 
     fn create_model_registry(yaml_str: &str) -> ModelRegistry {
-        let mut reg = ModelRegistry::new();
         let mut config_pack = create_config_pack(yaml_str, "model");
-        reg.extract_parse_config(&mut config_pack).unwrap();
-        reg
+        ModelRegistry::from(&mut config_pack)
     }
 
     fn assert_invalid_model(yaml_str: &str) {
@@ -120,6 +133,7 @@ person:
     last_name: str
 ",
         );
+        println!("{}", mr);
         let actual_model = mr.get_model("person").unwrap();
         let expected_model: Model = Model::new(
             "person",

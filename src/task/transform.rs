@@ -145,7 +145,7 @@ name: player_data_to_full_name_id
 input: PLAYER_DATA
 save_df: ID_NAME_MAP
 ";
-        let args = yaml_from_str(&config).unwrap();
+        let args = yaml_from_str(config).unwrap();
         let t = TransformTask::task(&args).unwrap();
         t(&mut ctx).unwrap();
         let expected_results = DummyData::id_name_map().collect().unwrap();
@@ -162,7 +162,7 @@ name: player_data_to_full_name_id
 input: ID_NAME_MAP
 save_df: ID_NAME_MAP
 ";
-        let args = yaml_from_str(&config).unwrap();
+        let args = yaml_from_str(config).unwrap();
         let t = TransformTask::task(&args).unwrap();
         t(&mut ctx).unwrap();
         let expected_results = DummyData::id_name_map().collect().unwrap();
@@ -179,7 +179,7 @@ name: player_data_to_full_name_id
 input: PLAYER_DAT
 save_df: ID_NAME_MAP
 ";
-        let args = yaml_from_str(&config).unwrap();
+        let args = yaml_from_str(config).unwrap();
         let t = TransformTask::task(&args).unwrap();
         t(&mut ctx).unwrap_err();
     }
@@ -193,7 +193,7 @@ name: player_data_to_full_name_id
 input: PLAYER_DATA
 save_df: ID_NAME_MAP
 ";
-        let args = yaml_from_str(&config).unwrap();
+        let args = yaml_from_str(config).unwrap();
         let t = TransformTask::task(&args).unwrap();
         t(&mut ctx).unwrap();
         ctx.clone_result("ID_NAME_MAP").unwrap().collect().unwrap_err();

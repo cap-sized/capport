@@ -85,13 +85,13 @@ impl Context {
         match self.transform_registry.get_transform(key) {
             Some(x) => Ok(x),
             None => {
-                return Err(CpError::ComponentError(
+                Err(CpError::ComponentError(
                     "No Transform Found",
                     format!(
                         "No transform `{}` found, transform must be one of the following: {:?}",
                         key, &self.transform_registry
                     ),
-                ));
+                ))
             }
         }
     }

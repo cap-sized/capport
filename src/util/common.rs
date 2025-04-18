@@ -68,6 +68,16 @@ impl DummyData {
         .lazy()
     }
 
+    pub fn id_name_map() -> LazyFrame {
+        df![
+            "first_name" => ["Darren", "Hunter", "Varya"],
+            "last_name" => ["Hutnaby", "O'Connor", "Zeb"],
+            "id" => [8872631, 82938842, 86543102],
+        ]
+        .unwrap()
+        .lazy()
+    }
+
     pub fn player_data() -> LazyFrame {
         df![
             "csid" => [8872631, 82938842, 86543102],

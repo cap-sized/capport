@@ -95,13 +95,18 @@ mod tests {
 
     use super::CsvModelLoadTask;
 
-    fn create_equiv_lf() -> LazyFrame {
-        df![
+    fn create_equiv_lf(force_str: bool) -> LazyFrame {
+        let lf = df![
             "id" => 1..10,
             "name" => ["ab", "bc", "cd", "de", "ef", "aa", "bb", "cc", "Dd"]
         ]
         .unwrap()
-        .lazy()
+        .lazy();
+        if force_str {
+            lf.cast_all(DataType::String, true)
+        } else {
+            lf
+        }
     }
 
     fn create_temp_csv() -> TempFile {
@@ -126,11 +131,12 @@ id,name
         temp
     }
 
-    fn create_context() -> Context {
+    fn create_context(force_str: bool) -> Context {
+        let id_datatype = if force_str { DataType::String } else { DataType::Int32 };
         let model = Model::new(
             "idname",
             &[
-                ModelField::new("id", DataType::String, None),
+                ModelField::new("id", id_datatype, None),
                 ModelField::new("name", DataType::String, None),
             ],
         );
@@ -144,9 +150,9 @@ id,name
     }
 
     #[test]
-    fn valid_load_csv() {
+    fn valid_load_csv_force_str() {
         let tmp = create_temp_csv();
-        let mut ctx = create_context();
+        let mut ctx = create_context(true);
         let config = format!(
             "
 ---
@@ -160,6 +166,30 @@ id,name
         let t = CsvModelLoadTask::task(&args).unwrap();
         t(&mut ctx).unwrap();
         let mut expected_results = PipelineResults::new();
-        expected_results.insert("ID_NAME_MAP", create_equiv_lf());
+        expected_results.insert("ID_NAME_MAP", create_equiv_lf(true));
+        let actual_results = ctx.clone_results();
+        assert_eq!(expected_results, actual_results);
+    }
+
+    #[test]
+    fn valid_load_csv_default() {
+        let tmp = create_temp_csv();
+        let mut ctx = create_context(false);
+        let config = format!(
+            "
+---
+- filepath: {}
+  model: idname
+  save_df: ID_NAME_MAP
+",
+            &tmp.filepath
+        );
+        let args = yaml_from_str(&config).unwrap();
+        let t = CsvModelLoadTask::task(&args).unwrap();
+        t(&mut ctx).unwrap();
+        let mut expected_results = PipelineResults::new();
+        expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
+        let actual_results = ctx.clone_results();
+        assert_eq!(expected_results, actual_results);
     }
 }

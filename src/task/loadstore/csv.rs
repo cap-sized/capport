@@ -79,7 +79,7 @@ impl CsvModel {
 pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
         let model: Option<Model> = match &csv_model.model {
-            Some(model_name) => Some(ctx.get_model(&model_name)?),
+            Some(model_name) => Some(ctx.get_model(model_name)?),
             None => None,
         };
         let lf: LazyFrame = csv_model.build(model)?;
@@ -95,18 +95,15 @@ pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
     for csv_model in &csv_models.models {
         let lf: LazyFrame = ctx.clone_result(&csv_model.df_name)?;
         let model: Option<Model> = match &csv_model.model {
-            Some(model_name) => Some(ctx.get_model(&model_name)?),
+            Some(model_name) => Some(ctx.get_model(model_name)?),
             None => None,
         };
         let mut df = CsvModel::collect_shape(lf, model)?;
         let dir_path = Path::new(&csv_model.filepath);
-        match dir_path.parent() {
-            Some(x) => {
-                if !x.exists() {
-                    fs::create_dir_all(x)?;
-                }
+        if let Some(x) = dir_path.parent() {
+            if !x.exists() {
+                fs::create_dir_all(x)?;
             }
-            None => (),
         };
         let mut output_file = File::create(dir_path)?;
         let mut writer = CsvWriter::new(&mut output_file).include_header(true);

@@ -35,6 +35,9 @@ impl Transform for DropTransform {
     fn run_lazy(&self, curr: LazyFrame, _results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut drop_cols: Vec<Expr> = vec![];
         for delete in &self.deletes {
+            if !delete.delete {
+                continue;
+            }
             match delete.expr() {
                 Ok(valid_expr) => drop_cols.push(valid_expr),
                 Err(err_msg) => {

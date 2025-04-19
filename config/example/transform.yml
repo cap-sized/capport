@@ -20,19 +20,14 @@ transform:
     - join:
         join: PLAYER
         right_select:
-          entityid: entityid
-          firstname: firstname
-          last_name: lastname
-          age: age
+          entityid: 
+          firstname: 
+          lastname: 
+          age: 
         left_on: id
         right_on: entityid
         how: left
     
-    - select:
-        id: id
-        x: x
-        y: y
-        z: z
-        teamname: teamname
-        age: age
-        last_name: last_name
+    - drop:
+        firstname: True
+        team: false

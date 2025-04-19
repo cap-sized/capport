@@ -8,12 +8,9 @@ use crate::{
 use super::common::YamlRead;
 
 pub fn parse_drop_field(name: &str, node: &Yaml) -> SubResult<DropField> {
-    if node.is_null() {
-        return Err(format!("Field {} is null", name));
-    }
     Ok(DropField {
         target: String::from(name),
-        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("False") == "True"),
+        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("True") == "True"),
     })
 }
 

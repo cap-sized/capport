@@ -15,6 +15,10 @@ serde_yaml_ng = "0.10.0"
 thiserror = "2.0.12"
 yaml-rust2 = "0.10.1"
 
+
+# these are for services only
+mongodb = { version = "3.2.3", features = ['sync'] }
+
 [lints.rust]
 # unused_variables = "allow"
 # unused_imports = "allow"

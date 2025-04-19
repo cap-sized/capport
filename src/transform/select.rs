@@ -4,7 +4,6 @@ use polars::prelude::*;
 use yaml_rust2::Yaml;
 
 use crate::{
-    parser::common::YamlRead,
     pipeline::results::PipelineResults,
     util::{
         common::yaml_from_str,
@@ -55,11 +54,19 @@ pub struct SelectField {
 }
 
 impl SelectField {
+    pub fn default(label: &str) -> SelectField {
+        SelectField {
+            label: label.to_string(),
+            action: None,
+            args: Yaml::Null,
+            kwargs: None,
+        }
+    }
     pub fn new(label: &str, args: &str) -> SelectField {
         SelectField {
             label: label.to_string(),
             action: None,
-            args: yaml_from_str(args).expect("Invalid yaml"),
+            args: yaml_from_str(args).unwrap_or(Yaml::Null),
             kwargs: None,
         }
     }
@@ -78,10 +85,8 @@ impl SelectField {
 
     pub fn expr(&self) -> SubResult<Expr> {
         if self.action.is_none() {
-            let rawexpr = self
-                .args
-                .to_str(format!("no string expression found for field {}", self.label))?;
-            let col_expr = match parse_str_to_col_expr(&rawexpr) {
+            let rawexpr = self.args.as_str().unwrap_or(&self.label);
+            let col_expr = match parse_str_to_col_expr(rawexpr) {
                 Some(x) => x,
                 None => return Err(format!("Selected field cannot be parsed to polars Expr: {:?}", rawexpr)),
             };
@@ -172,6 +177,27 @@ mod tests {
                 "instrument" => ["ABAB", "TORO", "PKJT"],
                 "price" => [2.3, 102.023, 19.88],
                 "position" => [50, 2, -71],
+            ]
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn valid_select_use_defaults() {
+        let sample_df = df![
+            "Price" => [2.3, 102.023, 19.88],
+            "Ticker" => ["ABAB", "TORO", "PKJT"],
+        ]
+        .unwrap()
+        .lazy();
+        let transform = SelectTransform::new(&[SelectField::default("Price"), SelectField::default("Ticker")]);
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        let actual_df = transform.run_lazy(sample_df, results).unwrap().collect().unwrap();
+        assert_eq!(
+            actual_df,
+            df![
+                "Price" => [2.3, 102.023, 19.88],
+                "Instrument" => ["ABAB", "TORO", "PKJT"],
             ]
             .unwrap()
         );

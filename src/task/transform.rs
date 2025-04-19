@@ -105,7 +105,7 @@ mod tests {
         )
     }
 
-    fn create_context(is_good: bool) -> Arc<DefaultContext<LazyFrame>> {
+    fn create_context(is_good: bool) -> Arc<DefaultContext<LazyFrame, ()>> {
         let transform = if is_good {
             create_good_transform()
         } else {
@@ -117,12 +117,13 @@ mod tests {
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
+            (),
         );
         ctx.insert_result("PLAYER_DATA", DummyData::player_data()).unwrap();
         Arc::new(ctx)
     }
 
-    fn create_identity_context() -> Arc<DefaultContext<LazyFrame>> {
+    fn create_identity_context() -> Arc<DefaultContext<LazyFrame, ()>> {
         let transform = create_identity_transform();
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
@@ -130,6 +131,7 @@ mod tests {
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
+            (),
         );
         ctx.insert_result("ID_NAME_MAP", DummyData::id_name_map()).unwrap();
         Arc::new(ctx)

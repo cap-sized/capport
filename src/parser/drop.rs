@@ -8,12 +8,9 @@ use crate::{
 use super::common::YamlRead;
 
 pub fn parse_drop_field(name: &str, node: &Yaml) -> SubResult<DropField> {
-    if node.is_null() {
-        return Err(format!("Field {} is null", name));
-    }
     Ok(DropField {
         target: String::from(name),
-        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("False") == "True"),
+        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("True") == "True"),
     })
 }
 
@@ -57,11 +54,30 @@ full.name: True
     }
 
     #[test]
+    fn valid_basic_drop_transform_defaults() {
+        let config = yaml_from_str(
+            "
+first_name: true
+last_name: true
+full.name: 
+",
+        )
+        .unwrap();
+        let actual = parse_drop_transform(&config).unwrap();
+        let expected = DropTransform::new(&[
+            DropField::new("first_name"),
+            DropField::new("last_name"),
+            DropField::new("full.name"),
+        ]);
+        println!("{:?}", actual);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn invalid_basic_drop_transform() {
         let config = yaml_from_str(
             "
-first_name: True
-last_name: 
+first_name, last_name
 ",
         )
         .unwrap();

@@ -1,1 +1,1 @@
-cargo run -- -c config -o output -p trial
+cargo run -- -c config/example -o output/ -p puckdata

@@ -9,9 +9,6 @@ const ACTION_KEYWORD: &str = "action";
 const KWARGS_KEYWORD: &str = "kwargs";
 
 pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
-    if node.is_null() {
-        return Err(format!("Field {} is null", name));
-    }
     if !node.is_hash() {
         Ok(SelectField {
             label: String::from(name),

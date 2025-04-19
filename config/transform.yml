@@ -1,7 +1,7 @@
 transform:
 
   cs_player_to_nhl_player_url:
-    - map:
+    - select:
         nhl_url: 
           action: format
           args: [ "player_ids.NHL" ]

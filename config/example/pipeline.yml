@@ -1,0 +1,25 @@
+pipeline:
+
+  puckdata:
+    - label: load_puckdata
+      task: load_csv
+      args: 
+        - filepath: "/home/trxe/projects/capport/config/example/puckdata.csv"
+          df_name: PUCKDATA
+        - filepath: "/home/trxe/projects/capport/config/example/team.csv"
+          df_name: TEAM
+        - filepath: "/home/trxe/projects/capport/config/example/player.csv"
+          df_name: PLAYER
+
+    - label: collate_player_events
+      task: transform
+      args:
+        name: enrich_player_event
+        input: PUCKDATA
+        save_df: EVENTS
+    
+    - label: save_events
+      task: save_csv
+      args:
+        - filepath: "/home/trxe/projects/capport/output/example/puckevents.csv"
+          df_name: EVENTS

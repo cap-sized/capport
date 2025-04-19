@@ -4,11 +4,7 @@ use polars::prelude::LazyFrame;
 
 use crate::util::error::CpResult;
 
-use super::{
-    common::Pipeline,
-    context::PipelineContext,
-    results::PipelineResults,
-};
+use super::{common::Pipeline, context::PipelineContext, results::PipelineResults};
 
 pub struct PipelineRunner;
 impl PipelineRunner {
@@ -51,11 +47,12 @@ mod tests {
         PipelineStage::new(name, "noop", &yaml_rust2::Yaml::Null)
     }
 
-    fn create_context() -> Arc<DefaultContext<LazyFrame>> {
+    fn create_context() -> Arc<DefaultContext<LazyFrame, ()>> {
         Arc::new(DefaultContext::new(
             ModelRegistry::new(),
             TransformRegistry::new(),
             TaskDictionary::new(vec![("noop", generate_lazy_task::<NoopTask, ()>())]),
+            (),
         ))
     }
 

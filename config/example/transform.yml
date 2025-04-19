@@ -1,0 +1,33 @@
+transform:
+
+  enrich_player_event:
+    - select:
+        id: ENTITYID
+        x: COORDSX
+        y: COORDSY
+        z: COORDSZ
+        team: TEAM
+      
+    - join:
+        join: TEAM
+        right_select:
+          teamcode: TEAMCODE
+          teamname: TEAMNAME
+        left_on: team
+        right_on: teamcode
+        how: left
+    
+    - join:
+        join: PLAYER
+        right_select:
+          entityid: 
+          firstname: 
+          lastname: 
+          age: 
+        left_on: id
+        right_on: entityid
+        how: left
+    
+    - drop:
+        firstname: True
+        team: false

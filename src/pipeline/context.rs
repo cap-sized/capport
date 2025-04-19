@@ -10,16 +10,13 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::{
-    common::PipelineTask,
-    results::PipelineResults,
-};
+use super::{common::PipelineTask, results::PipelineResults};
 
 pub trait PipelineContext<ResultType, ServiceDistributor> {
     // Results
     fn clone_results(&self) -> CpResult<PipelineResults<ResultType>>;
 
-    fn clone_result(&self, key: &str) -> CpResult<LazyFrame>;
+    fn clone_result(&self, key: &str) -> CpResult<ResultType>;
 
     fn get_results(&self) -> Arc<RwLock<PipelineResults<ResultType>>>;
 
@@ -35,36 +32,36 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn svc(&self) -> Option<ServiceDistributor>;
 }
 
-pub struct DefaultContext<ResultType> {
+pub struct DefaultContext<ResultType, S> {
     model_registry: ModelRegistry,
     transform_registry: TransformRegistry,
-    task_dictionary: TaskDictionary<ResultType, ()>,
+    task_dictionary: TaskDictionary<ResultType, S>,
     results: Arc<RwLock<PipelineResults<ResultType>>>,
 }
 
-unsafe impl<ResultType> Send for DefaultContext<ResultType> {}
-unsafe impl<ResultType> Sync for DefaultContext<ResultType> {}
+unsafe impl<ResultType, ServiceDistributor> Send for DefaultContext<ResultType, ServiceDistributor> {}
+unsafe impl<ResultType, ServiceDistributor> Sync for DefaultContext<ResultType, ServiceDistributor> {}
 
-impl DefaultContext<LazyFrame> {
+impl<R, S> DefaultContext<R, S> {
     pub fn new(
         model_registry: ModelRegistry,
         transform_registry: TransformRegistry,
-        task_dictionary: TaskDictionary<LazyFrame, ()>,
+        task_dictionary: TaskDictionary<R, S>,
     ) -> Self {
         DefaultContext {
             model_registry,
             transform_registry,
             task_dictionary,
-            results: Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default())),
+            results: Arc::new(RwLock::new(PipelineResults::<R>::default())),
         }
     }
 }
 
-impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
-    fn clone_results(&self) -> CpResult<PipelineResults<LazyFrame>> {
+impl<ResultType: Clone, S> PipelineContext<ResultType, S> for DefaultContext<ResultType, S> {
+    fn clone_results(&self) -> CpResult<PipelineResults<ResultType>> {
         Ok(self.results.as_ref().read()?.clone())
     }
-    fn clone_result(&self, key: &str) -> CpResult<LazyFrame> {
+    fn clone_result(&self, key: &str) -> CpResult<ResultType> {
         let binding = self.results.clone();
         let results = binding.read()?;
         match results.get_unchecked(key) {
@@ -73,15 +70,16 @@ impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
                 "No Result Found",
                 format!(
                     "No result `{}` found, result must be one of the following: {:?}",
-                    key, &self.results
+                    key,
+                    self.results.read().unwrap().keys()
                 ),
             )),
         }
     }
-    fn get_results(&self) -> Arc<RwLock<PipelineResults<LazyFrame>>> {
+    fn get_results(&self) -> Arc<RwLock<PipelineResults<ResultType>>> {
         self.results.clone()
     }
-    fn insert_result(&self, key: &str, result: LazyFrame) -> CpResult<Option<LazyFrame>> {
+    fn insert_result(&self, key: &str, result: ResultType) -> CpResult<Option<ResultType>> {
         let binding = self.results.clone();
         let mut res = binding.write()?;
         Ok(res.insert(key, result))
@@ -98,7 +96,7 @@ impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
             )),
         }
     }
-    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<LazyFrame, ()>> {
+    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, S>> {
         let taskgen = match self.task_dictionary.tasks.get(key) {
             Some(x) => x,
             None => {
@@ -126,12 +124,12 @@ impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
         }
     }
 
-    fn svc(&self) -> Option<()> {
+    fn svc(&self) -> Option<S> {
         None
     }
 }
 
-impl Default for DefaultContext<LazyFrame> {
+impl Default for DefaultContext<LazyFrame, ()> {
     fn default() -> Self {
         Self::new(
             ModelRegistry::new(),

@@ -105,7 +105,7 @@ mod tests {
         )
     }
 
-    fn create_context(is_good: bool) -> Arc<DefaultContext<LazyFrame>> {
+    fn create_context(is_good: bool) -> Arc<DefaultContext<LazyFrame, ()>> {
         let transform = if is_good {
             create_good_transform()
         } else {
@@ -122,7 +122,7 @@ mod tests {
         Arc::new(ctx)
     }
 
-    fn create_identity_context() -> Arc<DefaultContext<LazyFrame>> {
+    fn create_identity_context() -> Arc<DefaultContext<LazyFrame, ()>> {
         let transform = create_identity_transform();
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);

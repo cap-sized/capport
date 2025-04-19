@@ -37,6 +37,9 @@ impl<T> PipelineResults<T> {
             results: HashMap::new(),
         }
     }
+    pub fn keys(&self) -> Vec<String> {
+        self.results.keys().map(|x| x.to_owned()).collect::<Vec<_>>()
+    }
 }
 
 impl PipelineResults<LazyFrame> {

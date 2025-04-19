@@ -173,7 +173,7 @@ id,name
         temp
     }
 
-    fn create_context(force_str: bool) -> Arc<DefaultContext<LazyFrame>> {
+    fn create_context(force_str: bool) -> Arc<DefaultContext<LazyFrame, ()>> {
         let id_datatype = if force_str { DataType::String } else { DataType::Int32 };
         let model = Model::new(
             "idname",

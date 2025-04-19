@@ -5,7 +5,7 @@ use yaml_rust2::{Yaml, YamlEmitter};
 use crate::{
     pipeline::{
         common::{HasTask, Pipeline, PipelineOnceTask, PipelineStage},
-        context::Context,
+        context::DefaultContext,
     },
     task::noop::NoopTask,
     util::{

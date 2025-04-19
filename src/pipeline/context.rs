@@ -13,20 +13,40 @@ use super::{
     results::PipelineResults,
 };
 
-pub struct Context {
+pub trait PipelineContext<ResultType, TaskType, ServiceDistributor> {
+    // Results
+    fn clone_results(&self) -> PipelineResults;
+
+    fn clone_result(&self, key: &str) -> CpResult<LazyFrame>;
+
+    fn get_ro_results(&self) -> &PipelineResults;
+
+    fn insert_result(&mut self, key: &str, result: ResultType) -> CpResult<Option<ResultType>>;
+
+    // Immutables
+    fn get_model(&self, key: &str) -> CpResult<Model>;
+
+    fn get_task(&self, key: &str) -> CpResult<TaskType>;
+
+    fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
+
+    fn svc(&self) -> Option<ServiceDistributor>;
+}
+
+pub struct DefaultContext {
     model_registry: ModelRegistry,
     transform_registry: TransformRegistry,
     task_dictionary: TaskDictionary,
     results: PipelineResults,
 }
 
-impl Context {
+impl DefaultContext {
     pub fn new(
         model_registry: ModelRegistry,
         transform_registry: TransformRegistry,
         task_dictionary: TaskDictionary,
     ) -> Self {
-        Context {
+        DefaultContext {
             model_registry,
             transform_registry,
             task_dictionary,
@@ -51,8 +71,8 @@ impl Context {
     pub fn get_ro_results(&self) -> &PipelineResults {
         &self.results
     }
-    pub fn insert_result(&mut self, key: &str, result: LazyFrame) -> CpResult<Option<LazyFrame>> {
-        Ok(self.results.insert(key, result))
+    pub fn insert_result(&mut self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
+        self.results.insert(key, result)
     }
     pub fn get_model(&self, key: &str) -> CpResult<Model> {
         match self.model_registry.get_model(key) {
@@ -84,23 +104,18 @@ impl Context {
     pub fn get_transform(&self, key: &str) -> CpResult<&RootTransform> {
         match self.transform_registry.get_transform(key) {
             Some(x) => Ok(x),
-            None => {
-                Err(CpError::ComponentError(
-                    "No Transform Found",
-                    format!(
-                        "No transform `{}` found, transform must be one of the following: {:?}",
-                        key, &self.transform_registry
-                    ),
-                ))
-            }
+            None => Err(CpError::ComponentError(
+                "No Transform Found",
+                format!(
+                    "No transform `{}` found, transform must be one of the following: {:?}",
+                    key, &self.transform_registry
+                ),
+            )),
         }
-    }
-    pub fn set_result(&mut self, key: &str, lf: LazyFrame) -> Option<LazyFrame> {
-        self.results.insert(key, lf)
     }
 }
 
-impl Default for Context {
+impl Default for DefaultContext {
     fn default() -> Self {
         Self::new(
             ModelRegistry::new(),

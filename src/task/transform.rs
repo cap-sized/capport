@@ -5,7 +5,7 @@ use crate::{
     context::transform::TransformRegistry,
     pipeline::{
         common::{HasTask, PipelineOnceTask},
-        context::Context,
+        context::DefaultContext,
     },
     transform::common::{RootTransform, Transform},
     util::error::{CpError, CpResult},
@@ -20,7 +20,7 @@ pub struct TransformTask {
     pub save_df: String,
 }
 
-pub fn run_transform(ctx: &mut Context, transform_task: &TransformTask) -> CpResult<()> {
+pub fn run_transform(ctx: &mut DefaultContext, transform_task: &TransformTask) -> CpResult<()> {
     let trf = ctx.get_transform(&transform_task.name)?;
     let input = ctx.clone_result(&transform_task.input)?;
     let replaced = match trf.run(input, ctx.get_ro_results()) {
@@ -63,7 +63,7 @@ mod tests {
             task::{TaskDictionary, generate_task},
             transform::TransformRegistry,
         },
-        pipeline::{common::HasTask, context::Context, results::PipelineResults},
+        pipeline::{common::HasTask, context::DefaultContext, results::PipelineResults},
         transform::{
             common::RootTransform,
             select::{SelectField, SelectTransform},
@@ -106,7 +106,7 @@ mod tests {
         )
     }
 
-    fn create_context(is_good: bool) -> Context {
+    fn create_context(is_good: bool) -> DefaultContext {
         let transform = if is_good {
             create_good_transform()
         } else {
@@ -114,7 +114,7 @@ mod tests {
         };
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = Context::new(
+        let mut ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_task::<TransformTask>())]),
@@ -123,11 +123,11 @@ mod tests {
         ctx
     }
 
-    fn create_identity_context() -> Context {
+    fn create_identity_context() -> DefaultContext {
         let transform = create_identity_transform();
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = Context::new(
+        let mut ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_task::<TransformTask>())]),

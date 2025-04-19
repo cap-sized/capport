@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use super::{context::Context, results::PipelineResults};
+use super::{context::DefaultContext, results::PipelineResults};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pipeline {
@@ -57,4 +57,4 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineOnceTask = Box<dyn Fn(&mut Context) -> CpResult<()>>;
+pub type PipelineOnceTask = Box<dyn Fn(&mut DefaultContext) -> CpResult<()>>;

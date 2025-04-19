@@ -9,7 +9,7 @@ use crate::{
     model::common::{Model, Reshape},
     pipeline::{
         common::{HasTask, PipelineOnceTask},
-        context::Context,
+        context::DefaultContext,
     },
     task::common::{deserialize_arg_str, yaml_to_task_arg_str},
     util::error::{CpError, CpResult, SubResult},
@@ -61,11 +61,11 @@ impl CsvModel {
     }
 }
 
-pub fn csv_load(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()> {
+pub fn csv_load(ctx: &mut DefaultContext, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
         let model: Model = ctx.get_model(&csv_model.model)?;
         let lf: LazyFrame = csv_model.build(&model)?;
-        if let Some(x) = ctx.set_result(&csv_model.df_name, lf) {
+        if let Some(x) = ctx.insert_result(&csv_model.df_name, lf) {
             // TODO: correct warning if replace
             println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
         }
@@ -73,7 +73,7 @@ pub fn csv_load(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()
     Ok(())
 }
 
-pub fn csv_save(ctx: &mut Context, csv_models: &CsvModelLoadTask) -> CpResult<()> {
+pub fn csv_save(ctx: &mut DefaultContext, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
         let mut result: DataFrame = ctx.clone_result(&csv_model.df_name)?.collect()?;
         let mut output_file = File::create(&csv_model.filepath)?;
@@ -121,7 +121,7 @@ mod tests {
             transform::TransformRegistry,
         },
         model::common::{Model, ModelField},
-        pipeline::{common::HasTask, context::Context, results::PipelineResults},
+        pipeline::{common::HasTask, context::DefaultContext, results::PipelineResults},
         util::{common::yaml_from_str, tmp::TempFile},
     };
 
@@ -171,7 +171,7 @@ id,name
         temp
     }
 
-    fn create_context(force_str: bool) -> Context {
+    fn create_context(force_str: bool) -> DefaultContext {
         let id_datatype = if force_str { DataType::String } else { DataType::Int32 };
         let model = Model::new(
             "idname",
@@ -182,7 +182,7 @@ id,name
         );
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(model);
-        Context::new(
+        DefaultContext::new(
             model_reg,
             TransformRegistry::new(),
             TaskDictionary::new(vec![

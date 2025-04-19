@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     pipeline::{
         common::{HasTask, PipelineOnceTask},
-        context::Context,
+        context::DefaultContext,
         results::PipelineResults,
     },
     util::{
@@ -17,7 +17,7 @@ use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
 #[derive(Serialize, Deserialize)]
 pub struct NoopTask;
 
-pub fn run(ctx: &mut Context, task: &NoopTask) -> CpResult<()> {
+pub fn run(ctx: &mut DefaultContext, task: &NoopTask) -> CpResult<()> {
     Ok(())
 }
 
@@ -32,7 +32,7 @@ impl HasTask for NoopTask {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::{common::HasTask, context::Context, results::PipelineResults},
+        pipeline::{common::HasTask, context::DefaultContext, results::PipelineResults},
         util::common::yaml_from_str,
     };
 
@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn valid_noop_behaviour() {
-        let mut ctx = Context::default();
+        let mut ctx = DefaultContext::default();
         let args = yaml_from_str("---").unwrap();
         let t = NoopTask::task(&args).unwrap();
         t(&mut ctx).unwrap();
@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn invalid_noop_args() {
-        let ctx = Context::default();
+        let ctx = DefaultContext::default();
         let args = yaml_from_str(
             "
 ---

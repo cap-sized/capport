@@ -1,10 +1,10 @@
 use crate::util::error::{CpError, CpResult};
 
-use super::{common::Pipeline, context::Context, results::PipelineResults};
+use super::{common::Pipeline, context::DefaultContext, results::PipelineResults};
 
 pub struct PipelineRunner;
 impl PipelineRunner {
-    pub fn run_once(ctx: &mut Context, pipeline: &Pipeline) -> CpResult<PipelineResults> {
+    pub fn run_once(ctx: &mut DefaultContext, pipeline: &Pipeline) -> CpResult<PipelineResults> {
         for stage in &pipeline.stages {
             let task = ctx.get_task(&stage.task_name, &stage.args_node)?;
             task(ctx)?;
@@ -25,7 +25,7 @@ mod tests {
         },
         pipeline::{
             common::{Pipeline, PipelineStage},
-            context::Context,
+            context::DefaultContext,
             results::PipelineResults,
         },
         task::noop::NoopTask,
@@ -37,8 +37,8 @@ mod tests {
         PipelineStage::new(name, "noop", &yaml_rust2::Yaml::Null)
     }
 
-    fn create_context() -> Context {
-        Context::new(
+    fn create_context() -> DefaultContext {
+        DefaultContext::new(
             ModelRegistry::new(),
             TransformRegistry::new(),
             TaskDictionary::new(vec![("noop", generate_task::<NoopTask>())]),

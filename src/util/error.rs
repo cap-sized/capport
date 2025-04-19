@@ -13,6 +13,8 @@ pub enum CpError {
     TaskError(&'static str, String),
     #[error("ERROR [TABLE]: {0}")]
     TableError(PolarsError),
+    #[error("ERROR [POISON]: {0}")]
+    PoisonError(String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
 }
@@ -26,6 +28,12 @@ impl From<PolarsError> for CpError {
 impl From<std::io::Error> for CpError {
     fn from(value: std::io::Error) -> Self {
         Self::RawError(value)
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for CpError {
+    fn from(value: std::sync::PoisonError<T>) -> Self {
+        Self::PoisonError(value.to_string())
     }
 }
 

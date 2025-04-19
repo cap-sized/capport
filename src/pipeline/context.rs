@@ -21,13 +21,13 @@ use super::{
 
 pub trait PipelineContext<ResultType, ServiceDistributor> {
     // Results
-    fn clone_results(&self) -> PipelineResults<ResultType>;
+    fn clone_results(&self) -> CpResult<PipelineResults<ResultType>>;
 
     fn clone_result(&self, key: &str) -> CpResult<LazyFrame>;
 
     fn get_results(&self) -> Arc<RwLock<PipelineResults<ResultType>>>;
 
-    fn insert_result(&self, key: &str, result: ResultType) -> Option<ResultType>;
+    fn insert_result(&self, key: &str, result: ResultType) -> CpResult<Option<ResultType>>;
 
     // Immutables
     fn get_model(&self, key: &str) -> CpResult<Model>;
@@ -65,12 +65,12 @@ impl DefaultContext<LazyFrame> {
 }
 
 impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
-    fn clone_results(&self) -> PipelineResults<LazyFrame> {
-        self.results.as_ref().read().unwrap().clone()
+    fn clone_results(&self) -> CpResult<PipelineResults<LazyFrame>> {
+        Ok(self.results.as_ref().read()?.clone())
     }
     fn clone_result(&self, key: &str) -> CpResult<LazyFrame> {
         let binding = self.results.clone();
-        let results = binding.read().unwrap();
+        let results = binding.read()?;
         match results.get_unchecked(key) {
             Some(x) => Ok(x),
             None => Err(CpError::ComponentError(
@@ -85,10 +85,10 @@ impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
     fn get_results(&self) -> Arc<RwLock<PipelineResults<LazyFrame>>> {
         self.results.clone()
     }
-    fn insert_result(&self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
-        let mut binding = self.results.as_ref().write();
-        let results = binding.as_deref_mut().unwrap();
-        results.insert(key, result)
+    fn insert_result(&self, key: &str, result: LazyFrame) -> CpResult<Option<LazyFrame>> {
+        let binding = self.results.clone();
+        let mut res = binding.write()?;
+        Ok(res.insert(key, result))
     }
     fn get_model(&self, key: &str) -> CpResult<Model> {
         match self.model_registry.get_model(key) {

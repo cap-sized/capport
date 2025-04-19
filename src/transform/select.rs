@@ -9,7 +9,7 @@ use crate::{
     pipeline::results::PipelineResults,
     util::{
         common::yaml_from_str,
-        error::{CpResult, PlResult, SubResult},
+        error::{CpError, CpResult, PlResult, SubResult},
     },
 };
 
@@ -32,12 +32,12 @@ impl SelectTransform {
 }
 
 impl Transform for SelectTransform {
-    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.selects {
             match select.expr() {
                 Ok(valid_expr) => select_cols.push(valid_expr),
-                Err(err_msg) => return Err(format!("SelectTransform: {}", err_msg)),
+                Err(err_msg) => return Err(CpError::ComponentError("SelectTransform", err_msg)),
             }
         }
         Ok(curr.select(select_cols))

@@ -37,10 +37,10 @@ impl TransformRegistry {
             registry: HashMap::new(),
         }
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> TransformRegistry {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<TransformRegistry> {
         let mut reg = TransformRegistry::default();
-        reg.extract_parse_config(config_pack).unwrap();
-        reg
+        reg.extract_parse_config(config_pack)?;
+        Ok(reg)
     }
     pub fn insert(&mut self, transform: RootTransform) -> Option<RootTransform> {
         let prev = self.registry.remove(&transform.label);
@@ -92,7 +92,7 @@ mod tests {
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
         let mut config_pack = create_config_pack(yaml_str, "transform");
-        TransformRegistry::from(&mut config_pack)
+        TransformRegistry::from(&mut config_pack).unwrap()
     }
 
     fn assert_invalid_transform(yaml_str: &str) {

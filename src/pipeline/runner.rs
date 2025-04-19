@@ -20,7 +20,7 @@ impl PipelineRunner {
             let task = ctx.get_task(&stage.task_name, &stage.args_node)?;
             task(ctx.clone())?;
         }
-        Ok(ctx.clone().clone_results())
+        ctx.clone().clone_results()
     }
 }
 

@@ -3,7 +3,10 @@ use std::sync::RwLock;
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
-use crate::{pipeline::results::PipelineResults, util::error::SubResult};
+use crate::{
+    pipeline::results::PipelineResults,
+    util::error::{CpError, CpResult, SubResult},
+};
 
 use super::{common::Transform, expr::parse_str_to_col_expr, select::SelectField};
 
@@ -30,12 +33,14 @@ impl DropTransform {
 }
 
 impl Transform for DropTransform {
-    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut drop_cols: Vec<Expr> = vec![];
         for delete in &self.deletes {
             match delete.expr() {
                 Ok(valid_expr) => drop_cols.push(valid_expr),
-                Err(err_msg) => return Err(format!("DropTransform: {}", err_msg)),
+                Err(err_msg) => {
+                    return Err(CpError::PipelineError("DropTransform failed", err_msg));
+                }
             }
         }
         Ok(curr.drop(drop_cols))

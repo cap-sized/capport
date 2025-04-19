@@ -97,14 +97,31 @@ impl YamlRead for Yaml {
 impl YamlMapRead for HashMap<String, &Yaml> {
     fn get_str(&self, key: &str, msg_if_fail: String) -> SubResult<String> {
         match &self.get(key).is_some_and(|x| x.as_str().is_some()) {
-            true => Ok(self.get(key).unwrap().as_str().unwrap().to_owned()),
+            true => {
+                let keyyaml = match self.get(key) {
+                    Some(x) => x,
+                    None => return Err(format!("No key `{}` found", key)),
+                };
+                let keystr = match keyyaml.as_str() {
+                    Some(x) => x,
+                    None => return Err(format!("key `{}` is not a string: {:?}", key, keyyaml)),
+                };
+                Ok(keystr.to_owned())
+            }
             false => Err(msg_if_fail),
         }
     }
     fn get_list_str(&self, key: &str, msg_if_fail: String) -> SubResult<Vec<String>> {
         match &self.get(key).is_some_and(|x| x.as_vec().is_some()) {
             true => {
-                let vec = self.get(key).unwrap().as_vec().unwrap();
+                let vecyaml = match self.get(key) {
+                    Some(x) => x,
+                    None => return Err(format!("No key `{}` found", key)),
+                };
+                let vec = match vecyaml.as_vec() {
+                    Some(x) => x,
+                    None => return Err(format!("key `{}` is not a vector: {:?}", key, vecyaml)),
+                };
                 let mut vecstr: Vec<String> = vec![];
                 for v in vec {
                     match v._to_str(&msg_if_fail) {

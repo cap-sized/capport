@@ -3,7 +3,11 @@ use std::sync::RwLock;
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
-use crate::{parser::join::parse_jointype, pipeline::results::PipelineResults, util::error::SubResult};
+use crate::{
+    parser::join::parse_jointype,
+    pipeline::results::PipelineResults,
+    util::error::{CpError, CpResult, SubResult},
+};
 
 use super::{
     common::Transform,
@@ -38,17 +42,22 @@ impl Transform for JoinTransform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", &self)
     }
-    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> SubResult<LazyFrame> {
-        let b = results.read().unwrap();
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
+        let b = results.read()?;
         let right = match b.get_unchecked(&self.join) {
             Some(x) => x,
-            None => return Err(format!("Dataframe named {} not found in results", &self.join)),
+            None => {
+                return Err(CpError::ComponentError(
+                    "Dataframe for join not found in results: ",
+                    self.join.to_string(),
+                ));
+            }
         };
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.right_select {
             match select.expr() {
                 Ok(valid_expr) => select_cols.push(valid_expr),
-                Err(err_msg) => return Err(format!("JoinTransform: {}", err_msg)),
+                Err(err_msg) => return Err(CpError::ComponentError("JoinTransform failed", err_msg)),
             }
         }
         let left_on = self.left_on.iter().map(col).collect::<Vec<_>>();

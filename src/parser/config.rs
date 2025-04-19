@@ -25,13 +25,19 @@ pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
 }
 
 pub fn pack_configs_from_files(files: &[PathBuf]) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let configs: Vec<Yaml> = files
-        .iter()
-        .flat_map(|path| {
-            let config_str = std::fs::read_to_string(path).unwrap();
-            YamlLoader::load_from_str(&config_str).unwrap()
-        })
-        .collect();
+    let mut configs = vec![];
+    for path in files {
+        let config_str = std::fs::read_to_string(path)?;
+        configs.extend(match YamlLoader::load_from_str(&config_str) {
+            Ok(x) => x,
+            Err(e) => {
+                return Err(CpError::ComponentError(
+                    "ScanError",
+                    format!("Error in scanning config {}: {:?}", &config_str, e),
+                ));
+            }
+        });
+    }
     pack_configurables(&configs)
 }
 

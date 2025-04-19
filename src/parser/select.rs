@@ -25,7 +25,7 @@ pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
             kwargs: None,
         })
     } else {
-        let node_map = node.to_map("Unexpected non-hash".to_owned()).unwrap();
+        let node_map = node.to_map("Unexpected non-hash".to_owned())?;
         let action = node_map.get_str(ACTION_KEYWORD, format!("no action found for SelectField {}", name))?;
         Ok(SelectField {
             label: String::from(name),

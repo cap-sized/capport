@@ -25,12 +25,12 @@ impl PipelineRegistry {
             registry: HashMap::new(),
         }
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> PipelineRegistry {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<PipelineRegistry> {
         let mut reg = PipelineRegistry {
             registry: HashMap::new(),
         };
-        reg.extract_parse_config(config_pack).unwrap();
-        reg
+        reg.extract_parse_config(config_pack)?;
+        Ok(reg)
     }
     pub fn get_pipeline(&self, pipeline_name: &str) -> Option<&Pipeline> {
         match self.registry.get(pipeline_name) {
@@ -75,7 +75,7 @@ mod tests {
     use super::*;
     fn create_pipeline_registry(yaml_str: &str) -> PipelineRegistry {
         let mut config_pack = create_config_pack(yaml_str, "pipeline");
-        PipelineRegistry::from(&mut config_pack)
+        PipelineRegistry::from(&mut config_pack).unwrap()
     }
 
     fn assert_invalid_pipeline(yaml_str: &str) {

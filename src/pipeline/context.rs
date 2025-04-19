@@ -46,6 +46,9 @@ pub struct DefaultContext<ResultType> {
     results: Arc<RwLock<PipelineResults<ResultType>>>,
 }
 
+unsafe impl<ResultType> Send for DefaultContext<ResultType> {}
+unsafe impl<ResultType> Sync for DefaultContext<ResultType> {}
+
 impl DefaultContext<LazyFrame> {
     pub fn new(
         model_registry: ModelRegistry,

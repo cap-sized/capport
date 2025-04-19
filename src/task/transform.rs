@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
+use polars::prelude::LazyFrame;
 use serde::{Deserialize, Serialize};
 use yaml_rust2::Yaml;
 
 use crate::{
-    context::transform::TransformRegistry,
     pipeline::{
-        common::{HasTask, PipelineOnceTask},
-        context::Context,
+        common::{HasTask, PipelineTask},
+        context::PipelineContext,
     },
-    transform::common::{RootTransform, Transform},
+    transform::common::Transform,
     util::error::{CpError, CpResult},
 };
 
@@ -19,12 +21,11 @@ pub struct TransformTask {
     pub input: String, // input df
     pub save_df: String,
 }
-
-pub fn run_transform(ctx: &mut Context, transform_task: &TransformTask) -> CpResult<()> {
+pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_task: &TransformTask) -> CpResult<()> {
     let trf = ctx.get_transform(&transform_task.name)?;
     let input = ctx.clone_result(&transform_task.input)?;
-    let replaced = match trf.run(input, ctx.get_ro_results()) {
-        Ok(x) => ctx.insert_result(&transform_task.save_df, x),
+    let replaced = match trf.run_lazy(input, ctx.get_results()) {
+        Ok(x) => ctx.insert_result(&transform_task.save_df, x)?,
         Err(e) => {
             return Err(CpError::TaskError(
                 "Transform task failed",
@@ -32,38 +33,36 @@ pub fn run_transform(ctx: &mut Context, transform_task: &TransformTask) -> CpRes
             ));
         }
     };
-    if let Ok(last) = replaced {
-        if let Some(lf) = last {
-            println!("Replaced lf:\n{:?}", lf.count().collect());
-        }
-    } else {
-        return Err(CpError::TaskError(
-            "Transform task: Inserting result failed",
-            format!("The task {:?} failed to insert the result", &transform_task),
-        ));
+    if let Some(last) = replaced {
+        println!("Replaced lf:\n{:?}", last.count().collect());
     }
     Ok(())
 }
 
 impl HasTask for TransformTask {
-    fn task(args: &Yaml) -> CpResult<PipelineOnceTask> {
+    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
         let arg_str = yaml_to_task_arg_str(args, "TransformTask")?;
         let trf: TransformTask = deserialize_arg_str(&arg_str, "TransformTask")?;
-        Ok(Box::new(move |ctx| run_transform(ctx, &trf)))
+        Ok(Box::new(move |ctx| run_transform::<S>(ctx, &trf)))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use polars::prelude::LazyFrame;
 
     use crate::{
         context::{
             model::ModelRegistry,
-            task::{TaskDictionary, generate_task},
+            task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
         },
-        pipeline::{common::HasTask, context::Context, results::PipelineResults},
+        pipeline::{
+            common::HasTask,
+            context::{DefaultContext, PipelineContext},
+        },
         transform::{
             common::RootTransform,
             select::{SelectField, SelectTransform},
@@ -106,7 +105,7 @@ mod tests {
         )
     }
 
-    fn create_context(is_good: bool) -> Context {
+    fn create_context(is_good: bool) -> Arc<DefaultContext<LazyFrame>> {
         let transform = if is_good {
             create_good_transform()
         } else {
@@ -114,31 +113,31 @@ mod tests {
         };
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = Context::new(
+        let ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
-            TaskDictionary::new(vec![("transform", generate_task::<TransformTask>())]),
+            TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
         );
         ctx.insert_result("PLAYER_DATA", DummyData::player_data()).unwrap();
-        ctx
+        Arc::new(ctx)
     }
 
-    fn create_identity_context() -> Context {
+    fn create_identity_context() -> Arc<DefaultContext<LazyFrame>> {
         let transform = create_identity_transform();
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = Context::new(
+        let ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
-            TaskDictionary::new(vec![("transform", generate_task::<TransformTask>())]),
+            TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
         );
         ctx.insert_result("ID_NAME_MAP", DummyData::id_name_map()).unwrap();
-        ctx
+        Arc::new(ctx)
     }
 
     #[test]
     fn valid_transform() {
-        let mut ctx = create_context(true);
+        let ctx = create_context(true);
         let config = "
 ---
 name: player_data_to_full_name_id
@@ -146,8 +145,8 @@ input: PLAYER_DATA
 save_df: ID_NAME_MAP
 ";
         let args = yaml_from_str(config).unwrap();
-        let t = TransformTask::task(&args).unwrap();
-        t(&mut ctx).unwrap();
+        let t = TransformTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
         let expected_results = DummyData::id_name_map().collect().unwrap();
         let actual_results = ctx.clone_result("ID_NAME_MAP").unwrap().collect().unwrap();
         assert_eq!(expected_results, actual_results);
@@ -155,7 +154,7 @@ save_df: ID_NAME_MAP
 
     #[test]
     fn valid_identity_transform() {
-        let mut ctx = create_identity_context();
+        let ctx = create_identity_context();
         let config = "
 ---
 name: player_data_to_full_name_id
@@ -163,8 +162,8 @@ input: ID_NAME_MAP
 save_df: ID_NAME_MAP
 ";
         let args = yaml_from_str(config).unwrap();
-        let t = TransformTask::task(&args).unwrap();
-        t(&mut ctx).unwrap();
+        let t = TransformTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
         let expected_results = DummyData::id_name_map().collect().unwrap();
         let actual_results = ctx.clone_result("ID_NAME_MAP").unwrap().collect().unwrap();
         assert_eq!(expected_results, actual_results);
@@ -172,7 +171,7 @@ save_df: ID_NAME_MAP
 
     #[test]
     fn invalid_transform_input_wrong() {
-        let mut ctx = create_context(true);
+        let ctx = create_context(true);
         let config = "
 ---
 name: player_data_to_full_name_id
@@ -180,13 +179,13 @@ input: PLAYER_DAT
 save_df: ID_NAME_MAP
 ";
         let args = yaml_from_str(config).unwrap();
-        let t = TransformTask::task(&args).unwrap();
-        t(&mut ctx).unwrap_err();
+        let t = TransformTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap_err();
     }
 
     #[test]
     fn invalid_transform_bad_transform() {
-        let mut ctx = create_context(false);
+        let ctx = create_context(false);
         let config = "
 ---
 name: player_data_to_full_name_id
@@ -194,8 +193,8 @@ input: PLAYER_DATA
 save_df: ID_NAME_MAP
 ";
         let args = yaml_from_str(config).unwrap();
-        let t = TransformTask::task(&args).unwrap();
-        t(&mut ctx).unwrap();
+        let t = TransformTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
         ctx.clone_result("ID_NAME_MAP").unwrap().collect().unwrap_err();
     }
 }

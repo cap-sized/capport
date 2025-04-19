@@ -1,7 +1,7 @@
 use yaml_rust2::{Yaml, YamlLoader};
 
 use crate::util::error::{CpError, CpResult, SubResult};
-use std::{collections::HashMap, iter::Map, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::parser::common::YamlRead;
 
@@ -25,13 +25,19 @@ pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
 }
 
 pub fn pack_configs_from_files(files: &[PathBuf]) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let configs: Vec<Yaml> = files
-        .iter()
-        .flat_map(|path| {
-            let config_str = std::fs::read_to_string(path).unwrap();
-            YamlLoader::load_from_str(&config_str).unwrap()
-        })
-        .collect();
+    let mut configs = vec![];
+    for path in files {
+        let config_str = std::fs::read_to_string(path)?;
+        configs.extend(match YamlLoader::load_from_str(&config_str) {
+            Ok(x) => x,
+            Err(e) => {
+                return Err(CpError::ComponentError(
+                    "ScanError",
+                    format!("Error in scanning config {}: {:?}", &config_str, e),
+                ));
+            }
+        });
+    }
     pack_configurables(&configs)
 }
 
@@ -82,17 +88,14 @@ fn unpack_named_configs(
 
 #[cfg(test)]
 mod tests {
-    use core::time;
+    
     use std::{
-        fs::{self, DirBuilder},
+        fs::{self},
         io::Write,
         str::FromStr,
     };
 
-    use crate::{
-        transform::select::SelectTransform,
-        util::{common::yaml_from_str, tmp::TempFile},
-    };
+    use crate::util::{common::yaml_from_str, tmp::TempFile};
 
     use super::*;
 

@@ -1,17 +1,11 @@
-use std::fmt;
+use std::sync::Arc;
 
+use polars::prelude::LazyFrame;
 use yaml_rust2::Yaml;
 
-use crate::{
-    model::common::Model,
-    transform::common::{RootTransform, Transform},
-    util::{
-        common::yaml_from_str,
-        error::{CpResult, SubResult},
-    },
-};
+use crate::util::error::CpResult;
 
-use super::{context::Context, results::PipelineResults};
+use super::context::PipelineContext;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pipeline {
@@ -23,8 +17,7 @@ pub struct Pipeline {
 pub struct PipelineStage {
     pub label: String,
     pub task_name: String,
-    pub args_node: Yaml, // pub task: PipelineOnceTask,
-                         // pub args_yaml_str: String,
+    pub args_node: Yaml,
 }
 
 impl Pipeline {
@@ -47,7 +40,7 @@ impl PipelineStage {
 }
 
 pub trait HasTask {
-    fn task(args: &Yaml) -> CpResult<PipelineOnceTask>;
+    fn lazy_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.
@@ -57,4 +50,5 @@ pub trait LoopJobStage {
     fn push();
 }
 
-pub type PipelineOnceTask = Box<dyn Fn(&mut Context) -> CpResult<()>>;
+pub type PipelineTask<ResultType, SvcDistributor> =
+    Box<dyn Fn(Arc<dyn PipelineContext<ResultType, SvcDistributor>>) -> CpResult<()>>;

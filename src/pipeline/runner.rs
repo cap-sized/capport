@@ -1,31 +1,45 @@
-use crate::util::error::{CpError, CpResult};
+use std::sync::Arc;
 
-use super::{common::Pipeline, context::Context, results::PipelineResults};
+use polars::prelude::LazyFrame;
+
+use crate::util::error::CpResult;
+
+use super::{
+    common::Pipeline,
+    context::PipelineContext,
+    results::PipelineResults,
+};
 
 pub struct PipelineRunner;
 impl PipelineRunner {
-    pub fn run_once(ctx: &mut Context, pipeline: &Pipeline) -> CpResult<PipelineResults> {
+    pub fn run_lazy<S>(
+        ctx: Arc<dyn PipelineContext<LazyFrame, S>>,
+        pipeline: &Pipeline,
+    ) -> CpResult<PipelineResults<LazyFrame>> {
         for stage in &pipeline.stages {
             let task = ctx.get_task(&stage.task_name, &stage.args_node)?;
-            task(ctx)?;
+            task(ctx.clone())?;
         }
-        Ok(ctx.clone_results())
+        ctx.clone().clone_results()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use polars::prelude::LazyFrame;
     use yaml_rust2::Yaml;
 
     use crate::{
         context::{
             model::ModelRegistry,
-            task::{TaskDictionary, generate_task},
+            task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
         },
         pipeline::{
             common::{Pipeline, PipelineStage},
-            context::Context,
+            context::DefaultContext,
             results::PipelineResults,
         },
         task::noop::NoopTask,
@@ -37,12 +51,12 @@ mod tests {
         PipelineStage::new(name, "noop", &yaml_rust2::Yaml::Null)
     }
 
-    fn create_context() -> Context {
-        Context::new(
+    fn create_context() -> Arc<DefaultContext<LazyFrame>> {
+        Arc::new(DefaultContext::new(
             ModelRegistry::new(),
             TransformRegistry::new(),
-            TaskDictionary::new(vec![("noop", generate_task::<NoopTask>())]),
-        )
+            TaskDictionary::new(vec![("noop", generate_lazy_task::<NoopTask, ()>())]),
+        ))
     }
 
     #[test]
@@ -56,16 +70,16 @@ mod tests {
             .map(|x| Pipeline::new("noop", &x))
             .collect::<Vec<_>>();
         n_pipelines.iter().for_each(|pipeline| {
-            let mut ctx = create_context();
-            let actual = PipelineRunner::run_once(&mut ctx, pipeline).unwrap();
-            assert_eq!(actual, PipelineResults::new());
+            let ctx = create_context();
+            let actual = PipelineRunner::run_lazy(ctx.clone(), pipeline).unwrap();
+            assert_eq!(actual, PipelineResults::<LazyFrame>::default());
         });
     }
 
     #[test]
     fn invalid_task_not_found() {
         let pipeline = Pipeline::new("invalid", &[PipelineStage::new("not_found", "nooop", &Yaml::Null)]);
-        let mut ctx = create_context();
-        assert!(PipelineRunner::run_once(&mut ctx, &pipeline).is_err());
+        let ctx = create_context();
+        assert!(PipelineRunner::run_lazy(ctx.clone(), &pipeline).is_err());
     }
 }

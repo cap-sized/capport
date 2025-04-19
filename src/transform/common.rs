@@ -1,16 +1,15 @@
-use std::fmt;
+use std::{fmt, sync::RwLock};
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
-use yaml_rust2::Yaml;
 
 use crate::{
     pipeline::results::PipelineResults,
-    util::error::{CpResult, PlResult, SubResult},
+    util::error::CpResult,
 };
 
 pub trait Transform {
-    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame>;
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame>;
+    // fn run_eager(&self, curr: DataFrame, results: &PipelineResults<DataFrame>) -> SubResult<DataFrame>;
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
@@ -38,10 +37,10 @@ impl Transform for RootTransform {
         write!(f, " ]")
     }
 
-    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut next = curr;
         for stage in &self.stages {
-            next = stage.as_ref().run(next, results)?
+            next = stage.as_ref().run_lazy(next, results.clone())?
         }
         Ok(next)
     }

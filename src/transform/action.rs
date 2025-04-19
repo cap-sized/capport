@@ -1,6 +1,5 @@
 use polars_lazy::dsl::Expr;
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
 use crate::util::error::SubResult;
 

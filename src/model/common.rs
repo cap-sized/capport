@@ -1,7 +1,6 @@
 use std::fmt;
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 
 use crate::util::error::SubResult;
 

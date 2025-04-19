@@ -1,9 +1,13 @@
+use std::sync::RwLock;
+
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 
-use crate::{pipeline::results::PipelineResults, util::error::SubResult};
+use crate::{
+    pipeline::results::PipelineResults,
+    util::error::{CpError, CpResult, SubResult},
+};
 
-use super::{common::Transform, expr::parse_str_to_col_expr, select::SelectField};
+use super::common::Transform;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropField {
@@ -28,12 +32,14 @@ impl DropTransform {
 }
 
 impl Transform for DropTransform {
-    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, _results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut drop_cols: Vec<Expr> = vec![];
         for delete in &self.deletes {
             match delete.expr() {
                 Ok(valid_expr) => drop_cols.push(valid_expr),
-                Err(err_msg) => return Err(format!("DropTransform: {}", err_msg)),
+                Err(err_msg) => {
+                    return Err(CpError::PipelineError("DropTransform failed", err_msg));
+                }
             }
         }
         Ok(curr.drop(drop_cols))
@@ -59,10 +65,12 @@ impl DropField {
 
 #[cfg(test)]
 mod tests {
-    use polars::prelude::PlSmallStr;
-    use polars::{df, docs::lazy};
-    use polars_lazy::prelude::Expr;
-    use polars_lazy::{dsl::col, frame::IntoLazy};
+    use std::sync::{Arc, RwLock};
+
+    use polars::df;
+    use polars::prelude::LazyFrame;
+
+    use polars_lazy::frame::IntoLazy;
 
     use crate::pipeline::results::PipelineResults;
 
@@ -77,8 +85,8 @@ mod tests {
         .unwrap()
         .lazy();
         let transform = DropTransform::new([DropField::new("Price")].as_slice());
-        let results = PipelineResults::new();
-        let actual_df = transform.run(sample_df, &results).unwrap().collect().unwrap();
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        let actual_df = transform.run_lazy(sample_df, results).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
             df![

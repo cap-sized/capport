@@ -93,15 +93,3 @@ impl DummyData {
         .lazy()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use yaml_rust2::Yaml;
-
-    use super::{yaml_from_str, yaml_to_str};
-
-    fn invalid_yaml_to_str_bad_yaml() {
-        let badval = Yaml::BadValue;
-        yaml_to_str(&badval).unwrap_err();
-    }
-}

@@ -68,23 +68,14 @@ pub fn parse_root_transform(name: &str, node: &Yaml) -> SubResult<RootTransform>
 
 #[cfg(test)]
 mod tests {
-    use polars::{
-        df,
-        prelude::{DataFrameJoinOps, PlSmallStr},
-    };
-    use polars_lazy::{
-        dsl::col,
-        frame::{IntoLazy, LazyFrame},
-    };
+    use std::sync::{Arc, RwLock};
+
+    use polars::{df, prelude::LazyFrame};
+    use polars_lazy::dsl::col;
 
     use crate::{
         pipeline::results::PipelineResults,
-        transform::{
-            common::{RootTransform, Transform},
-            drop::DropTransform,
-            join::JoinTransform,
-            select::SelectTransform,
-        },
+        transform::{common::Transform, drop::DropTransform, join::JoinTransform, select::SelectTransform},
         util::common::{DummyData, yaml_from_str},
     };
 
@@ -102,6 +93,14 @@ mod tests {
         );
     }
 
+    fn create_results() -> Arc<RwLock<PipelineResults<LazyFrame>>> {
+        let res_before = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        let to_return = res_before.clone();
+        let mut writer = res_before.write().unwrap();
+        writer.insert("STATE_CODE", DummyData::state_code());
+        to_return
+    }
+
     #[test]
     fn valid_root_transform_select_only() {
         let config = yaml_from_str(
@@ -116,9 +115,9 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let res_before = PipelineResults::new();
+        let res_before = create_results();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();
@@ -137,8 +136,7 @@ mod tests {
 
     #[test]
     fn valid_root_transform_join_only() {
-        let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", DummyData::state_code());
+        let res_before = create_results();
         let config = yaml_from_str(
             "
 - join:
@@ -154,7 +152,7 @@ mod tests {
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();
@@ -177,10 +175,9 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", DummyData::state_code());
+        let res_before = create_results();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();
@@ -217,10 +214,9 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", DummyData::state_code());
+        let res_before = create_results();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();
@@ -257,10 +253,9 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", DummyData::state_code());
+        let res_before = create_results();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();
@@ -297,10 +292,9 @@ mod tests {
         )
         .unwrap();
         let root = parse_root_transform("player", &config).unwrap();
-        let mut res_before = PipelineResults::new();
-        res_before.insert("STATE_CODE", DummyData::state_code());
+        let res_before = create_results();
         let actual_df = root
-            .run(DummyData::player_data(), &res_before)
+            .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
             .collect()
             .unwrap();

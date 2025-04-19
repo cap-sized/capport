@@ -1,11 +1,9 @@
 use yaml_rust2::Yaml;
 
-use crate::model::common::{Model, ModelField};
-use crate::util::common::{NYT, UTC};
-use crate::util::error::{CpError, CpResult, SubResult};
-use polars::datatypes::{DataType, TimeUnit, TimeZone};
+use crate::model::common::Model;
+use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
-use std::{fmt, fs};
+use std::fmt;
 
 use crate::parser::model::parse_model;
 
@@ -43,12 +41,12 @@ impl ModelRegistry {
         self.registry.insert(model.name.clone(), model);
         prev
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> ModelRegistry {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<ModelRegistry> {
         let mut reg = ModelRegistry {
             registry: HashMap::new(),
         };
-        reg.extract_parse_config(config_pack).unwrap();
-        reg
+        reg.extract_parse_config(config_pack)?;
+        Ok(reg)
     }
     pub fn get_model(&self, model_name: &str) -> Option<Model> {
         self.registry.get(model_name).map(|x| x.to_owned())
@@ -79,15 +77,16 @@ impl Configurable for ModelRegistry {
 
 #[cfg(test)]
 mod tests {
-    use yaml_rust2::{YamlLoader, yaml};
 
-    use crate::util::common::create_config_pack;
+    use polars::prelude::DataType;
+
+    use crate::{model::common::ModelField, util::common::create_config_pack};
 
     use super::*;
 
     fn create_model_registry(yaml_str: &str) -> ModelRegistry {
         let mut config_pack = create_config_pack(yaml_str, "model");
-        ModelRegistry::from(&mut config_pack)
+        ModelRegistry::from(&mut config_pack).unwrap()
     }
 
     fn assert_invalid_model(yaml_str: &str) {

@@ -1,8 +1,7 @@
 use crate::transform::common::{RootTransform, Transform};
-use crate::transform::select::{SelectField, SelectTransform};
-use crate::util::error::{CpError, CpResult, SubResult};
+use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
-use std::{fmt, fs};
+use std::fmt;
 use yaml_rust2::Yaml;
 
 use crate::parser::transform::parse_root_transform;
@@ -37,10 +36,10 @@ impl TransformRegistry {
             registry: HashMap::new(),
         }
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> TransformRegistry {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<TransformRegistry> {
         let mut reg = TransformRegistry::default();
-        reg.extract_parse_config(config_pack).unwrap();
-        reg
+        reg.extract_parse_config(config_pack)?;
+        Ok(reg)
     }
     pub fn insert(&mut self, transform: RootTransform) -> Option<RootTransform> {
         let prev = self.registry.remove(&transform.label);
@@ -81,16 +80,21 @@ impl Configurable for TransformRegistry {
 
 #[cfg(test)]
 mod tests {
-    use polars::df;
-    use polars_lazy::frame::IntoLazy;
-    use yaml_rust2::{YamlLoader, yaml};
+    use std::sync::{Arc, RwLock};
 
-    use crate::{pipeline::results::PipelineResults, util::common::create_config_pack};
+    use polars::{df, prelude::LazyFrame};
+    use polars_lazy::frame::IntoLazy;
+
+    use crate::{
+        pipeline::results::PipelineResults,
+        transform::select::{SelectField, SelectTransform},
+        util::common::create_config_pack,
+    };
 
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
         let mut config_pack = create_config_pack(yaml_str, "transform");
-        TransformRegistry::from(&mut config_pack)
+        TransformRegistry::from(&mut config_pack).unwrap()
     }
 
     fn assert_invalid_transform(yaml_str: &str) {
@@ -103,6 +107,17 @@ mod tests {
     fn valid_empty_transform() {
         let tr = TransformRegistry::default();
         assert!(tr.registry.is_empty());
+    }
+
+    #[test]
+    fn invalid_non_list_transform() {
+        assert_invalid_transform(
+            "
+player_to_person:
+    select:
+        id: csid 
+",
+        );
     }
 
     #[test]
@@ -126,14 +141,14 @@ player_to_person:
             "player_to_person",
             vec![Box::new(SelectTransform::new(&[SelectField::new("id", "csid")]))],
         );
-        let results = PipelineResults::new();
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
         let actual_result = actual_transform
-            .run(sample_df.clone(), &results)
+            .run_lazy(sample_df.clone(), results.clone())
             .unwrap()
             .collect()
             .unwrap();
         let expected_result = expected_transform
-            .run(sample_df.clone(), &results)
+            .run_lazy(sample_df.clone(), results.clone())
             .unwrap()
             .collect()
             .unwrap();

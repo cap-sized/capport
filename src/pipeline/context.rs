@@ -1,7 +1,7 @@
 use std::{
     ops::DerefMut,
     process::exit,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 use polars::prelude::LazyFrame;
@@ -25,9 +25,9 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
 
     fn clone_result(&self, key: &str) -> CpResult<LazyFrame>;
 
-    fn get_results(&self) -> Arc<Mutex<PipelineResults<ResultType>>>;
+    fn get_results(&self) -> Arc<RwLock<PipelineResults<ResultType>>>;
 
-    fn insert_result(&mut self, key: &str, result: ResultType) -> Option<ResultType>;
+    fn insert_result(&self, key: &str, result: ResultType) -> Option<ResultType>;
 
     // Immutables
     fn get_model(&self, key: &str) -> CpResult<Model>;
@@ -43,7 +43,7 @@ pub struct DefaultContext<ResultType> {
     model_registry: ModelRegistry,
     transform_registry: TransformRegistry,
     task_dictionary: TaskDictionary<ResultType, ()>,
-    results: Arc<Mutex<PipelineResults<ResultType>>>,
+    results: Arc<RwLock<PipelineResults<ResultType>>>,
 }
 
 impl DefaultContext<LazyFrame> {
@@ -56,17 +56,18 @@ impl DefaultContext<LazyFrame> {
             model_registry,
             transform_registry,
             task_dictionary,
-            results: Arc::new(Mutex::new(PipelineResults::<LazyFrame>::new())),
+            results: Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default())),
         }
     }
 }
 
 impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
     fn clone_results(&self) -> PipelineResults<LazyFrame> {
-        self.results.as_ref().lock().unwrap().clone()
+        self.results.as_ref().read().unwrap().clone()
     }
     fn clone_result(&self, key: &str) -> CpResult<LazyFrame> {
-        let results = self.results.as_ref().lock().unwrap();
+        let binding = self.results.clone();
+        let results = binding.read().unwrap();
         match results.get_unchecked(key) {
             Some(x) => Ok(x),
             None => Err(CpError::ComponentError(
@@ -78,11 +79,11 @@ impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
             )),
         }
     }
-    fn get_results(&self) -> Arc<Mutex<PipelineResults<LazyFrame>>> {
+    fn get_results(&self) -> Arc<RwLock<PipelineResults<LazyFrame>>> {
         self.results.clone()
     }
-    fn insert_result(&mut self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
-        let mut binding = self.results.as_ref().lock();
+    fn insert_result(&self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
+        let mut binding = self.results.as_ref().write();
         let results = binding.as_deref_mut().unwrap();
         results.insert(key, result)
     }

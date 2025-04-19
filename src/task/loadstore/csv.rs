@@ -65,10 +65,7 @@ pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
     for csv_model in &csv_models.models {
         let model: Model = ctx.get_model(&csv_model.model)?;
         let lf: LazyFrame = csv_model.build(&model)?;
-        let binding = ctx.get_results();
-        let mut locked_binding = binding.lock();
-        let results = locked_binding.as_deref_mut().unwrap();
-        if let Some(x) = results.insert(&csv_model.df_name, lf) {
+        if let Some(x) = ctx.insert_result(&csv_model.df_name, lf) {
             // TODO: correct warning if replace
             println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
         }
@@ -216,7 +213,7 @@ id,name
         let args = yaml_from_str(&config).unwrap();
         let t = CsvModelLoadTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
-        let mut expected_results = PipelineResults::<LazyFrame>::new();
+        let mut expected_results = PipelineResults::<LazyFrame>::default();
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(true));
         let actual_results = ctx.clone_results();
         assert_eq!(expected_results, actual_results);
@@ -238,7 +235,7 @@ id,name
         let args = yaml_from_str(&config).unwrap();
         let t = CsvModelLoadTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
-        let mut expected_results = PipelineResults::<LazyFrame>::new();
+        let mut expected_results = PipelineResults::<LazyFrame>::default();
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
         let actual_results = ctx.clone_results();
         assert_eq!(expected_results, actual_results);
@@ -249,10 +246,7 @@ id,name
         let intmp = create_temp_csv();
         let outtmp = create_temp_csv();
         let ctx = create_context(false);
-        let binding = ctx.get_results();
-        let mut locked_binding = binding.lock();
-        let results = locked_binding.as_deref_mut().unwrap();
-        results.insert("ID_NAME_MAP", create_equiv_lf(false));
+        ctx.insert_result("ID_NAME_MAP", create_equiv_lf(false));
         let config = format!(
             "
 ---

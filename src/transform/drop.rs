@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
@@ -28,7 +30,7 @@ impl DropTransform {
 }
 
 impl Transform for DropTransform {
-    fn run_lazy(&self, curr: LazyFrame, results: &PipelineResults<LazyFrame>) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> SubResult<LazyFrame> {
         let mut drop_cols: Vec<Expr> = vec![];
         for delete in &self.deletes {
             match delete.expr() {
@@ -59,6 +61,8 @@ impl DropField {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, RwLock};
+
     use polars::prelude::{LazyFrame, PlSmallStr};
     use polars::{df, docs::lazy};
     use polars_lazy::prelude::Expr;
@@ -77,8 +81,8 @@ mod tests {
         .unwrap()
         .lazy();
         let transform = DropTransform::new([DropField::new("Price")].as_slice());
-        let results = PipelineResults::<LazyFrame>::new();
-        let actual_df = transform.run_lazy(sample_df, &results).unwrap().collect().unwrap();
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        let actual_df = transform.run_lazy(sample_df, results).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
             df![

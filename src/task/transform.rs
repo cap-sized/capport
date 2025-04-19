@@ -25,16 +25,8 @@ pub struct TransformTask {
 pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_task: &TransformTask) -> CpResult<()> {
     let trf = ctx.get_transform(&transform_task.name)?;
     let input = ctx.clone_result(&transform_task.input)?;
-    let binding = ctx.get_results();
-    let locked_binding = binding.lock();
-    let results = locked_binding.as_ref().unwrap();
-    let replaced = match trf.run_lazy(input, results) {
-        Ok(x) => {
-            let b = binding.clone();
-            let mut lk = b.lock();
-            let res = lk.as_deref_mut().unwrap();
-            res.insert(&transform_task.save_df, x)
-        }
+    let replaced = match trf.run_lazy(input, ctx.get_results()) {
+        Ok(x) => ctx.insert_result(&transform_task.save_df, x),
         Err(e) => {
             return Err(CpError::TaskError(
                 "Transform task failed",
@@ -44,11 +36,6 @@ pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_t
     };
     if let Some(last) = replaced {
         println!("Replaced lf:\n{:?}", last.count().collect());
-    } else {
-        return Err(CpError::TaskError(
-            "Transform task: Inserting result failed",
-            format!("The task {:?} failed to insert the result", &transform_task),
-        ));
     }
     Ok(())
 }
@@ -128,7 +115,7 @@ mod tests {
         };
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = DefaultContext::new(
+        let ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
@@ -141,7 +128,7 @@ mod tests {
         let transform = create_identity_transform();
         let mut transform_reg = TransformRegistry::new();
         transform_reg.insert(transform);
-        let mut ctx = DefaultContext::new(
+        let ctx = DefaultContext::new(
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),

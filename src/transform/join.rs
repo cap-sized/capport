@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 
@@ -36,8 +38,9 @@ impl Transform for JoinTransform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", &self)
     }
-    fn run_lazy(&self, curr: LazyFrame, results: &PipelineResults<LazyFrame>) -> SubResult<LazyFrame> {
-        let right = match results.get_unchecked(&self.join) {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> SubResult<LazyFrame> {
+        let b = results.read().unwrap();
+        let right = match b.get_unchecked(&self.join) {
             Some(x) => x,
             None => return Err(format!("Dataframe named {} not found in results", &self.join)),
         };
@@ -65,7 +68,7 @@ impl Transform for JoinTransform {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, sync::RwLock};
 
     use polars::{df, prelude::*};
     use polars_lazy::prelude::*;
@@ -87,12 +90,12 @@ mod tests {
             &[],
             polars::prelude::JoinType::Left,
         );
-        let results = PipelineResults {
+        let results = Arc::new(RwLock::new(PipelineResults {
             results: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
-        };
+        }));
 
         let actual = jt
-            .run_lazy(DummyData::player_data(), &results)
+            .run_lazy(DummyData::player_data(), results)
             .unwrap()
             .collect()
             .unwrap();
@@ -127,12 +130,12 @@ mod tests {
             ],
             polars::prelude::JoinType::Full,
         );
-        let results = PipelineResults {
+        let results = Arc::new(RwLock::new(PipelineResults {
             results: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
-        };
+        }));
 
         let orig_df = DummyData::player_scores().filter(col("csid").neq(lit(82938842)));
-        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
         assert_eq!(
             actual.fill_null(FillNullStrategy::Zero).unwrap(),
             df![
@@ -159,12 +162,12 @@ mod tests {
             &[SelectField::new("csid", "csid"), SelectField::new("scores", "scores")],
             polars::prelude::JoinType::Right,
         );
-        let results = PipelineResults {
+        let results = Arc::new(RwLock::new(PipelineResults {
             results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
-        };
+        }));
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
-        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
         assert_eq!(
             actual,
             df![
@@ -189,12 +192,12 @@ mod tests {
             &[SelectField::new("csid", "csid"), SelectField::new("scores", "scores")],
             polars::prelude::JoinType::Right,
         );
-        let results = PipelineResults {
+        let results = Arc::new(RwLock::new(PipelineResults {
             results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
-        };
+        }));
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
-        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
         assert_eq!(
             actual,
             df![

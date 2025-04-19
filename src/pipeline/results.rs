@@ -26,20 +26,14 @@ impl PartialEq for PipelineResults<LazyFrame> {
     }
 }
 
-impl Default for PipelineResults<LazyFrame> {
+impl<T> Default for PipelineResults<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Default for PipelineResults<DataFrame> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PipelineResults<DataFrame> {
-    pub fn new() -> PipelineResults<DataFrame> {
+impl<T> PipelineResults<T> {
+    pub fn new() -> PipelineResults<T> {
         PipelineResults {
             results: HashMap::new(),
         }
@@ -47,11 +41,6 @@ impl PipelineResults<DataFrame> {
 }
 
 impl PipelineResults<LazyFrame> {
-    pub fn new() -> PipelineResults<LazyFrame> {
-        PipelineResults {
-            results: HashMap::new(),
-        }
-    }
     pub fn to_dataframes(&self) -> CpResult<HashMap<String, DataFrame>> {
         let mut dataframes = HashMap::new();
         for (key, lf) in &self.results {
@@ -67,9 +56,6 @@ impl PipelineResults<LazyFrame> {
 impl<T: Clone> PipelineResults<T> {
     pub fn get_unchecked(&self, key: &str) -> Option<T> {
         self.results.get(key).cloned()
-    }
-    pub fn remove(&mut self, key: &str) -> Option<T> {
-        self.results.remove(key)
     }
     pub fn insert(&mut self, key: &str, lf: T) -> Option<T> {
         let old = self.results.remove(key);
@@ -98,5 +84,12 @@ mod tests {
             DummyData::player_data().collect().unwrap()
         );
         println!("{:?}", results);
+    }
+
+    #[test]
+    fn valid_pipeline_results_insert_any() {
+        let mut results = PipelineResults::<u8>::default();
+        assert!(results.insert("foo", 8).is_none());
+        assert_eq!(results.insert("foo", 8).unwrap(), 8);
     }
 }

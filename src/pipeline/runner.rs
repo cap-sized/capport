@@ -72,7 +72,7 @@ mod tests {
         n_pipelines.iter().for_each(|pipeline| {
             let ctx = create_context();
             let actual = PipelineRunner::run_lazy(ctx.clone(), pipeline).unwrap();
-            assert_eq!(actual, PipelineResults::<LazyFrame>::new());
+            assert_eq!(actual, PipelineResults::<LazyFrame>::default());
         });
     }
 

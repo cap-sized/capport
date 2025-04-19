@@ -55,7 +55,7 @@ mod tests {
         let args = yaml_from_str("---").unwrap();
         let t = NoopTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
-        assert_eq!(ctx.clone_results(), PipelineResults::<LazyFrame>::new());
+        assert_eq!(ctx.clone_results(), PipelineResults::<LazyFrame>::default());
     }
 
     #[test]

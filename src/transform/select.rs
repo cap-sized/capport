@@ -30,7 +30,7 @@ impl SelectTransform {
 }
 
 impl Transform for SelectTransform {
-    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: &PipelineResults<LazyFrame>) -> SubResult<LazyFrame> {
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.selects {
             match select.expr() {
@@ -92,7 +92,7 @@ impl SelectField {
 
 #[cfg(test)]
 mod tests {
-    use polars::prelude::PlSmallStr;
+    use polars::prelude::{LazyFrame, PlSmallStr};
     use polars::{df, docs::lazy};
     use polars_lazy::prelude::Expr;
     use polars_lazy::{dsl::col, frame::IntoLazy};
@@ -133,8 +133,8 @@ mod tests {
             SelectField::new("price", "Price"),
             SelectField::new("instrument", "Ticker"),
         ]);
-        let results = PipelineResults::new();
-        let actual_df = transform.run(sample_df, &results).unwrap().collect().unwrap();
+        let results = PipelineResults::<LazyFrame>::new();
+        let actual_df = transform.run_lazy(sample_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
             df![
@@ -161,8 +161,8 @@ mod tests {
             SelectField::new("price", "Instrument.Price"),
             SelectField::new("position", "Position"),
         ]);
-        let results = PipelineResults::new();
-        let actual_df = transform.run(sample_df, &results).unwrap().collect().unwrap();
+        let results = PipelineResults::<LazyFrame>::new();
+        let actual_df = transform.run_lazy(sample_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual_df,
             df![

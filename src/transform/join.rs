@@ -36,7 +36,7 @@ impl Transform for JoinTransform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", &self)
     }
-    fn run(&self, curr: LazyFrame, results: &PipelineResults) -> SubResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: &PipelineResults<LazyFrame>) -> SubResult<LazyFrame> {
         let right = match results.get_unchecked(&self.join) {
             Some(x) => x,
             None => return Err(format!("Dataframe named {} not found in results", &self.join)),
@@ -88,10 +88,14 @@ mod tests {
             polars::prelude::JoinType::Left,
         );
         let results = PipelineResults {
-            lazyframes: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
+            results: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
         };
 
-        let actual = jt.run(DummyData::player_data(), &results).unwrap().collect().unwrap();
+        let actual = jt
+            .run_lazy(DummyData::player_data(), &results)
+            .unwrap()
+            .collect()
+            .unwrap();
         assert_eq!(
             actual,
             df![
@@ -124,11 +128,11 @@ mod tests {
             polars::prelude::JoinType::Full,
         );
         let results = PipelineResults {
-            lazyframes: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
+            results: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
         };
 
         let orig_df = DummyData::player_scores().filter(col("csid").neq(lit(82938842)));
-        let actual = jt.run(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual.fill_null(FillNullStrategy::Zero).unwrap(),
             df![
@@ -156,11 +160,11 @@ mod tests {
             polars::prelude::JoinType::Right,
         );
         let results = PipelineResults {
-            lazyframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
+            results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
         };
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
-        let actual = jt.run(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual,
             df![
@@ -186,11 +190,11 @@ mod tests {
             polars::prelude::JoinType::Right,
         );
         let results = PipelineResults {
-            lazyframes: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
+            results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
         };
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
-        let actual = jt.run(orig_df, &results).unwrap().collect().unwrap();
+        let actual = jt.run_lazy(orig_df, &results).unwrap().collect().unwrap();
         assert_eq!(
             actual,
             df![

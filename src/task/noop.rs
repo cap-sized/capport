@@ -1,9 +1,12 @@
+use polars::prelude::*;
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     pipeline::{
-        common::{HasTask, PipelineOnceTask},
-        context::DefaultContext,
+        common::{HasTask, PipelineTask},
+        context::{DefaultContext, PipelineContext},
         results::PipelineResults,
     },
     util::{
@@ -17,12 +20,12 @@ use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
 #[derive(Serialize, Deserialize)]
 pub struct NoopTask;
 
-pub fn run(ctx: &mut DefaultContext, task: &NoopTask) -> CpResult<()> {
+pub fn run<R, S>(ctx: Arc<dyn PipelineContext<R, S>>, task: &NoopTask) -> CpResult<()> {
     Ok(())
 }
 
 impl HasTask for NoopTask {
-    fn task(args: &yaml_rust2::Yaml) -> CpResult<PipelineOnceTask> {
+    fn lazy_task<S>(args: &yaml_rust2::Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
         let arg_str = yaml_to_task_arg_str(args, "NoopTask")?;
         let noop_task: NoopTask = deserialize_arg_str::<NoopTask>(&arg_str, "NoopTask")?;
         Ok(Box::new(move |ctx| run(ctx, &noop_task)))
@@ -31,8 +34,16 @@ impl HasTask for NoopTask {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use polars::prelude::LazyFrame;
+
     use crate::{
-        pipeline::{common::HasTask, context::DefaultContext, results::PipelineResults},
+        pipeline::{
+            common::HasTask,
+            context::{DefaultContext, PipelineContext},
+            results::PipelineResults,
+        },
         util::common::yaml_from_str,
     };
 
@@ -40,11 +51,11 @@ mod tests {
 
     #[test]
     fn valid_noop_behaviour() {
-        let mut ctx = DefaultContext::default();
+        let ctx = Arc::new(DefaultContext::default());
         let args = yaml_from_str("---").unwrap();
-        let t = NoopTask::task(&args).unwrap();
-        t(&mut ctx).unwrap();
-        assert_eq!(ctx.clone_results(), PipelineResults::new());
+        let t = NoopTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
+        assert_eq!(ctx.clone_results(), PipelineResults::<LazyFrame>::new());
     }
 
     #[test]
@@ -57,6 +68,6 @@ a: b
 ",
         )
         .unwrap();
-        assert!(NoopTask::task(&args).is_err());
+        assert!(NoopTask::lazy_task::<()>(&args).is_err());
     }
 }

@@ -81,7 +81,7 @@ impl Configurable for TransformRegistry {
 
 #[cfg(test)]
 mod tests {
-    use polars::df;
+    use polars::{df, prelude::LazyFrame};
     use polars_lazy::frame::IntoLazy;
     use yaml_rust2::{YamlLoader, yaml};
 
@@ -126,14 +126,14 @@ player_to_person:
             "player_to_person",
             vec![Box::new(SelectTransform::new(&[SelectField::new("id", "csid")]))],
         );
-        let results = PipelineResults::new();
+        let results = PipelineResults::<LazyFrame>::new();
         let actual_result = actual_transform
-            .run(sample_df.clone(), &results)
+            .run_lazy(sample_df.clone(), &results)
             .unwrap()
             .collect()
             .unwrap();
         let expected_result = expected_transform
-            .run(sample_df.clone(), &results)
+            .run_lazy(sample_df.clone(), &results)
             .unwrap()
             .collect()
             .unwrap();

@@ -4,7 +4,7 @@ use yaml_rust2::{Yaml, YamlEmitter};
 
 use crate::{
     pipeline::{
-        common::{HasTask, Pipeline, PipelineOnceTask, PipelineStage},
+        common::{HasTask, Pipeline, PipelineStage, PipelineTask},
         context::DefaultContext,
     },
     task::noop::NoopTask,
@@ -67,7 +67,7 @@ pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::common::{HasTask, PipelineOnceTask, PipelineStage},
+        pipeline::common::{HasTask, PipelineStage, PipelineTask},
         task::noop::NoopTask,
         util::common::yaml_from_str,
     };

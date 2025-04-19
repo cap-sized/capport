@@ -1,3 +1,9 @@
+use std::{
+    ops::DerefMut,
+    process::exit,
+    sync::{Arc, Mutex},
+};
+
 use polars::prelude::LazyFrame;
 use yaml_rust2::Yaml;
 
@@ -9,72 +15,78 @@ use crate::{
 };
 
 use super::{
-    common::{Pipeline, PipelineOnceTask},
+    common::{Pipeline, PipelineTask},
     results::PipelineResults,
 };
 
-pub trait PipelineContext<ResultType, TaskType, ServiceDistributor> {
+pub trait PipelineContext<ResultType, ServiceDistributor> {
     // Results
-    fn clone_results(&self) -> PipelineResults;
+    fn clone_results(&self) -> PipelineResults<ResultType>;
 
     fn clone_result(&self, key: &str) -> CpResult<LazyFrame>;
 
-    fn get_ro_results(&self) -> &PipelineResults;
+    fn get_results(&self) -> Arc<Mutex<PipelineResults<ResultType>>>;
 
-    fn insert_result(&mut self, key: &str, result: ResultType) -> CpResult<Option<ResultType>>;
+    fn insert_result(&mut self, key: &str, result: ResultType) -> Option<ResultType>;
 
     // Immutables
     fn get_model(&self, key: &str) -> CpResult<Model>;
 
-    fn get_task(&self, key: &str) -> CpResult<TaskType>;
+    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, ServiceDistributor>>;
 
     fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
 
     fn svc(&self) -> Option<ServiceDistributor>;
 }
 
-pub struct DefaultContext {
+pub struct DefaultContext<ResultType> {
     model_registry: ModelRegistry,
     transform_registry: TransformRegistry,
-    task_dictionary: TaskDictionary,
-    results: PipelineResults,
+    task_dictionary: TaskDictionary<ResultType, ()>,
+    results: Arc<Mutex<PipelineResults<ResultType>>>,
 }
 
-impl DefaultContext {
+impl DefaultContext<LazyFrame> {
     pub fn new(
         model_registry: ModelRegistry,
         transform_registry: TransformRegistry,
-        task_dictionary: TaskDictionary,
+        task_dictionary: TaskDictionary<LazyFrame, ()>,
     ) -> Self {
         DefaultContext {
             model_registry,
             transform_registry,
             task_dictionary,
-            results: PipelineResults::new(),
+            results: Arc::new(Mutex::new(PipelineResults::<LazyFrame>::new())),
         }
     }
-    pub fn clone_results(&self) -> PipelineResults {
-        self.results.clone()
+}
+
+impl PipelineContext<LazyFrame, ()> for DefaultContext<LazyFrame> {
+    fn clone_results(&self) -> PipelineResults<LazyFrame> {
+        self.results.as_ref().lock().unwrap().clone()
     }
-    pub fn clone_result(&self, key: &str) -> CpResult<LazyFrame> {
-        match self.results.get_unchecked(key) {
+    fn clone_result(&self, key: &str) -> CpResult<LazyFrame> {
+        let results = self.results.as_ref().lock().unwrap();
+        match results.get_unchecked(key) {
             Some(x) => Ok(x),
             None => Err(CpError::ComponentError(
                 "No Result Found",
                 format!(
-                    "No result `{}` found, model must be one of the following: {}",
-                    key, &self.model_registry
+                    "No result `{}` found, result must be one of the following: {:?}",
+                    key, &self.results
                 ),
             )),
         }
     }
-    pub fn get_ro_results(&self) -> &PipelineResults {
-        &self.results
+    fn get_results(&self) -> Arc<Mutex<PipelineResults<LazyFrame>>> {
+        self.results.clone()
     }
-    pub fn insert_result(&mut self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
-        self.results.insert(key, result)
+    fn insert_result(&mut self, key: &str, result: LazyFrame) -> Option<LazyFrame> {
+        let mut binding = self.results.as_ref().lock();
+        let results = binding.as_deref_mut().unwrap();
+        results.insert(key, result)
     }
-    pub fn get_model(&self, key: &str) -> CpResult<Model> {
+    fn get_model(&self, key: &str) -> CpResult<Model> {
         match self.model_registry.get_model(key) {
             Some(x) => Ok(x),
             None => Err(CpError::ComponentError(
@@ -86,7 +98,7 @@ impl DefaultContext {
             )),
         }
     }
-    pub fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineOnceTask> {
+    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<LazyFrame, ()>> {
         let taskgen = match self.task_dictionary.tasks.get(key) {
             Some(x) => x,
             None => {
@@ -101,7 +113,7 @@ impl DefaultContext {
         };
         taskgen(args)
     }
-    pub fn get_transform(&self, key: &str) -> CpResult<&RootTransform> {
+    fn get_transform(&self, key: &str) -> CpResult<&RootTransform> {
         match self.transform_registry.get_transform(key) {
             Some(x) => Ok(x),
             None => Err(CpError::ComponentError(
@@ -113,9 +125,13 @@ impl DefaultContext {
             )),
         }
     }
+
+    fn svc(&self) -> Option<()> {
+        None
+    }
 }
 
-impl Default for DefaultContext {
+impl Default for DefaultContext<LazyFrame> {
     fn default() -> Self {
         Self::new(
             ModelRegistry::new(),

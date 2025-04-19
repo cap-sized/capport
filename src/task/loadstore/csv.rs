@@ -1,7 +1,6 @@
-use std::fs::{self, File};
+use std::fs::File;
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 use serde::{Deserialize, Serialize};
 use yaml_rust2::Yaml;
 
@@ -9,10 +8,10 @@ use crate::{
     model::common::{Model, Reshape},
     pipeline::{
         common::{HasTask, PipelineTask},
-        context::{DefaultContext, PipelineContext},
+        context::PipelineContext,
     },
     task::common::{deserialize_arg_str, yaml_to_task_arg_str},
-    util::error::{CpError, CpResult, SubResult},
+    util::error::{CpError, CpResult},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -104,7 +103,6 @@ impl HasTask for CsvModelLoadTask {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::HashMap,
         io::{Read, Write},
         sync::Arc,
     };
@@ -116,7 +114,6 @@ mod tests {
 
     use crate::{
         context::{
-            common::Configurable,
             model::ModelRegistry,
             task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
@@ -259,6 +256,6 @@ id,name
         let args = yaml_from_str(&config).unwrap();
         let t = CsvModelSaveTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
-        //         check_temp_csvs_identical(&intmp, &outtmp);
+        check_temp_csvs_identical(&intmp, &outtmp);
     }
 }

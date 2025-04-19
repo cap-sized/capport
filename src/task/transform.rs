@@ -5,12 +5,11 @@ use serde::{Deserialize, Serialize};
 use yaml_rust2::Yaml;
 
 use crate::{
-    context::transform::TransformRegistry,
     pipeline::{
         common::{HasTask, PipelineTask},
-        context::{DefaultContext, PipelineContext},
+        context::PipelineContext,
     },
-    transform::common::{RootTransform, Transform},
+    transform::common::Transform,
     util::error::{CpError, CpResult},
 };
 
@@ -63,7 +62,6 @@ mod tests {
         pipeline::{
             common::HasTask,
             context::{DefaultContext, PipelineContext},
-            results::PipelineResults,
         },
         transform::{
             common::RootTransform,

@@ -1,7 +1,6 @@
 use std::sync::RwLock;
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 use yaml_rust2::Yaml;
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
     pipeline::results::PipelineResults,
     util::{
         common::yaml_from_str,
-        error::{CpError, CpResult, PlResult, SubResult},
+        error::{CpError, CpResult, SubResult},
     },
 };
 
@@ -32,7 +31,7 @@ impl SelectTransform {
 }
 
 impl Transform for SelectTransform {
-    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, _results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut select_cols: Vec<Expr> = vec![];
         for select in &self.selects {
             match select.expr() {
@@ -96,9 +95,9 @@ impl SelectField {
 mod tests {
     use std::sync::{Arc, RwLock};
 
+    use polars::df;
     use polars::prelude::{LazyFrame, PlSmallStr};
-    use polars::{df, docs::lazy};
-    use polars_lazy::prelude::Expr;
+
     use polars_lazy::{dsl::col, frame::IntoLazy};
 
     use crate::pipeline::results::PipelineResults;

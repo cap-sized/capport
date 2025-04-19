@@ -1,7 +1,7 @@
 use yaml_rust2::{Yaml, YamlLoader};
 
 use crate::util::error::{CpError, CpResult, SubResult};
-use std::{collections::HashMap, iter::Map, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::parser::common::YamlRead;
 
@@ -88,17 +88,14 @@ fn unpack_named_configs(
 
 #[cfg(test)]
 mod tests {
-    use core::time;
+    
     use std::{
-        fs::{self, DirBuilder},
+        fs::{self},
         io::Write,
         str::FromStr,
     };
 
-    use crate::{
-        transform::select::SelectTransform,
-        util::{common::yaml_from_str, tmp::TempFile},
-    };
+    use crate::util::{common::yaml_from_str, tmp::TempFile};
 
     use super::*;
 

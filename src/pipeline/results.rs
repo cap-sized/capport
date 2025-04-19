@@ -1,13 +1,12 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
-    sync::Mutex,
 };
 
 use polars::frame::DataFrame;
 use polars_lazy::frame::LazyFrame;
 
-use crate::util::error::{CpError, CpResult, SubResult};
+use crate::util::error::{CpError, CpResult};
 
 #[derive(Clone)]
 pub struct PipelineResults<ResultType> {

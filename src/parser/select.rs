@@ -1,19 +1,14 @@
-use crate::transform::common::Transform;
 use crate::transform::select::{SelectField, SelectTransform};
-use crate::util::error::{CpError, CpResult, SubResult};
-use std::collections::HashMap;
-use std::{fmt, fs};
+use crate::util::error::SubResult;
 use yaml_rust2::Yaml;
 
 use super::common::{YamlMapRead, YamlRead};
 
-const SELECT_KEYWORD: &str = "select";
 const ARGS_KEYWORD: &str = "args";
 const ACTION_KEYWORD: &str = "action";
 const KWARGS_KEYWORD: &str = "kwargs";
 
 pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
-    let kwargs_key = Yaml::from_str(KWARGS_KEYWORD);
     if node.is_null() {
         return Err(format!("Field {} is null", name));
     }
@@ -51,7 +46,6 @@ pub fn parse_select_transform(node: &Yaml) -> SubResult<SelectTransform> {
 
 #[cfg(test)]
 mod tests {
-    use yaml_rust2::{Yaml, YamlLoader};
 
     use crate::{
         transform::select::{SelectField, SelectTransform},
@@ -156,7 +150,7 @@ positions:
         .iter()
         .for_each(|&s| {
             let config = yaml_from_str(s).unwrap();
-            let actual = parse_select_transform(&config).unwrap_err();
+            parse_select_transform(&config).unwrap_err();
         });
     }
 }

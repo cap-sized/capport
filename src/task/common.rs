@@ -1,4 +1,4 @@
-use serde::{Deserialize, de};
+use serde::Deserialize;
 use yaml_rust2::Yaml;
 
 use crate::util::{

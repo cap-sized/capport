@@ -1,8 +1,7 @@
 use crate::transform::common::{RootTransform, Transform};
-use crate::transform::select::{SelectField, SelectTransform};
-use crate::util::error::{CpError, CpResult, SubResult};
+use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
-use std::{fmt, fs};
+use std::fmt;
 use yaml_rust2::Yaml;
 
 use crate::parser::transform::parse_root_transform;
@@ -85,9 +84,12 @@ mod tests {
 
     use polars::{df, prelude::LazyFrame};
     use polars_lazy::frame::IntoLazy;
-    use yaml_rust2::{YamlLoader, yaml};
 
-    use crate::{pipeline::results::PipelineResults, util::common::create_config_pack};
+    use crate::{
+        pipeline::results::PipelineResults,
+        transform::select::{SelectField, SelectTransform},
+        util::common::create_config_pack,
+    };
 
     use super::*;
     fn create_transform_registry(yaml_str: &str) -> TransformRegistry {
@@ -105,6 +107,17 @@ mod tests {
     fn valid_empty_transform() {
         let tr = TransformRegistry::default();
         assert!(tr.registry.is_empty());
+    }
+
+    #[test]
+    fn invalid_non_list_transform() {
+        assert_invalid_transform(
+            "
+player_to_person:
+    select:
+        id: csid 
+",
+        );
     }
 
     #[test]

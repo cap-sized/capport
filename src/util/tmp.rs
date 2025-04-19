@@ -1,8 +1,4 @@
-use core::time;
-use std::{
-    fs::{self, File},
-    thread::sleep,
-};
+use std::fs::{self, File};
 
 use super::{common::rng_str, error::SubResult};
 
@@ -14,7 +10,7 @@ pub struct TempFile {
 impl TempFile {
     pub fn new(filepath: &str) -> SubResult<TempFile> {
         match File::create(filepath) {
-            Ok(x) => Ok(TempFile {
+            Ok(_) => Ok(TempFile {
                 filepath: filepath.to_owned(),
             }),
             Err(e) => Err(e.to_string()),
@@ -52,11 +48,10 @@ impl Drop for TempFile {
 
 #[cfg(test)]
 mod tests {
-    use core::time;
+
     use std::{
         fs,
         io::{Read, Write},
-        thread::sleep,
     };
 
     use super::TempFile;
@@ -81,7 +76,7 @@ mod tests {
         let fp = "/tmp/__delete_on_drop_7862af50be.log";
         {
             // TODO: Use default in dir
-            let tf = TempFile::new(fp).unwrap();
+            TempFile::new(fp).unwrap();
         }
         assert!(!fs::exists(fp).unwrap());
     }

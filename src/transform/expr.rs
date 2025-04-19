@@ -1,8 +1,4 @@
 use polars::prelude::*;
-use polars_lazy::prelude::*;
-use yaml_rust2::Yaml;
-
-use crate::util::error::SubResult;
 
 const COL_EXPR_DELIMITERS: [char; 3] = ['.', '@', '*'];
 
@@ -25,7 +21,7 @@ where
         // (@idx : list.get(idx))
         // (*xxx : list.eval(element().struct.field(xxx)))
         '.' => |left: Option<Expr>, next_arg: &str| Some(left.unwrap().struct_().field_by_name(next_arg)),
-        unknown => |left: Option<Expr>, _: &str| left,
+        _ => |left: Option<Expr>, _: &str| left,
     };
     let field = head
         .strip_suffix(|delim: char| COL_EXPR_DELIMITERS.clone().contains(&delim))
@@ -35,9 +31,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use polars::{df, docs::lazy};
+
+    use polars_lazy::dsl::col;
     use polars_lazy::prelude::Expr;
-    use polars_lazy::{dsl::col, frame::IntoLazy};
 
     use crate::transform::expr::{COL_EXPR_DELIMITERS, parse_col_expr};
 

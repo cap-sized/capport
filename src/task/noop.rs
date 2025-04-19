@@ -6,13 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     pipeline::{
         common::{HasTask, PipelineTask},
-        context::{DefaultContext, PipelineContext},
-        results::PipelineResults,
+        context::PipelineContext,
     },
-    util::{
-        common::yaml_to_str,
-        error::{CpError, CpResult, SubResult},
-    },
+    util::error::CpResult,
 };
 
 use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
@@ -20,7 +16,7 @@ use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
 #[derive(Serialize, Deserialize)]
 pub struct NoopTask;
 
-pub fn run<R, S>(ctx: Arc<dyn PipelineContext<R, S>>, task: &NoopTask) -> CpResult<()> {
+pub fn run<R, S>(_ctx: Arc<dyn PipelineContext<R, S>>, _task: &NoopTask) -> CpResult<()> {
     Ok(())
 }
 
@@ -60,7 +56,6 @@ mod tests {
 
     #[test]
     fn invalid_noop_args() {
-        let ctx = DefaultContext::default();
         let args = yaml_from_str(
             "
 ---

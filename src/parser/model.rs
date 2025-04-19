@@ -2,10 +2,8 @@ use yaml_rust2::Yaml;
 
 use crate::model::common::{Model, ModelField};
 use crate::util::common::{NYT, UTC};
-use crate::util::error::{CpError, CpResult, SubResult};
+use crate::util::error::SubResult;
 use polars::datatypes::{DataType, TimeUnit, TimeZone};
-use std::collections::HashMap;
-use std::fs;
 
 use super::common::{YamlMapRead, YamlRead};
 
@@ -45,8 +43,6 @@ pub fn parse_dtype(dtype: &str) -> Option<polars::datatypes::DataType> {
 }
 
 pub fn parse_model_field(name: &str, node: &Yaml) -> SubResult<ModelField> {
-    let constraint_key = Yaml::from_str(CONSTRAINT_KEYWORD);
-    let dtype_key = Yaml::from_str(DTYPE_KEYWORD);
     if node.is_null() {
         return Err(format!("Field {} is null", name));
     }

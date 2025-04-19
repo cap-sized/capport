@@ -65,6 +65,6 @@ last_name:
 ",
         )
         .unwrap();
-        let actual = parse_drop_transform(&config).unwrap_err();
+        let _ = parse_drop_transform(&config).unwrap_err();
     }
 }

@@ -1,14 +1,13 @@
 use std::sync::RwLock;
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 
 use crate::{
     pipeline::results::PipelineResults,
     util::error::{CpError, CpResult, SubResult},
 };
 
-use super::{common::Transform, expr::parse_str_to_col_expr, select::SelectField};
+use super::common::Transform;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropField {
@@ -33,7 +32,7 @@ impl DropTransform {
 }
 
 impl Transform for DropTransform {
-    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, _results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut drop_cols: Vec<Expr> = vec![];
         for delete in &self.deletes {
             match delete.expr() {
@@ -68,10 +67,10 @@ impl DropField {
 mod tests {
     use std::sync::{Arc, RwLock};
 
-    use polars::prelude::{LazyFrame, PlSmallStr};
-    use polars::{df, docs::lazy};
-    use polars_lazy::prelude::Expr;
-    use polars_lazy::{dsl::col, frame::IntoLazy};
+    use polars::df;
+    use polars::prelude::LazyFrame;
+
+    use polars_lazy::frame::IntoLazy;
 
     use crate::pipeline::results::PipelineResults;
 

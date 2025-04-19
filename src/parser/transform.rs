@@ -70,23 +70,12 @@ pub fn parse_root_transform(name: &str, node: &Yaml) -> SubResult<RootTransform>
 mod tests {
     use std::sync::{Arc, RwLock};
 
-    use polars::{
-        df,
-        prelude::{DataFrameJoinOps, PlSmallStr},
-    };
-    use polars_lazy::{
-        dsl::col,
-        frame::{IntoLazy, LazyFrame},
-    };
+    use polars::{df, prelude::LazyFrame};
+    use polars_lazy::dsl::col;
 
     use crate::{
         pipeline::results::PipelineResults,
-        transform::{
-            common::{RootTransform, Transform},
-            drop::DropTransform,
-            join::JoinTransform,
-            select::SelectTransform,
-        },
+        transform::{common::Transform, drop::DropTransform, join::JoinTransform, select::SelectTransform},
         util::common::{DummyData, yaml_from_str},
     };
 

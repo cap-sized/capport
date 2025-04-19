@@ -1,6 +1,5 @@
 extern crate proc_macro;
 use polars::error::PolarsError;
-use proc_macro::TokenStream;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

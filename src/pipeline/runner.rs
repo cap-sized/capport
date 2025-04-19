@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use polars::prelude::LazyFrame;
 
-use crate::util::error::{CpError, CpResult};
+use crate::util::error::CpResult;
 
 use super::{
     common::Pipeline,
-    context::{DefaultContext, PipelineContext},
+    context::PipelineContext,
     results::PipelineResults,
 };
 

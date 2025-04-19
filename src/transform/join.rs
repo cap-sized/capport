@@ -1,17 +1,15 @@
 use std::sync::RwLock;
 
 use polars::prelude::*;
-use polars_lazy::prelude::*;
 
 use crate::{
-    parser::join::parse_jointype,
     pipeline::results::PipelineResults,
-    util::error::{CpError, CpResult, SubResult},
+    util::error::{CpError, CpResult},
 };
 
 use super::{
     common::Transform,
-    select::{SelectField, SelectTransform},
+    select::SelectField,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,7 +78,7 @@ mod tests {
     use std::{collections::HashMap, sync::RwLock};
 
     use polars::{df, prelude::*};
-    use polars_lazy::prelude::*;
+    
 
     use crate::{
         pipeline::results::PipelineResults,

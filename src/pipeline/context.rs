@@ -1,21 +1,17 @@
-use std::{
-    ops::DerefMut,
-    process::exit,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use polars::prelude::LazyFrame;
 use yaml_rust2::Yaml;
 
 use crate::{
-    context::{model::ModelRegistry, pipeline::PipelineRegistry, task::TaskDictionary, transform::TransformRegistry},
+    context::{model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
     model::common::Model,
     transform::common::RootTransform,
     util::error::{CpError, CpResult},
 };
 
 use super::{
-    common::{Pipeline, PipelineTask},
+    common::PipelineTask,
     results::PipelineResults,
 };
 

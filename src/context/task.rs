@@ -9,7 +9,7 @@ use crate::{
         loadstore::csv::{CsvModelLoadTask, CsvModelSaveTask},
         noop::NoopTask,
     },
-    util::error::{CpError, CpResult},
+    util::error::CpResult,
 };
 
 pub type TaskGenerator<ResultType, SvcDistributor> = fn(&Yaml) -> CpResult<PipelineTask<ResultType, SvcDistributor>>;

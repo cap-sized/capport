@@ -1,17 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use yaml_rust2::{Yaml, YamlEmitter};
+use yaml_rust2::Yaml;
 
 use crate::{
-    pipeline::{
-        common::{HasTask, Pipeline, PipelineStage, PipelineTask},
-        context::DefaultContext,
-    },
-    task::noop::NoopTask,
-    util::{
-        common::yaml_to_str,
-        error::{CpError, CpResult, SubResult},
-    },
+    pipeline::common::{Pipeline, PipelineStage},
+    util::error::SubResult,
 };
 
 use super::common::{YamlMapRead, YamlRead};
@@ -67,11 +60,10 @@ pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::common::{HasTask, PipelineStage, PipelineTask},
-        task::noop::NoopTask,
+        pipeline::common::PipelineStage,
         util::common::yaml_from_str,
     };
-    use serde::{Deserialize, Serialize};
+    
 
     use super::parse_pipeline_stage;
 

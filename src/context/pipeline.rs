@@ -3,7 +3,6 @@ use yaml_rust2::Yaml;
 use crate::pipeline::common::Pipeline;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
-use std::fs;
 
 use crate::parser::pipeline::parse_pipeline;
 
@@ -67,8 +66,7 @@ impl Configurable for PipelineRegistry {
 #[cfg(test)]
 mod tests {
     use crate::{
-        pipeline::common::{HasTask, PipelineStage},
-        task::noop::NoopTask,
+        pipeline::common::PipelineStage,
         util::common::{create_config_pack, yaml_from_str},
     };
 

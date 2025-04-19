@@ -1,11 +1,9 @@
 use yaml_rust2::Yaml;
 
-use crate::model::common::{Model, ModelField};
-use crate::util::common::{NYT, UTC};
-use crate::util::error::{CpError, CpResult, SubResult};
-use polars::datatypes::{DataType, TimeUnit, TimeZone};
+use crate::model::common::Model;
+use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
-use std::{fmt, fs};
+use std::fmt;
 
 use crate::parser::model::parse_model;
 
@@ -79,9 +77,10 @@ impl Configurable for ModelRegistry {
 
 #[cfg(test)]
 mod tests {
-    use yaml_rust2::{YamlLoader, yaml};
 
-    use crate::util::common::create_config_pack;
+    use polars::prelude::DataType;
+
+    use crate::{model::common::ModelField, util::common::create_config_pack};
 
     use super::*;
 

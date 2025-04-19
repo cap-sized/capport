@@ -1,4 +1,7 @@
-use std::fs::File;
+use std::{
+    fs::{self, File},
+    path::Path,
+};
 
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -17,8 +20,8 @@ use crate::{
 #[derive(Serialize, Deserialize)]
 pub struct CsvModel {
     pub filepath: String,
-    pub model: String,   // model name
-    pub df_name: String, // df name to save to/load from in PipelineResults
+    pub model: Option<String>, // model name
+    pub df_name: String,       // df name to save to/load from in PipelineResults
 }
 
 pub struct CsvModelLoadTask {
@@ -30,12 +33,25 @@ pub struct CsvModelSaveTask {
 }
 
 impl CsvModel {
-    pub fn build(&self, model: &Model) -> CpResult<LazyFrame> {
+    pub fn build(&self, model: Option<Model>) -> CpResult<LazyFrame> {
         // TODO: Warn if filepath is not absolute
         let lf: LazyFrame = LazyCsvReader::new(&self.filepath).with_has_header(true).finish()?;
-        match model.reshape(lf) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(CpError::TaskError("CsvModel.reshape", e.to_string())),
+        match model {
+            Some(model) => match model.reshape(lf) {
+                Ok(x) => Ok(x),
+                Err(e) => Err(CpError::TaskError("CsvModel.reshape", e.to_string())),
+            },
+            None => Ok(lf),
+        }
+    }
+
+    pub fn collect_shape(lf: LazyFrame, model: Option<Model>) -> CpResult<DataFrame> {
+        match model {
+            Some(model) => match model.reshape(lf) {
+                Ok(x) => Ok(x.collect()?),
+                Err(e) => Err(CpError::TaskError("CsvModel.reshape", e.to_string())),
+            },
+            None => Ok(lf.collect()?),
         }
     }
 
@@ -62,8 +78,11 @@ impl CsvModel {
 
 pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
-        let model: Model = ctx.get_model(&csv_model.model)?;
-        let lf: LazyFrame = csv_model.build(&model)?;
+        let model: Option<Model> = match &csv_model.model {
+            Some(model_name) => Some(ctx.get_model(&model_name)?),
+            None => None,
+        };
+        let lf: LazyFrame = csv_model.build(model)?;
         if let Some(x) = ctx.insert_result(&csv_model.df_name, lf)? {
             // TODO: correct warning if replace
             println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
@@ -74,10 +93,24 @@ pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
 
 pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
-        let mut result: DataFrame = ctx.clone_result(&csv_model.df_name)?.collect()?;
-        let mut output_file = File::create(&csv_model.filepath)?;
+        let lf: LazyFrame = ctx.clone_result(&csv_model.df_name)?;
+        let model: Option<Model> = match &csv_model.model {
+            Some(model_name) => Some(ctx.get_model(&model_name)?),
+            None => None,
+        };
+        let mut df = CsvModel::collect_shape(lf, model)?;
+        let dir_path = Path::new(&csv_model.filepath);
+        match dir_path.parent() {
+            Some(x) => {
+                if !x.exists() {
+                    fs::create_dir_all(x)?;
+                }
+            }
+            None => (),
+        };
+        let mut output_file = File::create(dir_path)?;
         let mut writer = CsvWriter::new(&mut output_file).include_header(true);
-        writer.finish(&mut result)?;
+        writer.finish(&mut df)?;
     }
     Ok(())
 }
@@ -193,6 +226,27 @@ id,name
             ]),
             (),
         ))
+    }
+
+    #[test]
+    fn valid_no_model() {
+        let tmp = create_temp_csv();
+        let ctx = Arc::new(DefaultContext::default());
+        let config = format!(
+            "
+---
+- filepath: {}
+  df_name: ID_NAME_MAP
+",
+            &tmp.filepath
+        );
+        let args = yaml_from_str(&config).unwrap();
+        let t = CsvModelLoadTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
+        let mut expected_results = PipelineResults::<LazyFrame>::default();
+        expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
+        let actual_results = ctx.clone_results().unwrap();
+        assert_eq!(expected_results, actual_results);
     }
 
     #[test]

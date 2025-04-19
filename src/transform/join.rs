@@ -7,10 +7,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::{
-    common::Transform,
-    select::SelectField,
-};
+use super::{common::Transform, select::SelectField};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JoinTransform {
@@ -78,7 +75,6 @@ mod tests {
     use std::{collections::HashMap, sync::RwLock};
 
     use polars::{df, prelude::*};
-    
 
     use crate::{
         pipeline::results::PipelineResults,
@@ -97,9 +93,10 @@ mod tests {
             &[],
             polars::prelude::JoinType::Left,
         );
-        let results = Arc::new(RwLock::new(PipelineResults {
-            results: HashMap::from([("STATE_CODE".to_string(), DummyData::state_code())]),
-        }));
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
+            "STATE_CODE".to_string(),
+            DummyData::state_code(),
+        )]))));
 
         let actual = jt
             .run_lazy(DummyData::player_data(), results)
@@ -137,9 +134,10 @@ mod tests {
             ],
             polars::prelude::JoinType::Full,
         );
-        let results = Arc::new(RwLock::new(PipelineResults {
-            results: HashMap::from([("PLAYER_DATA".to_string(), DummyData::player_data())]),
-        }));
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
+            "PLAYER_DATA".to_string(),
+            DummyData::player_data(),
+        )]))));
 
         let orig_df = DummyData::player_scores().filter(col("csid").neq(lit(82938842)));
         let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
@@ -169,9 +167,10 @@ mod tests {
             &[SelectField::new("csid", "csid"), SelectField::new("scores", "scores")],
             polars::prelude::JoinType::Right,
         );
-        let results = Arc::new(RwLock::new(PipelineResults {
-            results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
-        }));
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
+            "PLAYER_SCORES".to_string(),
+            DummyData::player_scores(),
+        )]))));
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
         let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
@@ -199,9 +198,10 @@ mod tests {
             &[SelectField::new("csid", "csid"), SelectField::new("scores", "scores")],
             polars::prelude::JoinType::Right,
         );
-        let results = Arc::new(RwLock::new(PipelineResults {
-            results: HashMap::from([("PLAYER_SCORES".to_string(), DummyData::player_scores())]),
-        }));
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
+            "PLAYER_SCORES".to_string(),
+            DummyData::player_scores(),
+        )]))));
 
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
         let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();

@@ -10,7 +10,7 @@ use crate::util::error::{CpError, CpResult};
 
 #[derive(Clone)]
 pub struct PipelineResults<ResultType> {
-    pub results: HashMap<String, ResultType>,
+    results: HashMap<String, ResultType>,
 }
 
 impl Debug for PipelineResults<LazyFrame> {
@@ -27,15 +27,13 @@ impl PartialEq for PipelineResults<LazyFrame> {
 
 impl<T> Default for PipelineResults<T> {
     fn default() -> Self {
-        Self::new()
+        Self::new(HashMap::new())
     }
 }
 
 impl<T> PipelineResults<T> {
-    pub fn new() -> PipelineResults<T> {
-        PipelineResults {
-            results: HashMap::new(),
-        }
+    pub fn new(results: HashMap<String, T>) -> PipelineResults<T> {
+        PipelineResults { results }
     }
     pub fn keys(&self) -> Vec<String> {
         self.results.keys().map(|x| x.to_owned()).collect::<Vec<_>>()
@@ -63,6 +61,9 @@ impl<T: Clone> PipelineResults<T> {
         let old = self.results.remove(key);
         self.results.insert(key.to_owned(), lf);
         old
+    }
+    pub fn clone_all(&self) -> HashMap<String, T> {
+        self.results.clone()
     }
 }
 

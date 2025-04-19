@@ -2,7 +2,7 @@ pipeline:
 
   mass_load_player:
     - label: load_state_province
-      task: load_csvs # mongo_csdb
+      task: load_csv # mongo_csdb
       args:
         - filepath: "data/csv/state_province.csv"
           model: state_province
@@ -46,7 +46,7 @@ pipeline:
         save_df: PLAYER
 
     - label: store_players_persons
-      task: save_csvs # mongo_csdb
+      task: save_csv # mongo_csdb
       args:
         - filepath: "output/data/person.csv"
           model: person

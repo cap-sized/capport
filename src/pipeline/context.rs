@@ -32,10 +32,10 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn svc(&self) -> Option<ServiceDistributor>;
 }
 
-pub struct DefaultContext<ResultType, S> {
+pub struct DefaultContext<ResultType, ServiceDistributor> {
     model_registry: ModelRegistry,
     transform_registry: TransformRegistry,
-    task_dictionary: TaskDictionary<ResultType, S>,
+    task_dictionary: TaskDictionary<ResultType, ServiceDistributor>,
     results: Arc<RwLock<PipelineResults<ResultType>>>,
 }
 
@@ -57,7 +57,9 @@ impl<R, S> DefaultContext<R, S> {
     }
 }
 
-impl<ResultType: Clone, S> PipelineContext<ResultType, S> for DefaultContext<ResultType, S> {
+impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceDistributor>
+    for DefaultContext<ResultType, ServiceDistributor>
+{
     fn clone_results(&self) -> CpResult<PipelineResults<ResultType>> {
         Ok(self.results.as_ref().read()?.clone())
     }
@@ -96,7 +98,7 @@ impl<ResultType: Clone, S> PipelineContext<ResultType, S> for DefaultContext<Res
             )),
         }
     }
-    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, S>> {
+    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, ServiceDistributor>> {
         let taskgen = match self.task_dictionary.tasks.get(key) {
             Some(x) => x,
             None => {
@@ -124,7 +126,7 @@ impl<ResultType: Clone, S> PipelineContext<ResultType, S> for DefaultContext<Res
         }
     }
 
-    fn svc(&self) -> Option<S> {
+    fn svc(&self) -> Option<ServiceDistributor> {
         None
     }
 }

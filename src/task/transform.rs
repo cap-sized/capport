@@ -117,6 +117,7 @@ mod tests {
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
+            (),
         );
         ctx.insert_result("PLAYER_DATA", DummyData::player_data()).unwrap();
         Arc::new(ctx)
@@ -130,6 +131,7 @@ mod tests {
             ModelRegistry::new(),
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
+            (),
         );
         ctx.insert_result("ID_NAME_MAP", DummyData::id_name_map()).unwrap();
         Arc::new(ctx)

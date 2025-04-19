@@ -52,6 +52,7 @@ mod tests {
             ModelRegistry::new(),
             TransformRegistry::new(),
             TaskDictionary::new(vec![("noop", generate_lazy_task::<NoopTask, ()>())]),
+            (),
         ))
     }
 

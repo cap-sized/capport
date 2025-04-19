@@ -191,6 +191,7 @@ id,name
                 ("load_csv", generate_lazy_task::<CsvModelLoadTask, ()>()),
                 ("save_csv", generate_lazy_task::<CsvModelSaveTask, ()>()),
             ]),
+            (),
         ))
     }
 

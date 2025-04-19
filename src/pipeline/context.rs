@@ -29,7 +29,7 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
 
     fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
 
-    fn svc(&self) -> Option<ServiceDistributor>;
+    fn svc(&self) -> Arc<ServiceDistributor>;
 }
 
 pub struct DefaultContext<ResultType, ServiceDistributor> {
@@ -37,6 +37,7 @@ pub struct DefaultContext<ResultType, ServiceDistributor> {
     transform_registry: TransformRegistry,
     task_dictionary: TaskDictionary<ResultType, ServiceDistributor>,
     results: Arc<RwLock<PipelineResults<ResultType>>>,
+    service_distributor: Arc<ServiceDistributor>,
 }
 
 unsafe impl<ResultType, ServiceDistributor> Send for DefaultContext<ResultType, ServiceDistributor> {}
@@ -47,12 +48,14 @@ impl<R, S> DefaultContext<R, S> {
         model_registry: ModelRegistry,
         transform_registry: TransformRegistry,
         task_dictionary: TaskDictionary<R, S>,
+        service_distributor: S,
     ) -> Self {
         DefaultContext {
             model_registry,
             transform_registry,
             task_dictionary,
             results: Arc::new(RwLock::new(PipelineResults::<R>::default())),
+            service_distributor: Arc::new(service_distributor),
         }
     }
 }
@@ -126,8 +129,8 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
         }
     }
 
-    fn svc(&self) -> Option<ServiceDistributor> {
-        None
+    fn svc(&self) -> Arc<ServiceDistributor> {
+        self.service_distributor.clone()
     }
 }
 
@@ -137,6 +140,7 @@ impl Default for DefaultContext<LazyFrame, ()> {
             ModelRegistry::new(),
             TransformRegistry::new(),
             TaskDictionary::default(),
+            (),
         )
     }
 }

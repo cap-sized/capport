@@ -6,7 +6,6 @@ use super::common::{YamlMapRead, YamlRead};
 
 const ARGS_KEYWORD: &str = "args";
 const ACTION_KEYWORD: &str = "action";
-const KWARGS_KEYWORD: &str = "kwargs";
 
 pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
     if !node.is_hash() {
@@ -14,7 +13,6 @@ pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
             label: String::from(name),
             action: None,
             args: node.clone(),
-            kwargs: None,
         })
     } else {
         let node_map = node.to_map("Unexpected non-hash".to_owned())?;
@@ -26,7 +24,6 @@ pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
                 Some(&x) => x.to_owned(),
                 None => return Err(format!("args not found in SelectField {}", name)),
             },
-            kwargs: node_map.get(KWARGS_KEYWORD).cloned().cloned(),
         })
     }
 }
@@ -78,8 +75,8 @@ first_name: firstName.default
 last_name: lastName.default
 full_name: 
     action: concat_str # str concat, default with space
-    args: [ firstName.default, lastName.default ] 
-    kwargs:
+    args: 
+        cols: [ firstName.default, lastName.default ] 
         separator: \" \"
 ",
         )
@@ -90,9 +87,8 @@ full_name:
             SelectField::new("last_name", "lastName.default"),
             SelectField::from(
                 "full_name",
-                "[ firstName.default, lastName.default ]",
+                "{ cols: [ firstName.default, lastName.default ], separator: \" \"}",
                 Some("concat_str"),
-                Some("{separator: \" \"}"),
             ),
         ]);
         assert_eq!(actual, expected);
@@ -117,7 +113,7 @@ positions:
             SelectField::new("person_id", "csid"),
             SelectField::new("player_id", "playerId"),
             SelectField::new("shoots_catches", "shootsCatches"),
-            SelectField::from("positions", "position", Some("to_list"), None),
+            SelectField::from("positions", "position", Some("to_list")),
         ]);
         assert_eq!(actual, expected);
     }

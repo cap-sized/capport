@@ -199,4 +199,18 @@ save_df: ID_NAME_MAP
         t(ctx.clone()).unwrap();
         ctx.clone_result("ID_NAME_MAP").unwrap().collect().unwrap_err();
     }
+
+    #[test]
+    fn invalid_transform_not_found() {
+        let ctx = create_context(false);
+        let config = "
+---
+name: player_data_to_full_name
+input: PLAYER_DATA
+save_df: ID_NAME_MAP
+";
+        let args = yaml_from_str(config).unwrap();
+        let t = TransformTask::lazy_task(&args).unwrap();
+        assert!(t(ctx.clone()).is_err());
+    }
 }

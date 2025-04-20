@@ -59,11 +59,7 @@ pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        pipeline::common::PipelineStage,
-        util::common::yaml_from_str,
-    };
-    
+    use crate::{pipeline::common::PipelineStage, util::common::yaml_from_str};
 
     use super::parse_pipeline_stage;
 
@@ -72,7 +68,7 @@ mod tests {
         let config = yaml_from_str(
             "
 label: fetch_cs_player_data
-task: mongo_find
+task: find
 args: 
     database: csdb
     table: players
@@ -84,7 +80,7 @@ args:
         let actual = parse_pipeline_stage(&config).unwrap();
         let expected = PipelineStage::new(
             "fetch_cs_player_data",
-            "mongo_find",
+            "find",
             &yaml_from_str(
                 "
 database: csdb
@@ -120,7 +116,7 @@ args:
         let config = yaml_from_str(
             "
 label: fetch_cs_player_data
-task: mongo_find
+task: find
 args: 
     database: csdb
     table: players
@@ -132,13 +128,13 @@ args:
         let actual = parse_pipeline_stage(&config).unwrap();
         assert_ne!(
             actual,
-            PipelineStage::new("fetch_cs_player_data", "mongo_find", &yaml_from_str("---").unwrap())
+            PipelineStage::new("fetch_cs_player_data", "find", &yaml_from_str("---").unwrap())
         );
         assert_ne!(
             actual,
             PipelineStage::new(
                 "fetch_cs_player_data",
-                "mongo_find",
+                "find",
                 &yaml_from_str(
                     "
 database: csdb

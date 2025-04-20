@@ -16,19 +16,17 @@ transform:
         first_name: firstName.default # handle subpaths
         last_name: lastName.default # handle subpaths
         full_name: 
-          action: concat_str # str concat, default with space
+          action: concat # str concat, default with space
           args: 
             cols: [ "firstName.default", "lastName.default" ] 
-            separator" : " "
+            separator : " "
         birthdate: birthDate
         birth_city: birthCity.default
         birth_state_province_name: birthStateProvince.default
         birth_state_country_code: birthCountry.default
         # is_nhl: <-- literal sample
         #   action: lit
-        #   kwargs: 
-        #     value: true
-        #     dtype: bool
+        #   args: true
     - join:
         right: STATE_PROVINCE #  << named df
         right_select: 

@@ -1,25 +1,3 @@
-[package]
-name = "capport"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-argh = "0.1.13"
-chrono-tz = "0.10.3"
-polars = { version = "0.46.0", features = ['lazy', 'csv', 'polars-io'] }
-polars-lazy = { version = "0.46.0", features = ['dtype-struct'] }
-rand = "0.9.0"
-reqwest = "0.12.15"
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml_ng = "0.10.0"
-thiserror = "2.0.12"
-yaml-rust2 = "0.10.1"
-
-
-# these are for services only
-mongodb = { version = "3.2.3", features = ['sync'] }
-
-[lints.rust]
-# unused_variables = "allow"
-# unused_imports = "allow"
-# dead_code = "allow"
+[workspace]
+resolver = "2"
+members = ["capport_core", "capport_default"]

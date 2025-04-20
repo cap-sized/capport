@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use capport::context::task::TaskDictionary;
-use capport::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
-use capport::parser::config::{pack_configs_from_files, read_configs};
-use capport::pipeline::context::DefaultContext;
-use capport::pipeline::runner::PipelineRunner;
-use capport::util::args::RunPipelineArgs;
+use capport_core::context::task::TaskDictionary;
+use capport_core::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
+use capport_core::parser::config::{pack_configs_from_files, read_configs};
+use capport_core::pipeline::context::DefaultContext;
+use capport_core::pipeline::runner::PipelineRunner;
+use capport_core::util::args::RunPipelineArgs;
 use polars::prelude::LazyFrame;
 
 fn main() {

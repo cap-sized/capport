@@ -4,7 +4,7 @@ use polars::{frame::DataFrame, io::SerReader, prelude::JsonReader};
 
 use super::error::CpResult;
 
-pub fn vec_str_json_to_df(vecstr: &Vec<String>) -> CpResult<DataFrame> {
+pub fn vec_str_json_to_df(vecstr: &[String]) -> CpResult<DataFrame> {
     let input = format!("[{}]", vecstr.join(", "));
     let reader = JsonReader::new(Cursor::new(input.trim()));
     Ok(reader.finish()?)

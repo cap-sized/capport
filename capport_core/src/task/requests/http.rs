@@ -31,6 +31,7 @@ async fn get_http_urls(urls: Vec<String>) -> CpResult<Vec<String>> {
         .map(|urlref| {
             let cli = client.clone();
             let req = cli.get(urlref);
+            // TODO: This may timeout! Need to have a backoff retry strategy
             tokio::task::spawn(async move { req.send().await })
         })
         .collect::<Vec<_>>();
@@ -55,6 +56,7 @@ async fn get_http_urls(urls: Vec<String>) -> CpResult<Vec<String>> {
 }
 
 fn run_get_http_urls(url: Vec<String>) -> CpResult<Vec<String>> {
+    // TODO: This is unnecessary if it is one url, and overkill if it is like 10000
     let mut rt_builder = tokio::runtime::Builder::new_current_thread();
     rt_builder.enable_all();
     let rt = rt_builder.build().unwrap();
@@ -77,8 +79,9 @@ impl HttpRequestTask {
     fn get<S>(&self, urls: Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
         let results = run_get_http_urls(urls)?;
         let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
-        let df = match fmt {
-            _ => vec_str_json_to_df(&results)?,
+        let df = match fmt.as_str() {
+            "json" => vec_str_json_to_df(&results)?, // json default
+            _ => panic!("Should never reach here"),
         };
         ctx.insert_result(&self.df_to, df.lazy())?;
         Ok(())
@@ -155,9 +158,7 @@ mod tests {
                 let act: SampleAct = serde_json::from_str(j).unwrap();
                 server.mock(|when, then| {
                     when.method(GET).path("/actions").query_param("id", act.id);
-                    then.status(200)
-                        .header("content-type", "application/json")
-                        .body(j.to_owned());
+                    then.status(200).header("content-type", "application/json").body(j);
                 })
             })
             .collect()

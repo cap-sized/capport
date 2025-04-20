@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use super::{common::Transform, expr::parse_str_to_col_expr};
+use super::{action::parse_action_to_expr, common::Transform, expr::parse_str_to_col_expr};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SelectTransform {
@@ -50,7 +50,6 @@ pub struct SelectField {
     pub label: String,
     pub action: Option<String>,
     pub args: Yaml,
-    pub kwargs: Option<Yaml>,
 }
 
 impl SelectField {
@@ -59,27 +58,30 @@ impl SelectField {
             label: label.to_string(),
             action: None,
             args: Yaml::Null,
-            kwargs: None,
         }
     }
+
     pub fn new(label: &str, args: &str) -> SelectField {
         SelectField {
             label: label.to_string(),
             action: None,
             args: yaml_from_str(args).unwrap_or(Yaml::Null),
-            kwargs: None,
         }
     }
 
-    pub fn from(label: &str, args: &str, action: Option<&str>, kwargs: Option<&str>) -> SelectField {
+    pub fn new_action(label: &str, action: &str, args: &str) -> SelectField {
+        SelectField {
+            label: label.to_string(),
+            action: Some(action.to_string()),
+            args: yaml_from_str(args).unwrap_or(Yaml::Null),
+        }
+    }
+
+    pub fn from(label: &str, args: &str, action: Option<&str>) -> SelectField {
         SelectField {
             label: label.to_string(),
             action: action.map(|x| x.to_string()),
             args: yaml_from_str(args).unwrap_or_else(|| panic!("[args] invalid yaml to parse: {}", args)),
-            kwargs: match kwargs {
-                Some(x) => yaml_from_str(x),
-                None => None,
-            },
         }
     }
 
@@ -90,9 +92,10 @@ impl SelectField {
                 Some(x) => x,
                 None => return Err(format!("Selected field cannot be parsed to polars Expr: {:?}", rawexpr)),
             };
-            return Ok(col_expr.alias(&self.label));
+            Ok(col_expr.alias(&self.label))
+        } else {
+            parse_action_to_expr(&self.label, self.action.clone().unwrap().as_str(), &self.args)
         }
-        Err(format!("Alternate action '{:?}' not yet supported", &self.action))
     }
 }
 
@@ -201,5 +204,46 @@ mod tests {
             ]
             .unwrap()
         );
+    }
+
+    #[test]
+    fn valid_select_action_format() {
+        let sample_df = df![
+            "Market" => ["CE", "LA", "VE"],
+            "Ticker" => ["ABAB", "TORO", "PKJT"],
+        ]
+        .unwrap()
+        .lazy();
+        let transform = SelectTransform::new(&[SelectField::new_action(
+            "full",
+            "format",
+            "{template: \"{}_{}\", cols: [Market, Ticker]}",
+        )]);
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        let actual_df = transform.run_lazy(sample_df, results).unwrap().collect().unwrap();
+        assert_eq!(
+            actual_df,
+            df![
+                "full" => ["CE_ABAB", "LA_TORO", "VE_PKJT"]
+            ]
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn invalid_select_action() {
+        let sample_df = df![
+            "Market" => ["CE", "LA", "VE"],
+            "Ticker" => ["ABAB", "TORO", "PKJT"],
+        ]
+        .unwrap()
+        .lazy();
+        let transform = SelectTransform::new(&[SelectField::new_action(
+            "full",
+            "__format",
+            "{template: \"{}_{}\", cols: [Market, Ticker]}",
+        )]);
+        let results = Arc::new(RwLock::new(PipelineResults::<LazyFrame>::default()));
+        assert!(transform.run_lazy(sample_df, results).is_err());
     }
 }

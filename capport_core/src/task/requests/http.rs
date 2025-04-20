@@ -8,7 +8,10 @@ use crate::{
     },
     task::common::{deserialize_arg_str, yaml_to_task_arg_str},
     transform::expr::parse_str_to_col_expr,
-    util::error::{CpError, CpResult},
+    util::{
+        error::{CpError, CpResult},
+        json::vec_str_json_to_df,
+    },
 };
 use polars::prelude::*;
 
@@ -21,11 +24,48 @@ pub struct HttpRequestTask {
     pub method: Option<String>, // defaults to GET
 }
 
+async fn get_http_urls(urls: Vec<String>) -> CpResult<Vec<String>> {
+    let client = Arc::new(reqwest::Client::new());
+    let handles = urls
+        .iter()
+        .map(|urlref| {
+            let cli = client.clone();
+            let req = cli.get(urlref);
+            tokio::task::spawn(async move { req.send().await })
+        })
+        .collect::<Vec<_>>();
+    let mut responses = vec![];
+    for result in handles {
+        match result.await {
+            Ok(x) => match x {
+                Ok(r) => responses.push(r.text().await),
+                Err(e) => return Err(CpError::ConnectionError(e.to_string())),
+            },
+            Err(e) => return Err(CpError::TaskError("Tokio error", e.to_string())),
+        }
+    }
+    let mut texts = vec![];
+    for response in responses {
+        match response {
+            Ok(x) => texts.push(x),
+            Err(e) => return Err(CpError::TaskError("Failed to decode as text", e.to_string())),
+        }
+    }
+    Ok(texts)
+}
+
+fn run_get_http_urls(url: Vec<String>) -> CpResult<Vec<String>> {
+    let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+    rt_builder.enable_all();
+    let rt = rt_builder.build().unwrap();
+    rt.block_on(get_http_urls(url))
+}
+
 fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) -> CpResult<()> {
-    let mtd = task.method.clone().unwrap_or("get".to_owned().to_lowercase());
+    let mtd = task.method.clone().unwrap_or("get".to_owned()).to_lowercase();
     let urls = task.to_urls(ctx.clone())?;
     match mtd.as_str() {
-        "get" => task.get(&urls, ctx),
+        "get" => task.get(urls, ctx),
         _ => Err(CpError::TaskError(
             "Invalid method for HttpRequestTask",
             format!("No method found: `{}`", &mtd),
@@ -34,34 +74,13 @@ fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) ->
 }
 
 impl HttpRequestTask {
-    fn get<S>(&self, urls: &Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
-        let client = reqwest::blocking::Client::new();
-        let mut jsons: Vec<String> = vec![];
-        for url in urls {
-            let req = client.get(url);
-            let req_log = format!("{:?}, url {}", req, &url);
-            let resp = match req.send() {
-                Ok(x) => x,
-                Err(e) => {
-                    return Err(CpError::ConnectionError(format!(
-                        "{:?} failed: {}",
-                        &req_log,
-                        e.to_string()
-                    )));
-                }
-            };
-            match resp.text() {
-                Ok(x) => jsons.push(x),
-                Err(e) => {
-                    return Err(CpError::TaskError(
-                        "HttpRequestTask",
-                        format!("Response to GET[{}] cannot be converted to text: {:?}", &url, e),
-                    ));
-                }
-            }
-        }
-        println!("{:?}", &jsons);
-        // ctx.insert_result(&self.df_to, result)
+    fn get<S>(&self, urls: Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
+        let results = run_get_http_urls(urls)?;
+        let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
+        let df = match fmt {
+            _ => vec_str_json_to_df(&results)?,
+        };
+        ctx.insert_result(&self.df_to, df.lazy())?;
         Ok(())
     }
     fn to_urls<S>(&self, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<Vec<String>> {
@@ -103,45 +122,114 @@ impl HasTask for HttpRequestTask {
 mod tests {
     use std::sync::Arc;
 
-    use polars::{df, prelude::IntoLazy};
+    use httpmock::{Mock, prelude::*};
+    use polars::{
+        df,
+        prelude::{IntoLazy, LazyFrame},
+    };
+    use serde::{Deserialize, Serialize};
 
     use crate::{
         pipeline::{
             common::HasTask,
             context::{DefaultContext, PipelineContext},
         },
-        util::common::yaml_from_str,
+        util::{
+            common::{DummyData, yaml_from_str},
+            json::vec_str_json_to_df,
+        },
     };
 
     use super::HttpRequestTask;
 
-    #[test]
-    fn valid_req() {
+    #[derive(Serialize, Deserialize)]
+    struct SampleAct {
+        id: String,
+        label: Option<String>,
+    }
+
+    fn mock_server(server: &MockServer) -> Vec<Mock> {
+        DummyData::json_actions()
+            .iter()
+            .map(|j| {
+                let act: SampleAct = serde_json::from_str(j).unwrap();
+                server.mock(|when, then| {
+                    when.method(GET).path("/actions").query_param("id", act.id);
+                    then.status(200)
+                        .header("content-type", "application/json")
+                        .body(j.to_owned());
+                })
+            })
+            .collect()
+    }
+    fn get_urls(server: &MockServer) -> Vec<String> {
+        DummyData::json_actions()
+            .iter()
+            .map(|j| {
+                let act: SampleAct = serde_json::from_str(j).unwrap();
+                server.url(format!("/actions?id={}", act.id))
+            })
+            .collect()
+    }
+    fn get_ctx(urls: Vec<String>) -> Arc<DefaultContext<LazyFrame, ()>> {
         let raw_ctx = DefaultContext::default();
         raw_ctx
             .insert_result(
                 "URLS",
                 df![
-                    "url" => ["http://httpbin.org/json"]
+                    "url" => urls
                 ]
                 .unwrap()
                 .lazy(),
             )
             .unwrap();
-        let ctx = Arc::new(raw_ctx);
-        let config = format!(
+        Arc::new(raw_ctx)
+    }
+
+    #[test]
+    fn valid_req() {
+        let optionals_pairs = [
             "
+format: json
+method: get
+",
+            "
+method: get
+",
+            "
+",
+            "
+format: JSON
+method: GET
+",
+        ]
+        .iter()
+        .map(|x| x.to_owned())
+        .collect::<Vec<&str>>();
+        for optional in optionals_pairs {
+            let server = MockServer::start();
+            let mocks = mock_server(&server);
+            let urls = get_urls(&server);
+            let ctx = get_ctx(urls);
+            let config = format!(
+                "
 ---
 df_from: URLS
 df_to: DATA
 url_column: url
-format: json
-method: get
-"
-        );
-        let args = yaml_from_str(&config).unwrap();
-        let t = HttpRequestTask::lazy_task(&args).unwrap();
-        t(ctx.clone()).unwrap();
-        // assert!(false);
+{}
+",
+                optional
+            );
+            let args = yaml_from_str(&config).unwrap();
+            let t = HttpRequestTask::lazy_task(&args).unwrap();
+            t(ctx.clone()).unwrap();
+            let actual = ctx.clone_result("DATA").unwrap().collect().unwrap();
+            let expected = vec_str_json_to_df(&DummyData::json_actions()).unwrap();
+            mocks.iter().for_each(|m| {
+                m.assert();
+            });
+            assert_eq!(actual, expected);
+        }
     }
 }

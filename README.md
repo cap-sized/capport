@@ -179,26 +179,142 @@ the default implementation of `DefaultContext`.
 
 ### Tasks
 
+Tasks are actions that take in a set of arguments passed into it by the runner within the stage.
+
+Example:
+```yml
+    - label: load_puckdata
+      task: load_csv
+      args: 
+        - filepath: "$PROJECT_ROOT/puckdata.csv"
+          df_name: PUCKDATA
+        - filepath: "$PROJECT_ROOT/team.csv"
+          df_name: TEAM
+        - filepath: "$PROJECT_ROOT/player.csv"
+          df_name: PLAYER
+```
+
+The stage `load_puckdata` passes the list of files to load into the task `load_csv`.
+
+#### Implementing tasks
+
+See the `NoopTask` as a reference.
+
+Tasks must implement the `HasTask` interface for pipelines to interface with. Currently only supports `lazy_task`.
+
+TODO: Support `eager_task` (DataFrame)
+
+```rs
+pub trait HasTask {
+    fn lazy_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
+    // TODO: 
+    // fn eager_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<DataFrame, SvcDistributor>>;
+}
+
+```
+
+> Q: What's the difference between `PipelineTask` and any struct implementing `HasTask`?
+> 
+> A: The struct implementing `HasTask` parses the args and selects/enriches the correct `PipelineTask` to run
+> with the provided `PipelineContext`, returning it as its own closure.
+
 ### Models
 
-Models describe
+Models describe the shape and specification of a SQL like table (relation) that the data in the Data/Lazyframe
+has to adhere to before inserting into dictionaries. 
 
-Mapping syntax:
+i.e. Models not only define the schema, but also the constraints of each column, what the primary/unique/foreign
+keys are etc. *However there is currently no implementation requiring or utilizing these constraints*.
 
-- x.y.z
+Example:
+
+```yml
+model:
+  person:                       # name of relation/table
+    id:                         # column label
+      dtype: uint64             # datatype
+      constraints: [primary]    # vector of constraints as strings
+    full_name: str              # shortened [column label : dtype]
+    first_name: str
+    last_name: str
+    birthdate: date
+    deathdate: date
+    birth_city: str
+    birth_country_code: str
+    birth_state_province_code: str
+
+pipeline:
+    example:
+        - label: load_persons
+          task: load_csv
+          args:
+            - filepath: file.csv
+              df_name: PERSONS
+              model: person     # optional argument model to ensure PERSONS conforms to schema.
+        - label: save_persons
+          task: save_csv
+          args:
+            - filepath: another_file.csv
+              df_name: PERSONS
+              model: person     # optional argument model to ensure PERSONS conforms to schema.
+
+```
+
+The full list of dtype mappings can be found in `capport_core::parser::model::parse_dtype`.
+
+Currently only used by `load_csv` and `save_csv`.
 
 ### Transform
 
+Transforms are basically wrappers over typical Polars/Pandas manipulation methods.
+
+Currently supports the following column operations:
+
 - Select
+    - Format (action)
+    - Concat (action)
 - Join
 - Drop
+
 - Filter
 - Sort
 - Limit
 
-#### Transform actions:
+#### `SelectField` (and `DropField`) syntax
 
-## 
+In polars, fields are selected with **expressions**. We transcribe our simplified syntax below into polars 
+dsl (domain specific language) expressions.
+
+The syntax for how the fields are currently being selected can be described (informally) as:
+
+```
+expr :  COLUMN (SELECTOR COLUMN);
+SELECTOR: STRUCT_FIELD | VEC_INDEX;
+STRUCT_FIELD: '.';
+VEC_INDEX: '[' int ']';
+COLUMN : string_literal;
+```
+
+#### Conditionals, brackets [not started]
+
+TODO: We need to implement a parser for conditionals, as well as handling brackets in expressions.
+
+```
+// TODO 1. conditionals
+cond : expr (COND_EXPR expr);
+// TODO 2. brackets
+```
+
+#### Transform actions in `SelectField`
+
+Sometimes support for more complicated data manipulation options e.g. concat/format are required.
+
+In `capport_core::transform::action` we have implementations for the above two expressions.
+Importantly they are created from parsing their yaml_str and producing the `expr()` they hold.
+
+#### Implementing new transforms operations
+
+Refer to `capport_core::transform::drop` as reference.
 
 ## For Contributors
 

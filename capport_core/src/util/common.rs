@@ -1,4 +1,4 @@
-use polars::{df, prelude::PlSmallStr};
+use polars::{df, frame::DataFrame, prelude::PlSmallStr};
 use polars_lazy::frame::{IntoLazy, LazyFrame};
 use std::collections::HashMap;
 
@@ -91,5 +91,70 @@ impl DummyData {
         ]
         .unwrap()
         .lazy()
+    }
+
+    pub fn json_colors() -> Vec<String> {
+        "
+{ \"color\": \"red\", \"value\": \"#f00\" },
+{ \"color\": \"green\", \"value\": \"#0f0\" },
+{ \"color\": \"blue\", \"value\": \"#00f\" },
+{ \"color\": \"cyan\", \"value\": \"#0ff\" },
+{ \"color\": \"magenta\", \"value\": \"#f0f\" },
+{ \"color\": \"yellow\", \"value\": \"#ff0\" },
+{ \"color\": \"black\", \"value\": \"#000\" }
+"
+        .split("},")
+        .filter(|x| !x.trim().is_empty())
+        .map(|x| x.trim())
+        .map(|x| {
+            if x.ends_with("}") {
+                x.to_owned()
+            } else {
+                format!("{} }}", x)
+            }
+        })
+        .collect()
+    }
+
+    pub fn df_colors() -> DataFrame {
+        df![
+            "color" => [ "red", "green", "blue", "cyan", "magenta", "yellow", "black", ],
+            "value" => [ "#f00", "#0f0", "#00f", "#0ff", "#f0f", "#ff0", "#000", ]
+        ]
+        .unwrap()
+    }
+
+    pub fn json_actions() -> Vec<String> {
+        "
+{\"id\": \"Open\"},
+{\"id\": \"OpenNew\", \"label\": \"Open New\"},
+{\"id\": \"ZoomIn\", \"label\": \"Zoom In\"},
+{\"id\": \"ZoomOut\", \"label\": \"Zoom Out\"},
+{\"id\": \"OriginalView\", \"label\": \"Original View\"},
+{\"id\": \"Quality\"},
+{\"id\": \"Pause\"},
+{\"id\": \"Mute\"},
+{\"id\": \"Find\", \"label\": \"Find...\"},
+{\"id\": \"FindAgain\", \"label\": \"Find Again\"},
+{\"id\": \"Copy\"},
+{\"id\": \"CopyAgain\", \"label\": \"Copy Again\"},
+{\"id\": \"CopySVG\", \"label\": \"Copy SVG\"},
+{\"id\": \"ViewSVG\", \"label\": \"View SVG\"},
+{\"id\": \"ViewSource\", \"label\": \"View Source\"},
+{\"id\": \"SaveAs\", \"label\": \"Save As\"},
+{\"id\": \"Help\"},
+{\"id\": \"About\", \"label\": \"About Adobe CVG Viewer...\"}
+"
+        .split("},")
+        .filter(|x| !x.trim().is_empty())
+        .map(|x| x.trim())
+        .map(|x| {
+            if !x.ends_with("}") {
+                format!("{} }}", x)
+            } else {
+                x.to_owned()
+            }
+        })
+        .collect()
     }
 }

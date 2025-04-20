@@ -14,6 +14,8 @@ pub enum CpError {
     TableError(PolarsError),
     #[error("ERROR [POISON]: {0}")]
     PoisonError(String),
+    #[error("ERROR [CONNECTION]: {0}")]
+    ConnectionError(String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
 }

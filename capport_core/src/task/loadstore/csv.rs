@@ -212,8 +212,16 @@ id,name
                 ModelField::new("name", DataType::String, None),
             ],
         );
+        let bad_model = Model::new(
+            "badidname",
+            &[
+                ModelField::new("id", DataType::String, None),
+                ModelField::new("_name_", DataType::String, None),
+            ],
+        );
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(model);
+        model_reg.insert(bad_model);
         Arc::new(DefaultContext::new(
             model_reg,
             TransformRegistry::new(),
@@ -309,5 +317,63 @@ id,name
         let t = CsvModelSaveTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
         check_temp_csvs_identical(&intmp, &outtmp);
+    }
+
+    #[test]
+    fn invalid_bad_args() {
+        let outtmp = create_temp_csv();
+        let configs_templates = vec![
+            format!(
+                "
+--- # df_name not present in context to save
+- filepath: {}
+  model: idname
+  df_name: ID_NAME_MAP 
+",
+                &outtmp.filepath
+            ),
+            format!(
+                "
+--- # bad reshape
+- filepath: {}
+  model: badidname
+  df_name: ID_NAME_MAP
+",
+                &outtmp.filepath
+            ),
+            format!(
+                "
+--- # non-existent model
+- filepath: {}
+  model: non_existent
+  df_name: ID_NAME_MAP
+",
+                &outtmp.filepath
+            ),
+        ];
+        for config in configs_templates {
+            let ctx = create_context(false);
+            let args = yaml_from_str(&config).unwrap();
+            let t = CsvModelSaveTask::lazy_task(&args).unwrap();
+            t(ctx.clone()).unwrap_err();
+        }
+    }
+
+    #[test]
+    fn invalid_args_not_list() {
+        let outtmp = create_temp_csv();
+        let configs_templates = vec![format!(
+            "
+--- # df_name not present in context to save
+filepath: {}
+model: idname
+df_name: ID_NAME_MAP 
+",
+            &outtmp.filepath
+        )];
+        for config in configs_templates {
+            let args = yaml_from_str(&config).unwrap();
+            assert!(CsvModelSaveTask::lazy_task::<()>(&args).is_err());
+        }
     }
 }

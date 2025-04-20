@@ -49,7 +49,7 @@ impl Action for FormatActionArgs {
 
         match format_str(&self.template, &args) {
             Ok(x) => Ok(x),
-            Err(e) => return Err(format!("Invalid formatting: {:?}", e)),
+            Err(e) => Err(format!("Invalid formatting: {:?}", e)),
         }
     }
 }

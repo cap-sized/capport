@@ -1,0 +1,24 @@
+[package]
+name = "cargo_service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+polars = { version = "0.46.0", features = [
+    'lazy',
+    'csv',
+    'json',
+    'polars-io',
+    'concat_str',
+    'strings',
+] }
+polars-lazy = { version = "0.46.0", features = ['dtype-struct'] }
+capport_core = { path = "../capport_core" }
+bson = "2.14.0"
+mongodb = { version = "3.2.3", features = ['sync'] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0.140" }
+serde_yaml_ng = "0.10.0"
+tokio = { version = "1.44.2", features = ['rt', 'net'] }
+thiserror = "2.0.12"
+yaml-rust2 = "0.10.1"

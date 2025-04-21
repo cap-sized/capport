@@ -318,8 +318,8 @@ To select every item's `id` and `label` (if present):
 ```yml
 transform:
   - select:
-      id: menu.items$id # explode each `items`'s list of ids
-      label: menu.items$label # if label exists, do the same
+      id: menu.items[*]id # explode each `items`'s list of ids
+      label: menu.items[*]label # if label exists, do the same
 ```
 
 [WIP] The syntax for how the fields are currently being selected can be described (informally) as:
@@ -329,7 +329,10 @@ expr :  COLUMN (SELECTOR COLUMN);
 SELECTOR: STRUCT_FIELD | VEC_STRUCT_FIELD | VEC_INDEX;
 STRUCT_FIELD: '.';
 VEC_STRUCT_FIELD: '$';
-VEC_INDEX: '[' integer ']';
+VEC_INDEX: '[' VEC_RANGE_SELECTOR ']';
+VEC_RANGE_SELECTOR: ALL_SELECTOR | INTEGER_RANGE | expr | integer
+INTEGER_RANGE: integer~integer
+ALL_SELECTOR: '*'
 COLUMN : string_literal;
 ```
 

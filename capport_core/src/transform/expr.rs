@@ -18,7 +18,7 @@ where
     let next_transform = match head.chars().last().unwrap() {
         // (.xxx : struct.field(xxx)) DONE
         // TODO: Parse expression
-        // (@idx : list.get(idx))
+        // ([idx] : list.get(idx))
         // (*xxx : list.eval(element().struct.field(xxx)))
         '.' => |left: Option<Expr>, next_arg: &str| Some(left.unwrap().struct_().field_by_name(next_arg)),
         _ => |left: Option<Expr>, _: &str| left,

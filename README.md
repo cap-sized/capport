@@ -18,8 +18,8 @@ pipelines.
 | crate | description | confirmed | 
 | ----- | ----------- | --------- |
 | `capport_core` | Contains implementation for transforms, models, interfaces for pipelines common pipelines, common tasks | [x] |
+| `capport_service` | Provide service interface and tasks specifically requiring services | [x] |
 | `capport_default` | Example of how to use the pipeline from `capport_core` adding your own service distributor, and switching between two different dataframe types | [x] |
-| `capport_services` | Provide service interface and tasks specifically requiring services | [ ] |
 | `capport_recon` | [Unconfirmed] Recon pipeline implementation | [ ] |
 | `capport_live` | [Unconfirmed] Live loop pipeline implementation | [ ] |
 
@@ -285,24 +285,67 @@ Currently supports the following column operations:
 In polars, fields are selected with **expressions**. We transcribe our simplified syntax below into polars 
 dsl (domain specific language) expressions.
 
-The syntax for how the fields are currently being selected can be described (informally) as:
+Example [data.json](https://json.org/example.html):
+
+```json
+{"menu": {
+    "header": "SVG Viewer",
+    "items": [
+        {"id": "Open"},
+        {"id": "OpenNew", "label": "Open New"},
+        {"id": "ZoomIn", "label": "Zoom In"},
+        {"id": "ZoomOut", "label": "Zoom Out"},
+        {"id": "OriginalView", "label": "Original View"},
+        {"id": "Quality"},
+        {"id": "Pause"},
+        {"id": "Mute"},
+        {"id": "Find", "label": "Find..."},
+        {"id": "FindAgain", "label": "Find Again"},
+        {"id": "Copy"},
+        {"id": "CopyAgain", "label": "Copy Again"},
+        {"id": "CopySVG", "label": "Copy SVG"},
+        {"id": "ViewSVG", "label": "View SVG"},
+        {"id": "ViewSource", "label": "View Source"},
+        {"id": "SaveAs", "label": "Save As"},
+        {"id": "Help"},
+        {"id": "About", "label": "About Adobe CVG Viewer..."}
+    ]
+}}
+```
+
+To select every item's `id` and `label` (if present):
+
+```yml
+transform:
+  - select:
+      id: menu.items$id # explode each `items`'s list of ids
+      label: menu.items$label # if label exists, do the same
+```
+
+[WIP] The syntax for how the fields are currently being selected can be described (informally) as:
 
 ```
 expr :  COLUMN (SELECTOR COLUMN);
-SELECTOR: STRUCT_FIELD | VEC_INDEX;
+SELECTOR: STRUCT_FIELD | VEC_STRUCT_FIELD | VEC_INDEX;
 STRUCT_FIELD: '.';
-VEC_INDEX: '[' int ']';
+VEC_STRUCT_FIELD: '$';
+VEC_INDEX: '[' integer ']';
 COLUMN : string_literal;
 ```
+
+NOTE: This still requires a lot of work in order to fully support full data manipulation, issues will be raised 
+slowly to handle them
 
 #### Conditionals, brackets [not started]
 
 TODO: We need to implement a parser for conditionals, as well as handling brackets in expressions.
+This is crucial for filtering. We also need a way to indicate how to drop nulls.
 
 ```
 // TODO 1. conditionals
 cond : expr (COND_EXPR expr);
 // TODO 2. brackets
+// TODO 3. drop rows
 ```
 
 #### Transform actions in `SelectField`
@@ -316,11 +359,41 @@ Importantly they are created from parsing their yaml_str and producing the `expr
 
 Refer to `capport_core::transform::drop` as reference.
 
+### Services
+
+Every task that interacts with a service must access the `ServiceDistributor` from the context via the 
+`ctx.svc()` method from the PipelineContext. Similar to the PipelineContext this must implement the unsafe
+traits `Send` and `Sync` (see capport_core/src/pipeline/)
+
+Services will go into a separate crate `capport_service`. No implementations yet, but will soon have support for
+
+- MongoDB
+- SQL db connections
+
+## Important dependencies
+
+See the full lists of dependencies from the Cargo.toml files.
+
+### capport_core
+
+- [serde_yaml_ng](https://github.com/acatton/serde-yaml-ng)
+  - Since we use serde_yaml_ng which only parses YAML specification 1.1, our configs are also necessarily 
+  only following YAML 1.1
+- [yaml_rust2](https://docs.rs/yaml-rust2/latest/yaml_rust2/)
+  - for dynamic traversal of YAML configs
+- [polars](https://github.com/pola-rs/polars)
+- [argh](https://github.com/google/argh)
+  - argument parsing
+- [reqwest](https://github.com/seanmonstar/reqwest)
+  - HTTP client
+- [tokio](https://github.com/tokio-rs/tokio)
+  - async runtime
+
 ## For Contributors
 
 ### Setup
 
-1. [Optional] If you are not a contributor, fork this repo and clone the project locally
+1. [Optional] If you are not an organization member, fork this repo and clone the project locally
 
 2. Clone the project locally
 
@@ -342,6 +415,18 @@ curl https://sh.rustup.rs -sSf | sh # install nightly
 rustup component add clippy
 cargo +stable install cargo-llvm-cov --locked
 ```
+
+### Contribution guidelines
+
+1. All code must be linted
+
+2. All code additiions must pass the **function** and **line** coverage tests by at least 80% 
+(if there are existing files with coverage below 80% e.g. parser/join.rs or parser/model.rs, 
+it is a todo to fix them)
+
+![Coverage Report](https://github.com/cap-sized/capport/raw/main/docs/img/readme_coverage.png )
+
+3. All tests for requests with external endpoints must be mocked (e.g. httpmock). See task/requests/http.rs 
 
 ### Development
 

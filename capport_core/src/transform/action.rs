@@ -13,6 +13,10 @@ pub fn parse_action_to_expr(label: &str, action: &str, args: &Yaml) -> SubResult
             Ok(x) => x.expr().map(|x| x.alias(label)),
             Err(e) => Err(format!("Bad args for FormatActionArgs: {:?}", e)),
         },
+        "concat" => match serde_yaml_ng::from_str::<ConcatActionArgs>(&yaml_str) {
+            Ok(x) => x.expr().map(|x| x.alias(label)),
+            Err(e) => Err(format!("Bad args for FormatActionArgs: {:?}", e)),
+        },
         _ => Err(format!("Unrecognized action `{}`", action)),
     }
 }

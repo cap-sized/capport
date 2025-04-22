@@ -1,18 +1,15 @@
 use std::sync::Arc;
 
 use bson::Bson;
-use capport_core::{
-    pipeline::{
-        common::{HasTask, PipelineTask},
-        context::PipelineContext,
-    },
-    task::common::yaml_to_task_arg_str,
-    util::json,
-};
+use capport_core::pipeline::context::PipelineContext;
 use mongodb::bson::Document;
-use polars::prelude::LazyFrame;
+use polars::{
+    io::SerReader,
+    prelude::{IntoLazy, JsonReader, LazyFrame},
+};
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
+
+use crate::services::common::JsonTranscodable;
 
 use super::error::{CpError, CpResult};
 
@@ -46,6 +43,7 @@ pub struct MongoFindTask {
     // TODO: implement these
     pub sort: Option<String>, // JSON string
     pub limit: Option<usize>,
+    pub df_name: String,
 }
 
 pub fn json_str_to_doc(json_str: &str) -> CpResult<bson::Document> {
@@ -58,6 +56,27 @@ pub fn json_str_to_doc(json_str: &str) -> CpResult<bson::Document> {
     }
 }
 
+pub fn doc_cursor_to_df(cursor: mongodb::sync::Cursor<Document>) -> CpResult<polars::frame::DataFrame> {
+    let inner = cursor
+        .map(|document| match document {
+            Ok(d) => {
+                let deser: serde_json::Value = bson::Bson::Document(d).clone().into_json();
+                deser.to_string()
+            }
+            Err(e) => panic!("{:?}", e),
+        })
+        .collect::<Vec<String>>()
+        .join(", ");
+
+    let json_to_parse = format!("[{}]", &inner.as_str());
+    // https://stackoverflow.com/questions/51982893/is-there-a-better-way-to-directly-convert-a-rust-bson-document-to-json
+
+    println!("{}", &inner);
+    let restr = JsonReader::new(std::io::Cursor::new(json_to_parse));
+    let df = restr.finish()?;
+    Ok(df)
+}
+
 pub fn run_find<S: HasMongoClient>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: &MongoFindTask) -> CpResult<()> {
     let mc = match ctx.svc().get_mongo_client(None) {
         Some(client) => client,
@@ -68,7 +87,10 @@ pub fn run_find<S: HasMongoClient>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, 
 
     let collection: mongodb::Collection<Document> = mc.client.database(&db).collection(&task.collection);
     let cur: mongodb::action::Find<'_, Document> = collection.find(filter);
-    let res = cur.run()?;
+    let res: mongodb::sync::Cursor<Document> = cur.run()?;
+    let df = doc_cursor_to_df(res)?;
+    let lf = df.lazy();
+    ctx.insert_result(&task.df_name, lf)?;
     Ok(())
 }
 

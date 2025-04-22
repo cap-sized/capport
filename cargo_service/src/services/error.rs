@@ -8,6 +8,10 @@ pub enum CpError {
     JsonError(String),
     #[error("ERROR [json_to_bson]: {0}")]
     JsonToBsonError(String),
+    #[error("ERROR [PolarsError]: {0}")]
+    PolarsError(String),
+    #[error("{0}")]
+    CoreError(String),
 }
 
 impl From<mongodb::error::Error> for CpError {
@@ -25,6 +29,18 @@ impl From<serde_json::error::Error> for CpError {
 impl From<bson::extjson::de::Error> for CpError {
     fn from(value: bson::extjson::de::Error) -> Self {
         Self::JsonToBsonError(value.to_string())
+    }
+}
+
+impl From<polars::error::PolarsError> for CpError {
+    fn from(value: polars::error::PolarsError) -> Self {
+        Self::PolarsError(value.to_string())
+    }
+}
+
+impl From<capport_core::util::error::CpError> for CpError {
+    fn from(value: capport_core::util::error::CpError) -> Self {
+        Self::CoreError(value.to_string())
     }
 }
 

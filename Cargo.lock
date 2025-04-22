@@ -550,8 +550,10 @@ dependencies = [
 name = "cargo_service"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "bson",
  "capport_core",
+ "hex",
  "mongodb",
  "polars",
  "polars-lazy",

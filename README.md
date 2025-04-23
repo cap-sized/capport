@@ -13,9 +13,55 @@ pipelines.
 - configurable transform stages
 - configurable pre-built request clients (e.g. HTTP, or database connections e.g. MongoDB/SQL databases)
 
+## Links
+
+- [Roadmap](#roadmap)
+- [Project Structure](#project-structure)
+- [Concepts (start here)](#concepts-start-here)
+  - [Config](#config)
+  - [Pipeline](#pipeline)
+  - [Transform](#transform)
+- [Important Dependencies](#important-dependencies)
+- [Contribution guide](#for-contributors)
+
 ## Roadmap
 
-- [ ] 
+- High priority (by mid May)
+  - [ ] (task.md) HttpRequestTask enhancements 
+    - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
+    - [ ] Create`HttpSingleRequestTask`
+  - [ ] (service.md) MongoDB Service
+  - [ ] (service.md) SQL connection Service
+    - [ ] `create_table` task
+    - [ ] `insert` task
+    - [ ] `insert_batched` task (from lazyframe)
+    - [ ] `select` task
+    - [ ] `execute` task (takes in a SQL string query and runs it directly on the database)
+  - [ ] (logger.md) Setup global logging
+  - [ ] (pipeline.md) Design `PipelineScheduler`
+  - [ ] (pipeline.md) Parse runner config
+  - [ ] (transform.md) SQL support
+    - [ ] Integrate [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
+
+- Mid priority (by end June)
+  - [ ] (context.md) Parse results config
+  - [ ] (context.md) Design connection to on-disk store for pipeline results, should be optional
+  - [ ] (task.md) Task traits
+    - [ ] rename `HasTask` to `HasSyncLazyTask`
+    - [ ] `HasAsyncLazyTask`
+    - [ ] `HasSyncEagerTask`
+    - [ ] `HasAsyncEagerTask`
+  - [ ] Implement `run_eager`
+  - [ ] (transform.md) Variable replacement
+    - e.g. keyword for TODAY, or some domain specific keys
+  - [ ] (transform.md) Column operations
+    - [ ] Select by index/first/last/range in columns of type list
+    - [ ] Join to any table, not just the one literally defined in transform config
+  - [ ] (transform.md) Row operations
+    - [ ] Filter expression parsing
+    - [ ] Order
+    - [ ] Limit
+  - [ ] (logger.md) Implement keyed logger configurations
 
 ## Project structure
 

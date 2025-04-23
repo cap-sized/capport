@@ -121,6 +121,103 @@ impl HasTask for HttpRequestTask {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UrlParam {
+    pub df_from: String,
+    pub param_column: String,
+    pub template: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct HttpSingleRequestTask {
+    pub df_to: String,
+    pub template: String,
+    pub url_params: Vec<UrlParam>,
+    pub format: Option<String>, // defaults to JSON
+    pub method: Option<String>, // defaults to GET
+}
+
+impl HttpSingleRequestTask {
+    fn run<S>(&self, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
+        let method = self.method.clone().unwrap_or("get".to_owned()).to_lowercase();
+        let url = self.construct_url(&ctx)?;
+        match method.as_str() {
+            "get" => self.get(&url, &ctx),
+            _ => Err(CpError::TaskError(
+                "Invalid method for HttpSingleRequestTask",
+                format!("No method found: `{}`", &method),
+            )),
+        }
+    }
+
+    fn construct_url<S>(&self, ctx: &Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<String> {
+        let mut url = self.template.clone();
+
+        let query_string = &self
+            .url_params
+            .iter()
+            .map(|url_param| {
+                let template = url_param
+                    .template
+                    .clone()
+                    .unwrap_or(format!("{}={{}}", url_param.param_column));
+                let lf = ctx.clone_result(&url_param.df_from)?;
+                let param_column_expr = match parse_str_to_col_expr(&url_param.param_column) {
+                    Some(x) => x,
+                    None => {
+                        return Err(CpError::TaskError(
+                            "HttpSingleRequestTask",
+                            format!("Failed to parse param_column: {}", &url_param.param_column),
+                        ));
+                    }
+                };
+                let df = lf.select([param_column_expr.alias("param")]).collect()?;
+                let param_val = df
+                    .column("param")?
+                    .to_owned()
+                    .rechunk()
+                    .phys_iter()
+                    .map(|x| {
+                        let url = x.get_str();
+                        match url {
+                            Some(x) => x.to_owned(),
+                            None => x.to_string(),
+                        }
+                    })
+                    .collect::<Vec<String>>()
+                    .join(",");
+                Ok(template.replace("{}", &param_val))
+            })
+            .collect::<Result<Vec<String>, CpError>>()?
+            .join("&");
+
+        if !query_string.is_empty() {
+            url = format!("{}?{}", url, query_string);
+        }
+
+        Ok(url)
+    }
+
+    fn get<S>(&self, url: &str, ctx: &Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
+        let results = run_get_http_urls(vec![url.to_string()])?;
+        let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
+        let df = match fmt.as_str() {
+            "json" => vec_str_json_to_df(&results)?, // json default
+            _ => panic!("Should never reach here"),
+        };
+        ctx.insert_result(&self.df_to, df.lazy())?;
+        Ok(())
+    }
+}
+
+impl HasTask for HttpSingleRequestTask {
+    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+        let arg_str = yaml_to_task_arg_str(args, "HttpSingleRequestTask")?;
+        let task: HttpSingleRequestTask = deserialize_arg_str(&arg_str, "HttpSingleRequestTask")?;
+        Ok(Box::new(move |ctx| task.clone().run(ctx)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -144,6 +241,7 @@ mod tests {
     };
 
     use super::HttpRequestTask;
+    use super::HttpSingleRequestTask;
 
     #[derive(Serialize, Deserialize)]
     struct SampleAct {
@@ -230,6 +328,80 @@ url_column: url
             mocks.iter().for_each(|m| {
                 m.assert();
             });
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn valid_single_req() {
+        let url_params_configs = [
+            "
+url_params:
+    - df_from: PLAYERS_DF
+      param_column: players
+
+    - df_from: TEAMS_DF
+      param_column: teams
+",
+            "
+url_params:
+    - df_from: PLAYERS_DF
+      param_column: players
+      template: players={}
+
+    - df_from: TEAMS_DF
+      param_column: teams
+      template: teams={}
+",
+        ]
+        .iter()
+        .map(|x| x.to_owned())
+        .collect::<Vec<&str>>();
+
+        for url_params_config in url_params_configs {
+            let players = [8478401, 8478402];
+            let teams = ["EDM", "TOR"];
+
+            let server = MockServer::start();
+            let mock: Mock = server.mock(|when, then| {
+                when.method(GET)
+                    .path("/v1/meta")
+                    .query_param(
+                        "players",
+                        players.iter().map(|n| n.to_string()).collect::<Vec<String>>().join(","),
+                    )
+                    .query_param("teams", teams.join(","));
+                then.status(200)
+                    .header("content-type", "application/json")
+                    .body(DummyData::meta_info());
+            });
+
+            let ctx = Arc::new(DefaultContext::default());
+            ctx.insert_result("PLAYERS_DF", df!["players" => players].unwrap().lazy())
+                .unwrap();
+
+            ctx.insert_result("TEAMS_DF", df!["teams" => teams].unwrap().lazy())
+                .unwrap();
+
+            let template = server.url("/v1/meta");
+            let config = format!(
+                "
+---
+df_to: DATA
+template: {}
+{}",
+                template, url_params_config
+            );
+
+            let args = yaml_from_str(&config).unwrap();
+
+            let t = HttpSingleRequestTask::lazy_task(&args).unwrap();
+            t(ctx.clone()).unwrap();
+
+            let actual = ctx.clone_result("DATA").unwrap().collect().unwrap();
+            let expected = vec_str_json_to_df(&[DummyData::meta_info()]).unwrap();
+
+            mock.assert();
             assert_eq!(actual, expected);
         }
     }

@@ -9,6 +9,7 @@ use crate::{
         loadstore::csv::{CsvModelLoadTask, CsvModelSaveTask},
         noop::NoopTask,
         requests::http::HttpRequestTask,
+        requests::http::HttpSingleRequestTask,
         transform::TransformTask,
     },
     util::error::CpResult,
@@ -33,6 +34,7 @@ impl Default for TaskDictionary<LazyFrame, ()> {
                 ("save_csv".to_string(), generate_lazy_task::<CsvModelSaveTask, ()>()),
                 ("transform".to_string(), generate_lazy_task::<TransformTask, ()>()),
                 ("http_request".to_string(), generate_lazy_task::<HttpRequestTask, ()>()),
+                ("http_single_request".to_string(), generate_lazy_task::<HttpSingleRequestTask, ()>()),
             ]),
         }
     }

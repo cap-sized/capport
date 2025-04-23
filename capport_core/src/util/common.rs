@@ -157,4 +157,62 @@ impl DummyData {
         })
         .collect()
     }
+
+    pub fn meta_info() -> String {
+        // sample response from https://api-web.nhle.com/v1/meta?players=8478401,8478402&teams=EDM,TOR
+        r#"{
+  "players": [
+    {
+      "playerId": 8478402,
+      "playerSlug": "connor-mcdavid-8478402",
+      "actionShot": "https://assets.nhle.com/mugs/actionshots/1296x729/8478402.jpg",
+      "name": {
+        "default": "Connor McDavid"
+      },
+      "currentTeams": [
+        {
+          "teamId": 22,
+          "abbrev": "EDM",
+          "force": true
+        }
+      ]
+    },
+    {
+      "playerId": 8478401,
+      "playerSlug": "pavel-zacha-8478401",
+      "actionShot": "https://assets.nhle.com/mugs/actionshots/1296x729/8478401.jpg",
+      "name": {
+        "default": "Pavel Zacha"
+      },
+      "currentTeams": [
+        {
+          "teamId": 6,
+          "abbrev": "BOS",
+          "force": true
+        }
+      ]
+    }
+  ],
+  "teams": [
+    {
+      "name": {
+        "default": "Edmonton Oilers",
+        "fr": "Oilers d'Edmonton"
+      },
+      "tricode": "EDM",
+      "teamId": 22
+    },
+    {
+      "name": {
+        "default": "Toronto Maple Leafs",
+        "fr": "Maple Leafs de Toronto"
+      },
+      "tricode": "TOR",
+      "teamId": 10
+    }
+  ],
+  "seasonStates": []
+}"#
+        .to_string()
+    }
 }

@@ -2,16 +2,18 @@
 
 ### Todo summary
 
-- Transform trait
-    - #61
-- Column operations
-    - Select by index/first/last/range in columns of type list
-- Row operations
-    - Filter expression parsing
-    - Order
-    - Limit
-- SQL support
-    - Integrate [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
+- [ ] Implement `run_eager`
+- [ ] Variable replacement
+    - e.g. keyword for TODAY, or some domain specific keys
+- [ ] Column operations
+    - [ ] Select by index/first/last/range in columns of type list
+    - [ ] Join to any table, not just the one literally defined in transform config
+- [ ] Row operations
+    - [ ] Filter expression parsing
+    - [ ] Order
+    - [ ] Limit
+- [ ] SQL support
+    - [ ] Integrate [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
         - In order to provide support for everything else (groupby, lag, sum/avg/cumsum etc.)
 
 ## Overview
@@ -47,7 +49,38 @@ TODO: currently we only support column operations, we need to minimally add the 
 - `order`: `OrderTransform` (sorting, with asc/desc toggles)
 - `limit`: `LimitTransform` (limit, with option for offset)
 
-#### Column Selection Expressions
+### Variable argument passing (kwargs) 
+
+TODO: Borrows the term kwargs from python, we want to pass in keyword arguments through the args parameter
+
+```yml
+transform:
+    mytask:
+        ...
+        # in transform
+        - join:
+            right: $$state_province_table_name # to get replaced with "STATE_PROVINCE" at runtime
+            right_select: 
+            birth_state_province_code: code
+            birth_state_province_name: name
+            left_on: birth_state_province_name
+            right_on: birth_state_province_name
+            how: left
+pipeline:
+    mypipeline:
+        ...
+        # in stage
+        - label: stage_name
+        task: transform
+        args:
+            name: mytask
+            input: PERSON
+            save_df: PERSON_BIRTHSTATE
+            kwargs:
+                state_province_table_name: STATE_PROVINCE
+```
+
+### Column Selection Expressions
 
 The column selection expression parsing is also very limited right now. We support only the following syntax currently:
 
@@ -64,14 +97,82 @@ VECINDEX: integer
 COLNAME: string_literal
 ```
 
-##### Selection Actions
+#### Selection Actions
 
 To support column manipulations we also have `Action`s. Currently the only supported actions are 
 
 - `concat`
 - `format`
 
-#### TODO: Row Filter expressions grammar
+#### `select` Example
+
+```yml
+    - select:
+        id: csid # from the previous step
+        first_name: firstName.default # handle subpaths
+        last_name: lastName.default # handle subpaths
+        full_name: 
+          action: concat # str concat, default with space
+          args: 
+            cols: [ "firstName.default", "lastName.default" ] 
+            separator : " "
+        # by default, empty value for the key defaults to using the current key to select from the table.
+        birthdate: 
+        # the above is equivalent to {birthdate: birthdate}
+        birth_city: birthCity.default
+        birth_state_province_name: birthStateProvince.default
+        birth_state_country_code: birthCountry.default
+```
+
+### Drop columns
+
+Simply drops columns if they are present or labelled true. Explicitly disable dropping by providing the value 
+`false`.
+
+```yml
+    - drop:
+        birth_state_province_name: True 
+        # equivalent to 
+        # birth_state_province_name: true 
+        # birth_state_province_name:
+        # equivalent to 
+        birth_state: False 
+        # birth_state: false 
+```
+
+### Join table
+
+The following fields are mandatory:
+
+- `right` refers to an existing result from the context's currently available `PipelineResults`.
+- `left_on` and `right_on` refers to the columns to match on
+- `how` is the method of joining (left/full/cross/right/inner)
+
+The following fields are optional:
+
+- `right_select` refers to the columns to select from the right joined table.
+    - if omitted, selects the whole right table.
+
+```yml
+    - join:
+        right: STATE_PROVINCE # named result
+        right_select: 
+          birth_state_province_code: code
+          birth_state_province_name: name
+        left_on: birth_state_province_name
+        right_on: birth_state_province_name
+        how: left
+```
+
+
+#### Selection Actions
+
+To support column manipulations we also have `Action`s. Currently the only supported actions are 
+
+- `concat`
+- `format`
+
+### TODO: Row Filter expressions grammar
 
 In YML (not SQL) we want to be able to string together conditional and relational operations.
 
@@ -129,7 +230,7 @@ This will have to be parsed with the `yaml_rust2` package that allows us to trav
 }
 ```
 
-#### Row Order operation
+### Row Order operation
 
 ```yml
 - order:  # in order of descending priority
@@ -139,7 +240,7 @@ This will have to be parsed with the `yaml_rust2` package that allows us to trav
     - standings: desc # or -1
 ```
 
-#### Row Limit operation
+### Row Limit operation
 
 ```yml
 # full form

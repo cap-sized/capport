@@ -13,6 +13,10 @@ pipelines.
 - configurable transform stages
 - configurable pre-built request clients (e.g. HTTP, or database connections e.g. MongoDB/SQL databases)
 
+## Roadmap
+
+- [ ] 
+
 ## Project structure
 
 | crate | description | confirmed | 
@@ -177,9 +181,12 @@ the provided `PipelineRunner`s to interact with the context
 TODO: We need a monitor/metrics manager added to the context interface as well, with a `NoopMonitor` provided in 
 the default implementation of `DefaultContext`.
 
-### Tasks
+### Stages and tasks
 
-Tasks are actions that take in a set of arguments passed into it by the runner within the stage.
+A pipeline **stage** consist of its *label*, the *task* it executes and the *arguments* to be passed into 
+the task.
+
+Tasks are single actions that do something based on the context and the task parameters (configured via `args`).
 
 Example:
 ```yml
@@ -195,23 +202,6 @@ Example:
 ```
 
 The stage `load_puckdata` passes the list of files to load into the task `load_csv`.
-
-#### Implementing tasks
-
-See the `NoopTask` as a reference.
-
-Tasks must implement the `HasTask` interface for pipelines to interface with. Currently only supports `lazy_task`.
-
-TODO: Support `eager_task` (DataFrame)
-
-```rs
-pub trait HasTask {
-    fn lazy_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
-    // TODO: 
-    // fn eager_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<DataFrame, SvcDistributor>>;
-}
-
-```
 
 > Q: What's the difference between `PipelineTask` and any struct implementing `HasTask`?
 > 
@@ -276,80 +266,14 @@ Currently supports the following column operations:
 - Join
 - Drop
 
+To support in the future
+
 - Filter
 - Sort
 - Limit
+- Full SQL operations
 
 #### `SelectField` (and `DropField`) syntax
-
-In polars, fields are selected with **expressions**. We transcribe our simplified syntax below into polars 
-dsl (domain specific language) expressions.
-
-Example [data.json](https://json.org/example.html):
-
-```json
-{"menu": {
-    "header": "SVG Viewer",
-    "items": [
-        {"id": "Open"},
-        {"id": "OpenNew", "label": "Open New"},
-        {"id": "ZoomIn", "label": "Zoom In"},
-        {"id": "ZoomOut", "label": "Zoom Out"},
-        {"id": "OriginalView", "label": "Original View"},
-        {"id": "Quality"},
-        {"id": "Pause"},
-        {"id": "Mute"},
-        {"id": "Find", "label": "Find..."},
-        {"id": "FindAgain", "label": "Find Again"},
-        {"id": "Copy"},
-        {"id": "CopyAgain", "label": "Copy Again"},
-        {"id": "CopySVG", "label": "Copy SVG"},
-        {"id": "ViewSVG", "label": "View SVG"},
-        {"id": "ViewSource", "label": "View Source"},
-        {"id": "SaveAs", "label": "Save As"},
-        {"id": "Help"},
-        {"id": "About", "label": "About Adobe CVG Viewer..."}
-    ]
-}}
-```
-
-To select every item's `id` and `label` (if present):
-
-```yml
-transform:
-  - select:
-      id: menu.items[*]id # explode each `items`'s list of ids
-      label: menu.items[*]label # if label exists, do the same
-```
-
-[WIP] The syntax for how the fields are currently being selected can be described (informally) as:
-
-```
-expr :  COLUMN (SELECTOR COLUMN);
-SELECTOR: STRUCT_FIELD | VEC_STRUCT_FIELD | VEC_INDEX;
-STRUCT_FIELD: '.';
-VEC_STRUCT_FIELD: '$';
-VEC_INDEX: '[' VEC_RANGE_SELECTOR ']';
-VEC_RANGE_SELECTOR: ALL_SELECTOR | INTEGER_RANGE | expr | integer
-INTEGER_RANGE: integer~integer
-ALL_SELECTOR: '*'
-COLUMN : string_literal;
-```
-
-NOTE: This still requires a lot of work in order to fully support full data manipulation, issues will be raised 
-slowly to handle them
-
-#### Conditionals, brackets [not started]
-
-TODO: We need to implement a parser for conditionals, as well as handling brackets in expressions.
-This is crucial for filtering. We also need a way to indicate how to drop nulls.
-
-```
-// TODO 1. conditionals
-cond : expr (COND_EXPR expr);
-// TODO 2. brackets
-// TODO 3. drop rows
-```
 
 #### Transform actions in `SelectField`
 
@@ -368,10 +292,7 @@ Every task that interacts with a service must access the `ServiceDistributor` fr
 `ctx.svc()` method from the PipelineContext. Similar to the PipelineContext this must implement the unsafe
 traits `Send` and `Sync` (see capport_core/src/pipeline/)
 
-Services will go into a separate crate `capport_service`. No implementations yet, but will soon have support for
-
-- MongoDB
-- SQL db connections
+Services will go into a separate crate `capport_service`. 
 
 ## Important dependencies
 

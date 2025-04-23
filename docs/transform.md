@@ -48,6 +48,8 @@ TODO: currently we only support column operations, we need to minimally add the 
 - `filter`: `FilterTransform`
 - `order`: `OrderTransform` (sorting, with asc/desc toggles)
 - `limit`: `LimitTransform` (limit, with option for offset)
+- `flatten`: `FlattenTransform`
+- `extend`: `ExtendTransform` (extends the dataframe)
 
 ### Variable argument passing (kwargs) 
 
@@ -171,6 +173,58 @@ To support column manipulations we also have `Action`s. Currently the only suppo
 
 - `concat`
 - `format`
+
+### TODO: Flatten nested list
+
+Example [data.json](https://json.org/example.html) from:
+
+```json
+{"menu": {
+    "header": "SVG Viewer",
+    "items": [
+        {"id": "Open"},
+        {"id": "OpenNew", "label": "Open New"},
+        {"id": "ZoomIn", "label": "Zoom In"},
+        {"id": "ZoomOut", "label": "Zoom Out"},
+        {"id": "OriginalView", "label": "Original View"},
+        {"id": "Quality"},
+        {"id": "Pause"},
+        {"id": "Mute"},
+        {"id": "Find", "label": "Find..."},
+        {"id": "FindAgain", "label": "Find Again"},
+        {"id": "Copy"},
+        {"id": "CopyAgain", "label": "Copy Again"},
+        {"id": "CopySVG", "label": "Copy SVG"},
+        {"id": "ViewSVG", "label": "View SVG"},
+        {"id": "ViewSource", "label": "View Source"},
+        {"id": "SaveAs", "label": "Save As"},
+        {"id": "Help"},
+        {"id": "About", "label": "About Adobe CVG Viewer..."}
+    ]
+}}
+```
+
+To: 
+```yml
+---
+[
+    {"header" : "SVG Viewer", "id": "Open"},
+    {"header" : "SVG Viewer", "id": "OpenNew", "label": "Open New"},
+    {"header" : "SVG Viewer", "id": "ZoomIn", "label": "Zoom In"},
+    {"header" : "SVG Viewer", "id": "ZoomOut", "label": "Zoom Out"},
+    {"header" : "SVG Viewer", "id": "OriginalView", "label": "Original View"},
+]
+```
+
+To select every item's `id` and `label` (if present):
+
+```yml
+transform:
+  - select:
+      header: menu.header
+      first_id: menu.items[0]id # explode each `items`'s list of ids
+      label: menu.items[*]label # if label exists, do the same
+```
 
 ### TODO: Row Filter expressions grammar
 

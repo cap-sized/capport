@@ -7,7 +7,7 @@
 - [ ] Implement async pipeline executor
 - [ ] Implement `async_lazy`
 - [ ] Implement `async_eager`
-- [ ] Parse scheduler config
+- [ ] Parse runner config
 - [ ] Design `PipelineScheduler`
 
 ## Overview
@@ -83,7 +83,7 @@ execute).
 
 This also means we need a pipeline validator for this execution
 
-### TODO: Scheduler
+#### TODO: Scheduler
 
 When this is more mature, we should set up a scheduler that allows the pipeline runner to persist and 
 execute runs according to a schedule.
@@ -91,12 +91,14 @@ execute runs according to a schedule.
 Example proposed config:
 
 ```yml
-schedule:
-   - pipeline_a:
-      timezone: UTC
-      # 1d or 1w or 10s or 2M (month) or 1Y or 10m30s
-      every: Monday at 15:00 # internally parse to .every(Monday).at("15:00")
-      runner: async_eager # or async_lazy or sync_eager or sync_lazy
+runner:
+  logger: default
+  pipeline: pipelineA
+  runner: async_eager # or async_lazy or sync_eager or sync_lazy
+  schedule:
+    timezone: UTC
+    # 1d or 1w or 10s or 2M (month) or 1Y or 10m30s
+    every: Monday at 15:00 # internally parse to .every(Monday).at("15:00")
 ```
 
 Can use [clockwerk](https://docs.rs/clokwerk/latest/clokwerk/index.html) for this.

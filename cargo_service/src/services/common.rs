@@ -1,10 +1,23 @@
 use base64::{Engine, prelude::BASE64_STANDARD};
+use capport_core::util::error::CpResult;
 use serde_json::json;
 
 use super::mongo::{HasMongoClient, MongoClient};
 
+#[derive(Clone)]
 pub struct DefaultSvcDistributor {
+    // underlying implementation wraps in Arc, so safe to clone
     pub mongo: Option<MongoClient>,
+}
+
+impl DefaultSvcDistributor {
+    pub fn new() -> Self {
+        Self { mongo: None }
+    }
+    pub fn add_mongo(&mut self, uri: &str, default_db: &str) -> CpResult<()> {
+        self.mongo = Some(MongoClient::new_sync(uri, default_db)?);
+        Ok(())
+    }
 }
 
 impl HasMongoClient for DefaultSvcDistributor {
@@ -12,6 +25,9 @@ impl HasMongoClient for DefaultSvcDistributor {
         self.mongo.clone()
     }
 }
+
+unsafe impl Send for DefaultSvcDistributor {}
+unsafe impl Sync for DefaultSvcDistributor {}
 
 pub trait JsonTranscodable {
     fn into_json(self) -> serde_json::Value;

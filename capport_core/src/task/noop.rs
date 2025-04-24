@@ -20,8 +20,8 @@ pub fn run<R, S>(_ctx: Arc<dyn PipelineContext<R, S>>, _task: &NoopTask) -> CpRe
     Ok(())
 }
 
-impl HasTask for NoopTask {
-    fn lazy_task<S>(args: &yaml_rust2::Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for NoopTask {
+    fn lazy_task(args: &yaml_rust2::Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
         let arg_str = yaml_to_task_arg_str(args, "NoopTask")?;
         let noop_task: NoopTask = deserialize_arg_str::<NoopTask>(&arg_str, "NoopTask")?;
         Ok(Box::new(move |ctx| run(ctx, &noop_task)))
@@ -36,11 +36,11 @@ mod tests {
 
     use crate::{
         pipeline::{
-            common::HasTask,
+            common::{HasTask, PipelineTask},
             context::{DefaultContext, PipelineContext},
             results::PipelineResults,
         },
-        util::common::yaml_from_str,
+        util::{common::yaml_from_str, error::CpResult},
     };
 
     use super::NoopTask;
@@ -63,6 +63,7 @@ a: b
 ",
         )
         .unwrap();
-        assert!(NoopTask::lazy_task::<()>(&args).is_err());
+        let task: CpResult<PipelineTask<LazyFrame, ()>> = NoopTask::lazy_task(&args);
+        assert!(task.is_err());
     }
 }

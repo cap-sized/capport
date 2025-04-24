@@ -39,8 +39,8 @@ pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_t
     Ok(())
 }
 
-impl HasTask for TransformTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for TransformTask {
+    fn lazy_task(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
         let arg_str = yaml_to_task_arg_str(args, "TransformTask")?;
         let trf: TransformTask = deserialize_arg_str(&arg_str, "TransformTask")?;
         Ok(Box::new(move |ctx| run_transform::<S>(ctx, &trf)))

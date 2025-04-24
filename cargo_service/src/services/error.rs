@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CpError {
+pub enum CpSvcError {
     #[error("ERROR [MongoDB]: {0}")]
     MongoError(String),
     #[error("ERROR [serde_json]: {0}")]
@@ -14,34 +14,40 @@ pub enum CpError {
     CoreError(String),
 }
 
-impl From<mongodb::error::Error> for CpError {
+impl From<mongodb::error::Error> for CpSvcError {
     fn from(value: mongodb::error::Error) -> Self {
         Self::MongoError(value.to_string())
     }
 }
 
-impl From<serde_json::error::Error> for CpError {
+impl From<serde_json::error::Error> for CpSvcError {
     fn from(value: serde_json::error::Error) -> Self {
         Self::JsonError(value.to_string())
     }
 }
 
-impl From<bson::extjson::de::Error> for CpError {
+impl From<bson::extjson::de::Error> for CpSvcError {
     fn from(value: bson::extjson::de::Error) -> Self {
         Self::JsonToBsonError(value.to_string())
     }
 }
 
-impl From<polars::error::PolarsError> for CpError {
+impl From<polars::error::PolarsError> for CpSvcError {
     fn from(value: polars::error::PolarsError) -> Self {
         Self::PolarsError(value.to_string())
     }
 }
 
-impl From<capport_core::util::error::CpError> for CpError {
+impl From<capport_core::util::error::CpError> for CpSvcError {
     fn from(value: capport_core::util::error::CpError) -> Self {
         Self::CoreError(value.to_string())
     }
 }
 
-pub type CpResult<T, E = CpError> = std::result::Result<T, E>;
+impl From<CpSvcError> for capport_core::util::error::CpError {
+    fn from(value: CpSvcError) -> Self {
+        capport_core::util::error::CpError::ComponentError("SvcError", value.to_string())
+    }
+}
+
+pub type CpSvcResult<T, E = CpSvcError> = std::result::Result<T, E>;

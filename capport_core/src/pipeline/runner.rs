@@ -8,7 +8,7 @@ use super::{common::Pipeline, context::PipelineContext, results::PipelineResults
 
 pub struct PipelineRunner;
 impl PipelineRunner {
-    pub fn run_lazy<S>(
+    pub fn run_lazy<S: Clone>(
         ctx: Arc<dyn PipelineContext<LazyFrame, S>>,
         pipeline: &Pipeline,
     ) -> CpResult<PipelineResults<LazyFrame>> {

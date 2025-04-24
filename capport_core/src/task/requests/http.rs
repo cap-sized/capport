@@ -113,8 +113,8 @@ impl HttpRequestTask {
     }
 }
 
-impl HasTask for HttpRequestTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for HttpRequestTask {
+    fn lazy_task(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
         let arg_str = yaml_to_task_arg_str(args, "HttpRequestTask")?;
         let task: HttpRequestTask = deserialize_arg_str(&arg_str, "HttpRequestTask")?;
         Ok(Box::new(move |ctx| run(ctx, task.clone())))

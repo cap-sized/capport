@@ -1,4 +1,3 @@
 pub mod common;
-pub mod mongo;
-
 pub mod error;
+pub mod mongo;

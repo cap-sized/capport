@@ -39,15 +39,8 @@ impl PipelineStage {
     }
 }
 
-pub trait HasTask {
-    fn lazy_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
-}
-
-// Eventually we will need to make live stages which acculumate their own results over time.
-// They will extend the current functionality of PipelineStage.
-pub trait LoopJobStage {
-    fn poll();
-    fn push();
+pub trait HasTask<SvcDistributor> {
+    fn lazy_task(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
 pub type PipelineTask<ResultType, SvcDistributor> =

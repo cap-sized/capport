@@ -10,22 +10,18 @@ use yaml_rust2::Yaml;
 
 use crate::service::mongo::{HasMongoClient, MongoClient, MongoClientConfig};
 
+#[derive(Default, Debug, Clone)]
 pub struct DefaultSvcConfig {
     pub mongo: Option<MongoClientConfig>,
-}
-
-impl Default for DefaultSvcConfig {
-    fn default() -> Self {
-        Self { mongo: None }
-    }
 }
 
 unsafe impl Send for DefaultSvcDistributor {}
 unsafe impl Sync for DefaultSvcDistributor {}
 
+#[derive(Default, Clone)]
 pub struct DefaultSvcDistributor {
-    config: DefaultSvcConfig,
-    mongo_client: Option<MongoClient>,
+    pub config: DefaultSvcConfig,
+    pub mongo_client: Option<MongoClient>,
 }
 
 impl Configurable for DefaultSvcDistributor {

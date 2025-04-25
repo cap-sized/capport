@@ -1,43 +1,73 @@
-use std::collections::HashMap;
 
-use capport_core::{
-    context::common::Configurable,
-    pipeline::context::{DefaultContext, PipelineContext},
-    util::common::yaml_from_str,
-};
+use bson::doc;
 use capport_service::{
-    context::service::DefaultSvcDistributor, service::mongo::HasMongoClient, util::common::SvcDefault,
+    context::service::{DefaultSvcConfig, DefaultSvcDistributor},
+    service::mongo::{HasMongoClient, MongoClient, MongoClientConfig},
 };
-use polars::prelude::LazyFrame;
-use yaml_rust2::Yaml;
+use serde::{Deserialize, Serialize};
 
-fn get_config_pack() -> HashMap<String, HashMap<String, Yaml>> {
-    let config = yaml_from_str("
----
-uri: mongodb+srv://capsizedhockey:QMQphdQSkSvayFXQ@capsized-data.krs2e.mongodb.net/?retryWrites=true&w=majority&appName=capsized-data
-default_db: csdb
-").unwrap();
-    HashMap::from([(
-        DefaultSvcDistributor::get_node_name().to_owned(),
-        HashMap::from([("mongo".to_owned(), config)]),
-    )])
+const MONGO_URI: &str = "mongodb://localhost:27017";
+const MONGO_DEFAULT_DB: &str = "csdb";
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct TestPerson {
+    name: String,
+    id: u8,
+    desc: String,
 }
 
 #[test]
-fn valid_ctx() {
-    let mut config_pack = get_config_pack();
-    let ctx = DefaultContext::<LazyFrame, DefaultSvcDistributor>::default_with_svc();
-}
-
-#[test]
-fn valid_default_config() {
-    let mut config_pack = get_config_pack();
-    let mut svc = DefaultSvcDistributor::new();
-    svc.extract_parse_config(&mut config_pack).unwrap();
-    svc.setup(&["mongo"]).unwrap();
-
-    // get the default
-    let mc = svc.get_mongo_client(None).unwrap();
+fn valid_default_config_mongo() {
+    let mc_config = MongoClientConfig::new(MONGO_URI, MONGO_DEFAULT_DB);
+    let mc = MongoClient::new(mc_config.clone()).unwrap();
     let msc = mc.sync_client.unwrap();
-    let db = svc.get_db_sync(None).unwrap();
+    let db = msc.database(MONGO_DEFAULT_DB);
+    db.collection("persons")
+        .insert_many([
+            doc! { "name": "foo", "id": 1, "desc": "bar" },
+            doc! { "name": "dee", "id": 2, "desc": "bee" },
+        ])
+        .run()
+        .unwrap();
+    let cursor = msc
+        .database(MONGO_DEFAULT_DB)
+        .collection::<TestPerson>("persons")
+        .find(doc! {})
+        .run()
+        .unwrap();
+    let actual = cursor.map(|x| x.unwrap()).collect::<Vec<_>>();
+    let expected = vec![
+        TestPerson {
+            name: "foo".to_owned(),
+            id: 1,
+            desc: "bar".to_owned(),
+        },
+        TestPerson {
+            name: "dee".to_owned(),
+            id: 2,
+            desc: "bee".to_owned(),
+        },
+    ];
+    assert_eq!(&actual, &expected);
+    {
+        let mut svc = DefaultSvcDistributor {
+            config: DefaultSvcConfig {
+                mongo: Some(mc_config.clone()),
+            },
+            mongo_client: None,
+        };
+
+        svc.setup(&["mongo"]).unwrap();
+
+        let db = svc.get_db_sync(None).unwrap();
+        let cursor = db.collection::<TestPerson>("persons").find(doc! {}).run().unwrap();
+        let actual = cursor.map(|x| x.unwrap()).collect::<Vec<_>>();
+        assert_eq!(&actual, &expected);
+
+        let collection = db.collection::<mongodb::bson::Document>("persons");
+        collection.drop().run().unwrap();
+        let final_cursor = db.collection::<TestPerson>("persons").find(doc! {}).run().unwrap();
+        let final_actual = final_cursor.map(|x| x.unwrap()).collect::<Vec<_>>();
+        assert!(&final_actual.is_empty());
+    }
 }

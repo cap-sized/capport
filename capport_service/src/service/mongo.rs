@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::util::error::CpSvcResult;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MongoClientConfig {
     pub uri: String,
     pub default_db: String,
@@ -19,11 +19,11 @@ pub trait HasMongoClient {
 }
 
 impl MongoClientConfig {
-    pub async fn new(uri: &str, default_db: &str) -> Option<MongoClientConfig> {
-        Some(MongoClientConfig {
+    pub fn new(uri: &str, default_db: &str) -> MongoClientConfig {
+        MongoClientConfig {
             uri: uri.to_string(),
             default_db: default_db.to_string(),
-        })
+        }
     }
 }
 

@@ -19,14 +19,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  test_core:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Run capport_core tests
+      run: cargo test --verbose --package capport_core
+  test_service:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mongodb-version: ['7.0', '8.0']
+    steps:
+    - uses: actions/checkout@v4
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.0
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+    - name: Build
+      run: cargo build --verbose
+    - name: Run capport_service tests
+      run: cargo test --verbose --package capport_service
   lint:
     runs-on: ubuntu-latest
     steps:

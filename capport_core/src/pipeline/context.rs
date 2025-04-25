@@ -29,7 +29,9 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
 
     fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
 
-    fn svc(&self) -> Arc<ServiceDistributor>;
+    fn svc(&self) -> &ServiceDistributor;
+
+    fn mut_svc(&mut self) -> &mut ServiceDistributor;
 }
 
 pub struct DefaultContext<ResultType, ServiceDistributor> {
@@ -37,7 +39,7 @@ pub struct DefaultContext<ResultType, ServiceDistributor> {
     transform_registry: TransformRegistry,
     task_dictionary: TaskDictionary<ResultType, ServiceDistributor>,
     results: Arc<RwLock<PipelineResults<ResultType>>>,
-    service_distributor: Arc<ServiceDistributor>,
+    service_distributor: ServiceDistributor,
 }
 
 unsafe impl<ResultType, ServiceDistributor> Send for DefaultContext<ResultType, ServiceDistributor> {}
@@ -55,7 +57,7 @@ impl<R, S> DefaultContext<R, S> {
             transform_registry,
             task_dictionary,
             results: Arc::new(RwLock::new(PipelineResults::<R>::default())),
-            service_distributor: Arc::new(service_distributor),
+            service_distributor,
         }
     }
 }
@@ -129,8 +131,12 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
         }
     }
 
-    fn svc(&self) -> Arc<ServiceDistributor> {
-        self.service_distributor.clone()
+    fn svc(&self) -> &ServiceDistributor {
+        &self.service_distributor
+    }
+
+    fn mut_svc(&mut self) -> &mut ServiceDistributor {
+        &mut self.service_distributor
     }
 }
 

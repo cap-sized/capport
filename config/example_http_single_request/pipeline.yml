@@ -1,0 +1,35 @@
+pipeline:
+
+  http_single_request:
+    - label: load_dfs
+      task: load_csv
+      args:
+        - filepath: "config/example_http_single_request/game.csv"
+          df_name: GAME_DF
+        - filepath: "config/example_http_single_request/player.csv"
+          df_name: PLAYER_DF
+        - filepath: "config/example_http_single_request/team.csv"
+          df_name: TEAM_DF
+
+    - label: fetch_meta
+      task: http_single_request
+      args:
+        df_to: META_DF
+        template: "https://api-web.nhle.com/v1/meta"
+        url_params:
+          - df_from: PLAYER_DF
+            param_column: player
+            template: "players={}"
+          - df_from: TEAM_DF
+            param_column: team
+            template: "teams={}"
+
+    - label: fetch_shift_chart
+      task: http_single_request
+      args:
+        df_to: SHIFT_CHART_DF
+        template: "https://api.nhle.com/stats/rest/en/shiftcharts"
+        url_params:
+          - df_from: GAME_DF
+            param_column: game
+            template: "cayenneExp=gameId%20in%20({})"

@@ -47,7 +47,7 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn get_model(&self, key: &str) -> CpResult<Model>;
 
     // Fetch a task from the task dictionary
-    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, ServiceDistributor>>;
+    fn get_task(&self, key: &str, args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<ResultType, ServiceDistributor>>;
 
     // Fetch a transform from transform registry
     fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
@@ -65,7 +65,7 @@ Simply a key-value store of models/transforms. Follows the same pattern
 ```rs
     pub fn new() -> Registry<T>;
     pub fn insert(&mut self, model: T) -> Option<T>;
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<Registry<T>> {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>) -> CpResult<Registry<T>> {
         let mut reg = Registry<T>::new();
         reg.extract_parse_config(config_pack)?;
         Ok(reg)

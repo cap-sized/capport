@@ -1,7 +1,6 @@
 use std::sync::{Arc, RwLock};
 
 use polars::prelude::LazyFrame;
-use yaml_rust2::Yaml;
 
 use crate::{
     context::{model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
@@ -25,7 +24,11 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     // Immutables
     fn get_model(&self, key: &str) -> CpResult<Model>;
 
-    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, ServiceDistributor>>;
+    fn get_task(
+        &self,
+        key: &str,
+        args: &serde_yaml_ng::Value,
+    ) -> CpResult<PipelineTask<ResultType, ServiceDistributor>>;
 
     fn get_transform(&self, key: &str) -> CpResult<&RootTransform>;
 
@@ -103,7 +106,11 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
             )),
         }
     }
-    fn get_task(&self, key: &str, args: &Yaml) -> CpResult<PipelineTask<ResultType, ServiceDistributor>> {
+    fn get_task(
+        &self,
+        key: &str,
+        args: &serde_yaml_ng::Value,
+    ) -> CpResult<PipelineTask<ResultType, ServiceDistributor>> {
         let taskgen = match self.task_dictionary.tasks.get(key) {
             Some(x) => x,
             None => {

@@ -5,7 +5,6 @@ use std::{
 
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
 use crate::{
     model::common::{Model, Reshape},
@@ -13,7 +12,6 @@ use crate::{
         common::{HasTask, PipelineTask},
         context::PipelineContext,
     },
-    task::common::{deserialize_arg_str, yaml_to_task_arg_str},
     util::error::{CpError, CpResult},
 };
 
@@ -55,23 +53,8 @@ impl CsvModel {
         }
     }
 
-    pub fn build_vec(args: &Yaml) -> CpResult<Vec<Self>> {
-        let csv_model_nodes = match args.as_vec() {
-            Some(x) => x,
-            None => {
-                return Err(CpError::TaskError(
-                    "CsvModelLoadTask",
-                    "Not a list of objects with keys (`filepath`, `model` and `df_name`)".to_owned(),
-                ));
-            }
-        };
-        let mut models = vec![];
-
-        for csv_model_node in csv_model_nodes {
-            let arg_str = yaml_to_task_arg_str(csv_model_node, "CsvModelLoadTask")?;
-            let csv_model: CsvModel = deserialize_arg_str(&arg_str, "CsvModelLoadTask")?;
-            models.push(csv_model);
-        }
+    pub fn build_vec(args: serde_yaml_ng::Value) -> CpResult<Vec<Self>> {
+        let models: Vec<CsvModel> = serde_yaml_ng::from_value(args)?;
         Ok(models)
     }
 }
@@ -113,18 +96,18 @@ pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
 }
 
 impl HasTask for CsvModelSaveTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let csv_models = CsvModelLoadTask {
-            models: CsvModel::build_vec(args)?,
+            models: CsvModel::build_vec(args.clone())?,
         };
         Ok(Box::new(move |ctx| csv_save(ctx, &csv_models)))
     }
 }
 
 impl HasTask for CsvModelLoadTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let csv_models = CsvModelLoadTask {
-            models: CsvModel::build_vec(args)?,
+            models: CsvModel::build_vec(args.clone())?,
         };
         Ok(Box::new(move |ctx| csv_load(ctx, &csv_models)))
     }

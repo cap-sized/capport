@@ -1,27 +1,43 @@
-use yaml_rust2::Yaml;
-
 use crate::{
     transform::drop::{DropField, DropTransform},
-    util::error::SubResult,
+    util::error::{CpError, CpResult},
 };
 
 use super::common::YamlRead;
 
-pub fn parse_drop_field(name: &str, node: &Yaml) -> SubResult<DropField> {
-    Ok(DropField {
-        target: String::from(name),
-        delete: node.as_bool().unwrap_or(node.as_str().unwrap_or("True") == "True"),
-    })
-}
-
-pub fn parse_drop_transform(node: &Yaml) -> SubResult<DropTransform> {
-    match node.over_map(
-        parse_drop_field,
-        format!("DropTransform config is not a map: {:?}", node),
-    ) {
-        Ok(deletes) => Ok(DropTransform { deletes }),
-        Err(e) => Err(e),
+pub fn parse_drop_transform(node: serde_yaml_ng::Value) -> CpResult<DropTransform> {
+    let drop_field_map = node.to_str_val_vec()?;
+    let mut drop_fields = vec![];
+    for (to_field, is_drop) in drop_field_map {
+        let delete: bool = match is_drop {
+            serde_yaml_ng::Value::Null => true,
+            serde_yaml_ng::Value::Bool(x) => x,
+            serde_yaml_ng::Value::String(s) => {
+                // Try to parse string into bool
+                match s.to_lowercase().as_str() {
+                    "true" => true,
+                    "false" => false,
+                    x => {
+                        return Err(CpError::ConfigError(
+                            "Invalid value for drop field",
+                            format!("Must be true/false, received {}", x),
+                        ));
+                    }
+                }
+            }
+            x => {
+                return Err(CpError::ConfigError(
+                    "Invalid value for drop field",
+                    format!("Must be true/false, received {:?}", x),
+                ));
+            }
+        };
+        drop_fields.push(DropField {
+            target: to_field,
+            delete,
+        });
     }
+    Ok(DropTransform { deletes: drop_fields })
 }
 
 #[cfg(test)]
@@ -43,7 +59,7 @@ full.name: True
 ",
         )
         .unwrap();
-        let actual = parse_drop_transform(&config).unwrap();
+        let actual = parse_drop_transform(config).unwrap();
         let expected = DropTransform::new(&[
             DropField::new("first_name"),
             DropField::new("last_name"),
@@ -63,7 +79,7 @@ full.name:
 ",
         )
         .unwrap();
-        let actual = parse_drop_transform(&config).unwrap();
+        let actual = parse_drop_transform(config).unwrap();
         let expected = DropTransform::new(&[
             DropField::new("first_name"),
             DropField::new("last_name"),
@@ -81,6 +97,6 @@ first_name, last_name
 ",
         )
         .unwrap();
-        let _ = parse_drop_transform(&config).unwrap_err();
+        let _ = parse_drop_transform(config).unwrap_err();
     }
 }

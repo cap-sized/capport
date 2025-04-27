@@ -1,9 +1,12 @@
-use yaml_rust2::{Yaml, YamlLoader};
+use crate::util::error::CpResult;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
-use crate::util::error::{CpError, CpResult, SubResult};
-use std::{collections::HashMap, path::PathBuf};
-
-use crate::parser::common::YamlRead;
+use super::common::YamlRead;
 
 pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
     let paths = std::fs::read_dir(dir)?
@@ -24,71 +27,43 @@ pub fn read_configs(dir: &str, file_exts: &[&str]) -> CpResult<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn pack_configs_from_files(files: &[PathBuf]) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let mut configs = vec![];
-    for path in files {
-        let config_str = std::fs::read_to_string(path)?;
-        configs.extend(match YamlLoader::load_from_str(&config_str) {
-            Ok(x) => x,
-            Err(e) => {
-                return Err(CpError::ComponentError(
-                    "ScanError",
-                    format!("Error in scanning config {}: {:?}", &config_str, e),
-                ));
-            }
-        });
+pub fn pack_configs_from_files<P: AsRef<Path>>(
+    paths: &[P],
+) -> CpResult<HashMap<String, HashMap<String, serde_yaml_ng::Value>>> {
+    let mut config_pack: HashMap<String, HashMap<String, serde_yaml_ng::Value>> = HashMap::new();
+
+    for path in paths {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let yaml_root: serde_yaml_ng::Value = serde_yaml_ng::from_reader(reader)?;
+        pack_configurables(&mut config_pack, yaml_root)?;
     }
-    pack_configurables(&configs)
+
+    Ok(config_pack)
 }
 
-fn pack_configurables(configs: &Vec<Yaml>) -> CpResult<HashMap<String, HashMap<String, Yaml>>> {
-    let mut configurables_map: HashMap<String, HashMap<String, Yaml>> = HashMap::new();
-    for config in configs {
-        match config.to_map(format!("The following top-level config is not a map: {:?}", config)) {
-            Ok(x) => {
-                for (configurable, named_configs) in x {
-                    match unpack_named_configs(named_configs, &mut configurables_map, &configurable) {
-                        Ok(()) => (),
-                        Err(e) => return Err(CpError::ComponentError("config.common", e)),
-                    }
-                }
+pub fn pack_configurables(
+    config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    yaml_root: serde_yaml_ng::Value,
+) -> CpResult<()> {
+    let top_level_map = yaml_root.to_str_map()?;
+    for (configurable_name, value) in top_level_map {
+        let node_fields = value.to_str_map()?;
+        match config_pack.entry(configurable_name.clone()) {
+            std::collections::hash_map::Entry::Occupied(mut oe) => {
+                oe.get_mut().extend(node_fields);
             }
-            Err(e) => {
-                return Err(CpError::ComponentError("config.common", e));
+            std::collections::hash_map::Entry::Vacant(ve) => {
+                ve.insert(node_fields);
             }
-        }
-    }
-    Ok(configurables_map)
-}
-
-fn unpack_named_configs(
-    named_configs: &Yaml,
-    configurables_map: &mut HashMap<String, HashMap<String, Yaml>>,
-    config_type: &str,
-) -> SubResult<()> {
-    if !configurables_map.contains_key(config_type) {
-        configurables_map.insert(config_type.to_owned(), HashMap::new());
-    }
-    let config_map = named_configs.to_map(format!(
-        "The following named {} config is not a map: {:?}",
-        config_type, named_configs
-    ))?;
-    for (key, c) in config_map {
-        let pack = configurables_map
-            .get_mut(config_type)
-            .unwrap_or_else(|| panic!("Configurable not initialized: {}", config_type));
-        if !c.is_null() {
-            pack.insert(key, Yaml::clone(c));
-        } else {
-            return Err(format!("Key {} has null value", &key));
-        }
+        };
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    
+
     use std::{
         fs::{self},
         io::Write,
@@ -99,13 +74,9 @@ mod tests {
 
     use super::*;
 
-    fn get_yaml_sample(s: &str) -> Vec<Yaml> {
-        YamlLoader::load_from_str(s).unwrap()
-    }
-
     #[test]
     fn invalid_config_nodes_list() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 foo:
     - list1
@@ -114,13 +85,15 @@ bar:
     - bar1
     - bar2.0
 ",
-        );
-        pack_configurables(&configs).unwrap_err();
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap_err();
     }
 
     #[test]
     fn invalid_config_list_nodes() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 - foo:
     list1: 
@@ -129,26 +102,30 @@ bar:
     bar1: 
     bar2.0:
 ",
-        );
-        pack_configurables(&configs).unwrap_err();
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap_err();
     }
 
     #[test]
     fn invalid_config_null_nodes() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 foo:
     list1: 
     list2: 
 bar:
 ",
-        );
-        pack_configurables(&configs).unwrap_err();
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap_err();
     }
 
     #[test]
     fn invalid_config_invalid_keys() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 foo:
     list1: 
@@ -157,13 +134,15 @@ bar:
     1: 
     2.0:
 ",
-        );
-        pack_configurables(&configs).unwrap_err();
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap_err();
     }
 
     #[test]
     fn invalid_null_arg_named_configs() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 main: 
     foo:
@@ -171,13 +150,24 @@ main:
         1: 
         2.0:
 ",
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap();
+        let mut expected = HashMap::new();
+        expected.insert(
+            String::from("main"),
+            HashMap::from([
+                (String::from("foo"), serde_yaml_ng::Value::Null),
+                (String::from("bar"), yaml_from_str("{ 1: null, 2.0: null }").unwrap()),
+            ]),
         );
-        pack_configurables(&configs).unwrap_err();
+        assert_eq!(config_pack, expected);
     }
 
     #[test]
     fn valid_config_list_nodes() {
-        let configs = get_yaml_sample(
+        let configs = yaml_from_str(
             "
 foo:
     list1: a
@@ -186,24 +176,26 @@ bar:
     BarA: x
     BarB2.0: b
 ",
-        );
-        let result = pack_configurables(&configs).unwrap();
+        )
+        .unwrap();
+        let mut config_pack = HashMap::new();
+        pack_configurables(&mut config_pack, configs).unwrap();
         let mut expected = HashMap::new();
         expected.insert(
             String::from("foo"),
             HashMap::from([
-                (String::from("list1"), Yaml::from_str("a")),
-                (String::from("list2"), Yaml::from_str("b")),
+                (String::from("list1"), yaml_from_str("a").unwrap()),
+                (String::from("list2"), yaml_from_str("b").unwrap()),
             ]),
         );
         expected.insert(
             String::from("bar"),
             HashMap::from([
-                (String::from("BarA"), Yaml::from_str("x")),
-                (String::from("BarB2.0"), Yaml::from_str("b")),
+                (String::from("BarA"), yaml_from_str("x").unwrap()),
+                (String::from("BarB2.0"), yaml_from_str("b").unwrap()),
             ]),
         );
-        assert_eq!(result, expected);
+        assert_eq!(config_pack, expected);
     }
 
     fn generate_tmp_config_files(dir_path: &str) -> Vec<TempFile> {

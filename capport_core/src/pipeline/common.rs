@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use polars::prelude::LazyFrame;
-use yaml_rust2::Yaml;
+use serde::{Deserialize, Serialize};
 
 use crate::util::error::CpResult;
 
@@ -13,11 +13,11 @@ pub struct Pipeline {
     pub stages: Vec<PipelineStage>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PipelineStage {
     pub label: String,
-    pub task_name: String,
-    pub args_node: Yaml,
+    pub task: String,
+    pub args: serde_yaml_ng::Value,
 }
 
 impl Pipeline {
@@ -30,17 +30,17 @@ impl Pipeline {
 }
 
 impl PipelineStage {
-    pub fn new(label: &str, task_name: &str, args_node: &Yaml) -> Self {
+    pub fn new(label: &str, task_name: &str, args_node: &serde_yaml_ng::Value) -> Self {
         PipelineStage {
             label: label.to_string(),
-            task_name: task_name.to_string(),
-            args_node: args_node.clone(),
+            task: task_name.to_string(),
+            args: args_node.clone(),
         }
     }
 }
 
 pub trait HasTask {
-    fn lazy_task<SvcDistributor>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
+    fn lazy_task<SvcDistributor>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
 // Eventually we will need to make live stages which acculumate their own results over time.

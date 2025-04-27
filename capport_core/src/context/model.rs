@@ -1,5 +1,3 @@
-use yaml_rust2::Yaml;
-
 use crate::model::common::Model;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
@@ -41,7 +39,7 @@ impl ModelRegistry {
         self.registry.insert(model.name.clone(), model);
         prev
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<ModelRegistry> {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>) -> CpResult<ModelRegistry> {
         let mut reg = ModelRegistry {
             registry: HashMap::new(),
         };
@@ -57,10 +55,13 @@ impl Configurable for ModelRegistry {
     fn get_node_name() -> &'static str {
         "model"
     }
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
+    fn extract_parse_config(
+        &mut self,
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<()> {
         let configs = config_pack.remove(ModelRegistry::get_node_name()).unwrap_or_default();
         for (config_name, node) in configs {
-            let model = match parse_model(&config_name, &node) {
+            let model = match parse_model(&config_name, node) {
                 Ok(x) => x,
                 Err(e) => {
                     return Err(CpError::ComponentError(
@@ -164,9 +165,9 @@ player:
         constraints: [primary, unique]
     positions:
         dtype: list[str]
-
 ",
         );
+        println!("{:?}", &mr);
         {
             let actual_model = mr.get_model("person").unwrap();
             let expected_model: Model = Model::new(

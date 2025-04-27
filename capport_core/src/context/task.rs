@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt};
 
 use polars::prelude::LazyFrame;
-use yaml_rust2::Yaml;
 
 use crate::{
     pipeline::common::{HasTask, PipelineTask},
@@ -15,7 +14,8 @@ use crate::{
     util::error::CpResult,
 };
 
-pub type TaskGenerator<ResultType, SvcDistributor> = fn(&Yaml) -> CpResult<PipelineTask<ResultType, SvcDistributor>>;
+pub type TaskGenerator<ResultType, SvcDistributor> =
+    fn(&serde_yaml_ng::Value) -> CpResult<PipelineTask<ResultType, SvcDistributor>>;
 
 pub struct TaskDictionary<ResultType, SvcDistributor> {
     pub tasks: HashMap<String, TaskGenerator<ResultType, SvcDistributor>>,
@@ -34,7 +34,10 @@ impl Default for TaskDictionary<LazyFrame, ()> {
                 ("save_csv".to_string(), generate_lazy_task::<CsvModelSaveTask, ()>()),
                 ("transform".to_string(), generate_lazy_task::<TransformTask, ()>()),
                 ("http_request".to_string(), generate_lazy_task::<HttpRequestTask, ()>()),
-                ("http_single_request".to_string(), generate_lazy_task::<HttpSingleRequestTask, ()>()),
+                (
+                    "http_single_request".to_string(),
+                    generate_lazy_task::<HttpSingleRequestTask, ()>(),
+                ),
             ]),
         }
     }

@@ -533,7 +533,6 @@ dependencies = [
  "serde_yaml_ng",
  "thiserror 2.0.12",
  "tokio",
- "yaml-rust2",
 ]
 
 [[package]]

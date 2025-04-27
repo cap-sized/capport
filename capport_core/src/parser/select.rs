@@ -1,41 +1,32 @@
 use crate::transform::select::{SelectField, SelectTransform};
-use crate::util::error::SubResult;
-use yaml_rust2::Yaml;
+use crate::util::common::yaml_from_str;
+use crate::util::error::{CpError, CpResult};
 
-use super::common::{YamlMapRead, YamlRead};
-
-const ARGS_KEYWORD: &str = "args";
-const ACTION_KEYWORD: &str = "action";
-
-pub fn parse_select_field(name: &str, node: &Yaml) -> SubResult<SelectField> {
-    if !node.is_hash() {
-        Ok(SelectField {
-            label: String::from(name),
-            action: None,
-            args: node.clone(),
-        })
-    } else {
-        let node_map = node.to_map("Unexpected non-hash".to_owned())?;
-        let action = node_map.get_str(ACTION_KEYWORD, format!("no action found for SelectField {}", name))?;
-        Ok(SelectField {
-            label: String::from(name),
-            action: Some(action),
-            args: match node_map.get(ARGS_KEYWORD) {
-                Some(&x) => x.to_owned(),
-                None => return Err(format!("args not found in SelectField {}", name)),
-            },
-        })
+use super::common::YamlRead;
+pub fn parse_select_transform(node: serde_yaml_ng::Value) -> CpResult<SelectTransform> {
+    let select_field_map = node.to_str_val_vec()?;
+    let mut select_fields = vec![];
+    for (to_field, mut select_field) in select_field_map {
+        if select_field.is_string() {
+            select_fields.push(SelectField {
+                action: None,
+                args: select_field,
+                label: to_field,
+            });
+        } else {
+            select_field.add_to_map(yaml_from_str("label")?, yaml_from_str(&to_field)?)?;
+            select_fields.push(match serde_yaml_ng::from_value(select_field) {
+                Ok(x) => x,
+                Err(e) => {
+                    return Err(CpError::ConfigError(
+                        "Error parsing SelectField value",
+                        format!("Failed to parse {} as value: {:?}", to_field, &e),
+                    ));
+                }
+            });
+        }
     }
-}
-
-pub fn parse_select_transform(node: &Yaml) -> SubResult<SelectTransform> {
-    match node.over_map(
-        parse_select_field,
-        format!("SelectTransform config is not a map: {:?}", node),
-    ) {
-        Ok(selects) => Ok(SelectTransform { selects }),
-        Err(e) => Err(e),
-    }
+    Ok(SelectTransform { selects: select_fields })
 }
 
 #[cfg(test)]
@@ -58,7 +49,7 @@ last_name: lastName.default
 ",
         )
         .unwrap();
-        let actual = parse_select_transform(&config).unwrap();
+        let actual = parse_select_transform(config).unwrap();
         let expected = SelectTransform::new(&[
             SelectField::new("id", "csid"),
             SelectField::new("first_name", "firstName.default"),
@@ -68,7 +59,7 @@ last_name: lastName.default
     }
 
     #[test]
-    fn valid_detailed_select_transform() {
+    fn valid_args_is_map_select_transform() {
         let config = yaml_from_str(
             "
 first_name: firstName.default 
@@ -81,7 +72,7 @@ full_name:
 ",
         )
         .unwrap();
-        let actual = parse_select_transform(&config).unwrap();
+        let actual = parse_select_transform(config).unwrap();
         let expected = SelectTransform::new(&[
             SelectField::new("first_name", "firstName.default"),
             SelectField::new("last_name", "lastName.default"),
@@ -95,7 +86,7 @@ full_name:
     }
 
     #[test]
-    fn valid_no_kwargs_select_transform() {
+    fn valid_args_not_map_select_transform() {
         let config = yaml_from_str(
             "
 person_id: csid # from the previous step
@@ -108,7 +99,7 @@ positions:
 ",
         )
         .unwrap();
-        let actual = parse_select_transform(&config).unwrap();
+        let actual = parse_select_transform(config).unwrap();
         let expected = SelectTransform::new(&[
             SelectField::new("person_id", "csid"),
             SelectField::new("player_id", "playerId"),
@@ -119,20 +110,33 @@ positions:
     }
 
     #[test]
-    fn invalid_missing_fields_map_select_transform() {
+    fn valid_args_no_action_select_transform() {
         [
             "
 positions: 
-    args: position
-",
-            "
-positions: 
-    action: to_list
+    args: pos
 ",
             "
 positions: 
     action: 
-    args: position
+    args: pos
+",
+        ]
+        .iter()
+        .for_each(|&s| {
+            let config = yaml_from_str(s).unwrap();
+            let actual = parse_select_transform(config).unwrap();
+            let expected = SelectTransform::new(&[SelectField::new("positions", "pos")]);
+            assert_eq!(actual, expected);
+        });
+    }
+
+    #[test]
+    fn invalid_missing_fields_map_select_transform() {
+        [
+            "
+positions: 
+    action: to_list
 ",
             "
 positions: 
@@ -143,7 +147,7 @@ positions:
         .iter()
         .for_each(|&s| {
             let config = yaml_from_str(s).unwrap();
-            parse_select_transform(&config).unwrap_err();
+            parse_select_transform(config).unwrap_err();
         });
     }
 }

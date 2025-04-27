@@ -1,21 +1,19 @@
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
-use crate::util::{common::yaml_to_str, error::SubResult};
+use crate::util::error::SubResult;
 
 use super::expr::parse_str_to_col_expr;
 
-pub fn parse_action_to_expr(label: &str, action: &str, args: &Yaml) -> SubResult<Expr> {
-    let yaml_str = yaml_to_str(args)?;
+pub fn parse_action_to_expr(label: &str, action: &str, args: serde_yaml_ng::Value) -> SubResult<Expr> {
     match action {
-        "format" => match serde_yaml_ng::from_str::<FormatActionArgs>(&yaml_str) {
+        "format" => match serde_yaml_ng::from_value::<FormatActionArgs>(args) {
             Ok(x) => x.expr().map(|x| x.alias(label)),
             Err(e) => Err(format!("Bad args for FormatActionArgs: {:?}", e)),
         },
-        "concat" => match serde_yaml_ng::from_str::<ConcatActionArgs>(&yaml_str) {
+        "concat" => match serde_yaml_ng::from_value::<ConcatActionArgs>(args) {
             Ok(x) => x.expr().map(|x| x.alias(label)),
-            Err(e) => Err(format!("Bad args for FormatActionArgs: {:?}", e)),
+            Err(e) => Err(format!("Bad args for FormatConcatArgs: {:?}", e)),
         },
         _ => Err(format!("Unrecognized action `{}`", action)),
     }

@@ -13,7 +13,6 @@ use capport_service::{
 };
 use polars::prelude::LazyFrame;
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
 const MONGO_URI: &str = "mongodb://localhost:27017";
 const MONGO_DEFAULT_DB: &str = "csdb";
@@ -25,7 +24,7 @@ struct TestPerson {
     desc: String,
 }
 
-fn get_config_pack() -> HashMap<String, HashMap<String, Yaml>> {
+fn get_config_pack() -> HashMap<String, HashMap<String, serde_yaml_ng::Value>> {
     let config = yaml_from_str(
         format!(
             "

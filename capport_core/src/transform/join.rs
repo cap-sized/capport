@@ -1,6 +1,7 @@
 use std::sync::RwLock;
 
 use polars::prelude::*;
+use serde::{Deserialize, Deserializer, de};
 
 use crate::{
     pipeline::results::PipelineResults,
@@ -10,10 +11,13 @@ use crate::{
 use super::{common::Transform, select::SelectField};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JType(pub polars::prelude::JoinType);
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct JoinTransform {
     pub join: String,
     pub right_select: Vec<SelectField>,
-    pub how: JoinType,
+    pub how: JType,
     pub left_on: Vec<String>,
     pub right_on: Vec<String>,
 }
@@ -28,7 +32,7 @@ impl JoinTransform {
             left_on: left.split(',').map(|x| x.to_owned()).collect(),
             right_on: right.split(',').map(|x| x.to_owned()).collect(),
             right_select: right_select.to_vec(),
-            how,
+            how: JType(how),
         }
     }
 }
@@ -65,8 +69,31 @@ impl Transform for JoinTransform {
             },
             left_on,
             right_on,
-            JoinArgs::new(self.how.clone()),
+            JoinArgs::new(self.how.clone().into()),
         ))
+    }
+}
+
+impl From<JType> for JoinType {
+    fn from(w: JType) -> Self {
+        w.0
+    }
+}
+
+impl<'de> Deserialize<'de> for JType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "left" => Ok(JType(JoinType::Left)),
+            "right" => Ok(JType(JoinType::Right)),
+            "full" => Ok(JType(JoinType::Full)),
+            "cross" => Ok(JType(JoinType::Cross)),
+            "inner" => Ok(JType(JoinType::Inner)),
+            s => return Err(de::Error::custom(format!("Unknown jointype in model: {}", s))),
+        }
     }
 }
 

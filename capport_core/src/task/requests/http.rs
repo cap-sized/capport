@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
 use crate::{
     pipeline::{
         common::{HasTask, PipelineTask},
         context::PipelineContext,
     },
-    task::common::{deserialize_arg_str, yaml_to_task_arg_str},
     transform::expr::parse_str_to_col_expr,
     util::{
         error::{CpError, CpResult},
@@ -114,9 +112,8 @@ impl HttpRequestTask {
 }
 
 impl HasTask for HttpRequestTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
-        let arg_str = yaml_to_task_arg_str(args, "HttpRequestTask")?;
-        let task: HttpRequestTask = deserialize_arg_str(&arg_str, "HttpRequestTask")?;
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+        let task: HttpRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
         Ok(Box::new(move |ctx| run(ctx, task.clone())))
     }
 }
@@ -211,9 +208,8 @@ impl HttpSingleRequestTask {
 }
 
 impl HasTask for HttpSingleRequestTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
-        let arg_str = yaml_to_task_arg_str(args, "HttpSingleRequestTask")?;
-        let task: HttpSingleRequestTask = deserialize_arg_str(&arg_str, "HttpSingleRequestTask")?;
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+        let task: HttpSingleRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
         Ok(Box::new(move |ctx| task.clone().run(ctx)))
     }
 }

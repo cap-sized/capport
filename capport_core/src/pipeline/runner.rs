@@ -13,7 +13,7 @@ impl PipelineRunner {
         pipeline: &Pipeline,
     ) -> CpResult<PipelineResults<LazyFrame>> {
         for stage in &pipeline.stages {
-            let task = ctx.get_task(&stage.task_name, &stage.args_node)?;
+            let task = ctx.get_task(&stage.task, &stage.args)?;
             task(ctx.clone())?;
         }
         ctx.clone().clone_results()
@@ -25,7 +25,6 @@ mod tests {
     use std::sync::Arc;
 
     use polars::prelude::LazyFrame;
-    use yaml_rust2::Yaml;
 
     use crate::{
         context::{
@@ -44,7 +43,7 @@ mod tests {
     use super::PipelineRunner;
 
     fn noop_stage(name: &str) -> PipelineStage {
-        PipelineStage::new(name, "noop", &yaml_rust2::Yaml::Null)
+        PipelineStage::new(name, "noop", &serde_yaml_ng::Value::Null)
     }
 
     fn create_context() -> Arc<DefaultContext<LazyFrame, ()>> {
@@ -75,7 +74,10 @@ mod tests {
 
     #[test]
     fn invalid_task_not_found() {
-        let pipeline = Pipeline::new("invalid", &[PipelineStage::new("not_found", "nooop", &Yaml::Null)]);
+        let pipeline = Pipeline::new(
+            "invalid",
+            &[PipelineStage::new("not_found", "nooop", &serde_yaml_ng::Value::Null)],
+        );
         let ctx = create_context();
         assert!(PipelineRunner::run_lazy(ctx.clone(), &pipeline).is_err());
     }

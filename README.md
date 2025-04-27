@@ -47,8 +47,8 @@ pipelines.
 - High priority (by mid May)
   - [ ] (task.md) HttpRequestTask enhancements 
     - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
-    - [ ] Create`HttpSingleRequestTask`
-  - [ ] (service.md) MongoDB Service
+    - [x] Create`HttpSingleRequestTask`
+  - [x] (service.md) MongoDB Service
   - [ ] (service.md) SQL connection Service
     - [ ] `create_table` task
     - [ ] `insert` task
@@ -130,7 +130,7 @@ let mut pack = pack_configs_from_files(&config_files).unwrap();
 Each config YAML file must be a map at its root level. Each key at the root represents a configurable, 
 identified by the `Configurable` in the `context/` directory by their `get_node_name()`.
 
-All configurables must be parsable into a map of named `HashMap<String, Yaml>`.
+All configurables must be parsable into a map of named `HashMap<String, serde_yaml_ng::Value>`.
 `parse_configs_from_files` collapses each configurable across different files into one map of named configs.
 
 e.g. config/data_pipelines_A.yml

@@ -34,7 +34,7 @@ pub fn run_find<S: HasMongoClient>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, 
 }
 
 impl HasTask for MongoFindTask {
-    fn lazy_task<SvcDistributor: HasMongoClient>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>> {
+    fn lazy_task<SvcDistributor: HasMongoClient>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>> {
         ...
         Ok(|ctx, task| run_find<SvcDistributor>(ctx, task))
     }

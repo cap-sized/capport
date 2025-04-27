@@ -21,7 +21,7 @@ const COLOR_TRACE: Color = Color::Blue;
 pub struct LogLevelFilter(pub log::LevelFilter);
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct LogWriter {
+pub struct Logger {
     pub label: String,
     pub level: Option<LogLevelFilter>,
     pub output: Option<String>, // absence => for
@@ -47,7 +47,7 @@ impl<'de> Deserialize<'de> for LogLevelFilter {
     }
 }
 
-impl LogWriter {
+impl Logger {
     pub fn new(
         label: &str,
         level: Option<log::LevelFilter>,
@@ -55,7 +55,7 @@ impl LogWriter {
         file_prefix: Option<&str>,
         file_timestamp: Option<&str>,
     ) -> Self {
-        LogWriter {
+        Logger {
             label: label.to_owned(),
             level: level.map(LogLevelFilter),
             output: output.map(|x| x.to_owned()),
@@ -119,9 +119,9 @@ impl LogWriter {
 
 #[cfg(test)]
 mod tests {
-    use log::{error, warn};
+    
 
-    use crate::logger::writer::{DEFAULT_LOG_PREFIX, LogLevelFilter, LogWriter};
+    use crate::logger::common::{DEFAULT_LOG_PREFIX, LogLevelFilter, Logger};
 
     #[test]
     fn deserializing_log_level() {
@@ -150,30 +150,22 @@ mod tests {
     #[test]
     fn valid_prefixing_full_paths() {
         {
-            let writer = LogWriter::new("test", None, Some("/tmp/"), None, None);
+            let writer = Logger::new("test", None, Some("/tmp/"), None, None);
             assert_eq!(
                 std::path::Path::new(writer.get_full_prefix().unwrap().as_str()),
                 std::path::Path::new(format!("/tmp/{}", DEFAULT_LOG_PREFIX).as_str())
             );
         }
         {
-            let writer = LogWriter::new("test", None, Some("/tmp/"), Some("custom"), None);
+            let writer = Logger::new("test", None, Some("/tmp/"), Some("custom"), None);
             assert_eq!(
                 std::path::Path::new(writer.get_full_prefix().unwrap().as_str()),
-                std::path::Path::new(format!("/tmp/{}", "custom".to_string()).as_str())
+                std::path::Path::new(format!("/tmp/{}", "custom").as_str())
             );
         }
         {
-            let writer = LogWriter::new("test", None, None, Some("custom"), None);
+            let writer = Logger::new("test", None, None, Some("custom"), None);
             assert_eq!(writer.get_full_prefix(), None);
         }
-    }
-
-    #[test]
-    fn start_console_log() {
-        let writer = LogWriter::new("test", None, None, None, None);
-        writer.start(true).unwrap();
-        warn!("WARN WARN WARN");
-        error!("test test test");
     }
 }

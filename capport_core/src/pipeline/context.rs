@@ -37,7 +37,7 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn mut_svc(&mut self) -> &mut ServiceDistributor;
 
     // Logger initializer
-    fn init_log(&self, logger_name: &str, to_console: bool) -> CpResult<()>;
+    fn init_log(&mut self, logger_name: &str, to_console: bool) -> CpResult<()>;
 }
 
 pub struct DefaultContext<ResultType, ServiceDistributor> {
@@ -152,7 +152,7 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
         &mut self.service_distributor
     }
 
-    fn init_log(&self, logger_name: &str, to_console: bool) -> CpResult<()> {
+    fn init_log(&mut self, logger_name: &str, to_console: bool) -> CpResult<()> {
         self.logger_registry.start_logger(logger_name, to_console)
     }
 }

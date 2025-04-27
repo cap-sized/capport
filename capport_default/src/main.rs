@@ -3,7 +3,7 @@ use std::sync::Arc;
 use capport_core::context::logger::LoggerRegistry;
 use capport_core::context::task::TaskDictionary;
 use capport_core::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
-use capport_core::logger::writer::DEFAULT_CONSOLE_LOGGER_NAME;
+use capport_core::logger::common::DEFAULT_CONSOLE_LOGGER_NAME;
 use capport_core::parser::config::{pack_configs_from_files, read_configs};
 use capport_core::pipeline::context::{DefaultContext, PipelineContext};
 use capport_core::pipeline::runner::PipelineRunner;
@@ -19,15 +19,12 @@ fn main() {
     let transform_reg = TransformRegistry::from(&mut pack).expect("Failed to build transform registry");
     let pipeline_reg = PipelineRegistry::from(&mut pack).expect("Failed to build pipeline registry");
     let logger_reg = LoggerRegistry::from(&mut pack).expect("Failed to build logger registry");
-    let ctx = Arc::new(DefaultContext::<LazyFrame, ()>::new(
-        model_reg,
-        transform_reg,
-        TaskDictionary::default(),
-        (),
-        logger_reg,
-    ));
-    ctx.init_log(DEFAULT_CONSOLE_LOGGER_NAME, args.output_to_console)
+    let mut ctx_setup =
+        DefaultContext::<LazyFrame, ()>::new(model_reg, transform_reg, TaskDictionary::default(), (), logger_reg);
+    ctx_setup
+        .init_log(DEFAULT_CONSOLE_LOGGER_NAME, args.output_to_console)
         .expect("Failed to initialize logging");
+    let ctx = Arc::new(ctx_setup);
     let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
         Some(x) => x,
         None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    logger::writer::{DEFAULT_CONSOLE_LOGGER_NAME, LogWriter},
+    logger::common::{DEFAULT_CONSOLE_LOGGER_NAME, Logger},
     parser::logger::parse_logger,
     util::error::{CpError, CpResult},
 };
@@ -10,7 +10,8 @@ use super::common::Configurable;
 
 #[derive(Debug)]
 pub struct LoggerRegistry {
-    registry: HashMap<String, LogWriter>,
+    registry: HashMap<String, Logger>,
+    running_logger: Option<String>,
 }
 
 impl Default for LoggerRegistry {
@@ -24,8 +25,9 @@ impl LoggerRegistry {
         LoggerRegistry {
             registry: HashMap::from([(
                 DEFAULT_CONSOLE_LOGGER_NAME.to_owned(),
-                LogWriter::new(DEFAULT_CONSOLE_LOGGER_NAME, None, None, None, None),
+                Logger::new(DEFAULT_CONSOLE_LOGGER_NAME, None, None, None, None),
             )]),
+            running_logger: None,
         }
     }
     pub fn from(config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>) -> CpResult<LoggerRegistry> {
@@ -33,11 +35,17 @@ impl LoggerRegistry {
         reg.extract_parse_config(config_pack)?;
         Ok(reg)
     }
-    pub fn get_logger(&self, logger_name: &str) -> Option<LogWriter> {
+    pub fn get_logger(&self, logger_name: &str) -> Option<Logger> {
         self.registry.get(logger_name).map(|x| x.to_owned())
     }
 
-    pub fn start_logger(&self, logger_name: &str, to_console: bool) -> CpResult<()> {
+    pub fn start_logger(&mut self, logger_name: &str, to_console: bool) -> CpResult<()> {
+        if self.running_logger.is_some() {
+            return Err(CpError::ComponentError(
+                "config.logger",
+                format!("Logger {} already running", self.running_logger.clone().unwrap()),
+            ));
+        }
         let logger = match self.registry.get(logger_name) {
             Some(x) => x,
             None => {
@@ -48,6 +56,7 @@ impl LoggerRegistry {
             }
         };
         logger.start(to_console)?;
+        let _ = self.running_logger.insert(logger_name.to_owned());
         Ok(())
     }
 }
@@ -90,7 +99,9 @@ impl Configurable for LoggerRegistry {
 
 #[cfg(test)]
 mod tests {
-    use crate::{logger::writer::LogWriter, util::common::create_config_pack};
+    use std::{fs, io::ErrorKind};
+
+    use crate::{logger::common::Logger, util::common::create_config_pack};
 
     use super::LoggerRegistry;
 
@@ -116,7 +127,7 @@ base_log:
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = LogWriter::new(
+        let expected = Logger::new(
             "base_log",
             Some(log::LevelFilter::Debug),
             Some("/tmp/"),
@@ -135,7 +146,7 @@ base_log:
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = LogWriter::new("base_log", None, Some("/tmp/"), None, None);
+        let expected = Logger::new("base_log", None, Some("/tmp/"), None, None);
         assert_eq!(actual, expected);
     }
 
@@ -149,7 +160,7 @@ base_log:
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = LogWriter::new("base_log", Some(log::LevelFilter::Warn), Some("/tmp/"), None, None);
+        let expected = Logger::new("base_log", Some(log::LevelFilter::Warn), Some("/tmp/"), None, None);
         assert_eq!(actual, expected);
     }
 
@@ -164,7 +175,7 @@ base_log:
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = LogWriter::new(
+        let expected = Logger::new(
             "base_log",
             Some(log::LevelFilter::Error),
             Some("/tmp/"),
@@ -204,5 +215,36 @@ base_log:
         .for_each(|config| {
             assert_invalid_model(config);
         });
+    }
+
+    #[test]
+    fn invalid_starting_two_loggers() {
+        let dir_path = "/tmp/capport_testing/invalid_starting_two_loggers/";
+        match fs::create_dir_all(dir_path) {
+            Ok(_) => {}
+            Err(e) => {
+                if e.kind() != ErrorKind::DirectoryNotEmpty {
+                    panic!("failed to create directory: {:?}", e)
+                }
+            }
+        };
+
+        let config = format!(
+            "
+base_log:
+    level: error
+    output: {}
+    file_prefix: myprogram_
+second_log:
+    level: error
+    output: {}
+    file_prefix: anothermyprogram_
+        ",
+            dir_path, dir_path
+        );
+        let mut reg = create_logger_registry(&config);
+        reg.start_logger("base_log", true).unwrap();
+        assert!(reg.start_logger("second_log", true).is_err());
+        fs::remove_dir_all(dir_path).unwrap();
     }
 }

@@ -2,10 +2,7 @@ use std::{fmt, sync::RwLock};
 
 use polars::prelude::*;
 
-use crate::{
-    pipeline::results::PipelineResults,
-    util::error::CpResult,
-};
+use crate::{pipeline::results::PipelineResults, util::error::CpResult};
 
 pub trait Transform {
     fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame>;

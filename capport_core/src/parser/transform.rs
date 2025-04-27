@@ -4,17 +4,22 @@ use crate::{
         drop::DropTransform,
         join::JoinTransform,
         select::SelectTransform,
+        sql::SqlTransform,
     },
     util::error::{CpError, CpResult},
 };
 
-use super::{common::YamlRead, drop::parse_drop_transform, join::parse_join_transform, select::parse_select_transform};
+use super::{
+    common::YamlRead, drop::parse_drop_transform, join::parse_join_transform, select::parse_select_transform,
+    sql::parse_sql_transform,
+};
 
 const SELECT: &str = SelectTransform::keyword();
 const JOIN: &str = JoinTransform::keyword();
 const DROP: &str = DropTransform::keyword();
+const SQL: &str = SqlTransform::keyword();
 
-const ALLOWED_NODES: [&str; 3] = [SELECT, JOIN, DROP];
+const ALLOWED_NODES: [&str; 4] = [SELECT, JOIN, DROP, SQL];
 
 pub fn parse_root_transform(name: &str, node: serde_yaml_ng::Value) -> CpResult<RootTransform> {
     let stages_configs = node.to_val_vec(true)?;
@@ -51,6 +56,12 @@ pub fn parse_root_transform(name: &str, node: serde_yaml_ng::Value) -> CpResult<
                     Err(e) => return Err(CpError::ConfigError("Error parsing Drop", e.to_string())),
                 }));
             }
+            SQL => {
+                stages.push(Box::new(match parse_sql_transform(args) {
+                    Ok(x) => x,
+                    Err(e) => return Err(CpError::ConfigError("Error parsing Sql", e.to_string())),
+                }));
+            }
             x => {
                 return Err(CpError::ConfigError(
                     "Transform subnodes not recognized",
@@ -74,7 +85,9 @@ mod tests {
 
     use crate::{
         pipeline::results::PipelineResults,
-        transform::{common::Transform, drop::DropTransform, join::JoinTransform, select::SelectTransform},
+        transform::{
+            common::Transform, drop::DropTransform, join::JoinTransform, select::SelectTransform, sql::SqlTransform,
+        },
         util::common::{DummyData, yaml_from_str},
     };
 
@@ -88,6 +101,7 @@ mod tests {
                 SelectTransform::keyword(),
                 JoinTransform::keyword(),
                 DropTransform::keyword(),
+                SqlTransform::keyword(),
             ]
         );
     }

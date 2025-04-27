@@ -526,6 +526,7 @@ dependencies = [
  "httpmock",
  "polars",
  "polars-lazy",
+ "polars-sql",
  "rand 0.9.1",
  "reqwest",
  "serde",

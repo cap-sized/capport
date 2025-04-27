@@ -33,3 +33,21 @@ pipeline:
           - df_from: GAME_DF
             param_column: game
             template: "cayenneExp=gameId%20in%20({})"
+
+    - label: transform_shift_chart
+      task: transform
+      args:
+        name: data_total_unpack
+        input: SHIFT_CHART_DF
+        save_df: SHIFT_CHART_DF
+
+    - label: save_shift_chart
+      task: save_csv
+      args:
+        - filepath: "config/example_http_single_request/shift_charts.csv"
+          df_name: SHIFT_CHART_DF
+
+transform:
+  data_total_unpack:
+    - sql: "select data.* 
+    from (SELECT unnest(data) FROM self) unnested_data"

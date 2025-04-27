@@ -6,8 +6,8 @@ pub struct RunPipelineArgs {
     #[argh(option, short = 'c', description = "directory for input configs")]
     pub config_dir: String,
 
-    #[argh(option, short = 'o', description = "directory for outputs")]
-    pub output_dir: String,
+    #[argh(switch, short = 'o', description = "print output to console")]
+    pub output_to_console: bool,
 
     #[argh(option, short = 'p', description = "name of pipeline to run")]
     pub pipeline: String,

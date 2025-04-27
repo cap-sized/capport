@@ -20,10 +20,10 @@ transform:
     - join:
         join: PLAYER
         right_select:
-          entityid: 
-          firstname: 
-          lastname: 
-          age: 
+          entityid: entityid
+          firstname: firstname
+          lastname: lastname
+          age: age
         left_on: id
         right_on: entityid
         how: left

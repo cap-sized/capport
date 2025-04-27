@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use polars::prelude::LazyFrame;
 
 use crate::{
-    context::{model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
+    context::{logger::LoggerRegistry, model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
     model::common::Model,
     transform::common::RootTransform,
     util::error::{CpError, CpResult},
@@ -35,6 +35,9 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn svc(&self) -> &ServiceDistributor;
 
     fn mut_svc(&mut self) -> &mut ServiceDistributor;
+
+    // Logger initializer
+    fn init_log(&self, logger_name: &str, to_console: bool) -> CpResult<()>;
 }
 
 pub struct DefaultContext<ResultType, ServiceDistributor> {
@@ -42,6 +45,7 @@ pub struct DefaultContext<ResultType, ServiceDistributor> {
     transform_registry: TransformRegistry,
     task_dictionary: TaskDictionary<ResultType, ServiceDistributor>,
     results: Arc<RwLock<PipelineResults<ResultType>>>,
+    logger_registry: LoggerRegistry,
     service_distributor: ServiceDistributor,
 }
 
@@ -54,6 +58,7 @@ impl<R, S> DefaultContext<R, S> {
         transform_registry: TransformRegistry,
         task_dictionary: TaskDictionary<R, S>,
         service_distributor: S,
+        logger_registry: LoggerRegistry,
     ) -> Self {
         DefaultContext {
             model_registry,
@@ -61,6 +66,7 @@ impl<R, S> DefaultContext<R, S> {
             task_dictionary,
             results: Arc::new(RwLock::new(PipelineResults::<R>::default())),
             service_distributor,
+            logger_registry,
         }
     }
 }
@@ -145,6 +151,10 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
     fn mut_svc(&mut self) -> &mut ServiceDistributor {
         &mut self.service_distributor
     }
+
+    fn init_log(&self, logger_name: &str, to_console: bool) -> CpResult<()> {
+        self.logger_registry.start_logger(logger_name, to_console)
+    }
 }
 
 impl Default for DefaultContext<LazyFrame, ()> {
@@ -154,6 +164,7 @@ impl Default for DefaultContext<LazyFrame, ()> {
             TransformRegistry::new(),
             TaskDictionary::default(),
             (),
+            LoggerRegistry::new(),
         )
     }
 }

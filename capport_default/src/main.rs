@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+use capport_core::context::logger::LoggerRegistry;
 use capport_core::context::task::TaskDictionary;
 use capport_core::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
+use capport_core::logger::writer::DEFAULT_CONSOLE_LOGGER_NAME;
 use capport_core::parser::config::{pack_configs_from_files, read_configs};
-use capport_core::pipeline::context::DefaultContext;
+use capport_core::pipeline::context::{DefaultContext, PipelineContext};
 use capport_core::pipeline::runner::PipelineRunner;
 use capport_core::util::args::RunPipelineArgs;
+use log::info;
 use polars::prelude::LazyFrame;
 
 fn main() {
@@ -15,16 +18,21 @@ fn main() {
     let model_reg = ModelRegistry::from(&mut pack).expect("Failed to build model registry");
     let transform_reg = TransformRegistry::from(&mut pack).expect("Failed to build transform registry");
     let pipeline_reg = PipelineRegistry::from(&mut pack).expect("Failed to build pipeline registry");
-    let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
-        Some(x) => x,
-        None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),
-    };
+    let logger_reg = LoggerRegistry::from(&mut pack).expect("Failed to build logger registry");
     let ctx = Arc::new(DefaultContext::<LazyFrame, ()>::new(
         model_reg,
         transform_reg,
         TaskDictionary::default(),
         (),
+        logger_reg,
     ));
+    ctx.init_log(DEFAULT_CONSOLE_LOGGER_NAME, args.output_to_console)
+        .expect("Failed to initialize logging");
+    let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
+        Some(x) => x,
+        None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),
+    };
+    info!("Started running pipeline: {:?}", &pipeline);
     let pipeline_results = match PipelineRunner::run_lazy(ctx, pipeline) {
         Ok(x) => x,
         Err(e) => panic!("{}", e),
@@ -33,7 +41,7 @@ fn main() {
     for (name, table) in final_results {
         let _ = match table.collect() {
             Ok(x) => {
-                println!("{}\n{:?}", name, &x);
+                info!("{}\n{:?}", name, &x);
                 x
             }
             Err(e) => panic!("{}", e),

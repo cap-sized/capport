@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 argh = "0.1.13"
 chrono-tz = "0.10.3"
+fern = { version = "0.7.1", features = ["date-based"] }
+log = "0.4.27"
+flexi_logger = "0.30.1"
 polars = { version = "0.46.0", features = [
     'lazy',
     'csv',

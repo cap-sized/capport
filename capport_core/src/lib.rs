@@ -1,4 +1,5 @@
 pub mod context;
+pub mod logger;
 pub mod model;
 pub mod parser;
 pub mod pipeline;

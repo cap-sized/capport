@@ -129,7 +129,7 @@ how: right
         )
         .unwrap();
         let actual = parse_join_transform(config).unwrap();
-        let expected = JoinTransform::new("player", "firstName,lastName", "first,last", &[], JoinType::Right);
+        let expected = JoinTransform::new("player", "lastName", "last", &[], JoinType::Right);
         println!("{:?}", actual);
         assert_eq!(actual, expected);
     }

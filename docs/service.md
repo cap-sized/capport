@@ -2,15 +2,15 @@
 
 ### Todo summary
 
-- [ ] MongoDB Service
+- [x] MongoDB Service
     - [ ] `find` task
+    - [ ] `bulk_write` task
 - [ ] SQL connection Service
     - [ ] `create_table` task
     - [ ] `insert` task
     - [ ] `insert_batched` task (from lazyframe)
     - [ ] `select` task
     - [ ] `execute` task (takes in a SQL string query and runs it directly on the database)
-- [ ] Websockets connection Service
 
 ## Overview
 
@@ -18,6 +18,13 @@ A `ServiceDistributor` in `PipelineContext` is a custom implemented struct that 
 Rust clients for external services, like database connections, gRPC clients etc.
 
 This design allows us to attach an arbitrary number of services to a distributor.
+
+### `DefaultSvcDistributor`
+
+Acts as the default registry provided by capport, implements `Configurable`.
+It will include the ability to hold a single instance of every single client that service
+provides. However it only instantiates those the `required_svcs` that are passed to the 
+`setup` method.
 
 ### Service Paradigm
 
@@ -40,3 +47,8 @@ impl HasTask for MongoFindTask {
     }
 }
 ```
+
+## Services to support
+
+- MongoDB `MongoClient`
+- SQLx `SQLClient`

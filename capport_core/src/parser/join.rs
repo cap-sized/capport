@@ -122,7 +122,6 @@ how: {}
         let config = yaml_from_str(
             "
 join: player
-right_select:
 left_on: lastName
 right_on: last
 how: right
@@ -198,6 +197,13 @@ right_select:
     last: playerLastName.default
 left_on: [ firstName, lastName ]
 right_on: [ first, last ]
+",
+            "
+join: player
+right_select:
+left_on: lastName
+right_on: last
+how: right
 ",
         ]
         .iter()

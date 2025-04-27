@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::transform::join::{JType, JoinTransform};
 use crate::util::error::{CpError, CpResult};
 
@@ -48,6 +46,15 @@ pub fn parse_join_transform(node: serde_yaml_ng::Value) -> CpResult<JoinTransfor
             ));
         }
     };
+    if left_on.len() != right_on.len() {
+        return Err(CpError::ConfigError(
+            "left_on and right_on do not have the same number of columns",
+            format!(
+                "Mismatch columns for left_on: {:?}, right_on: {:?}",
+                &left_on, &right_on
+            ),
+        ));
+    }
     Ok(JoinTransform {
         join,
         right_select,
@@ -70,29 +77,60 @@ mod tests {
 
     #[test]
     fn valid_basic_join_transform() {
-        let config = yaml_from_str(
-            "
+        let jointypes = &[
+            ("left", JoinType::Left),
+            ("right", JoinType::Right),
+            ("full", JoinType::Full),
+            ("cross", JoinType::Cross),
+            ("inner", JoinType::Inner),
+        ];
+        for (join_type_str, join_type) in jointypes {
+            let config = yaml_from_str(
+                format!(
+                    "
 join: test
 right_select:
     birth_state_province_code: code
     birth_state_province_name: name
 left_on: birth_state_province_name
 right_on: birth_state_province_name
-how: left
+how: {}
+",
+                    join_type_str
+                )
+                .as_str(),
+            )
+            .unwrap();
+            let actual = parse_join_transform(config).unwrap();
+            let expected = JoinTransform::new(
+                "test",
+                "birth_state_province_name",
+                "birth_state_province_name",
+                &[
+                    SelectField::new("birth_state_province_code", "code"),
+                    SelectField::new("birth_state_province_name", "name"),
+                ],
+                join_type.to_owned(),
+            );
+            println!("{:?}", actual);
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn valid_no_selects() {
+        let config = yaml_from_str(
+            "
+join: player
+right_select:
+left_on: lastName
+right_on: last
+how: right
 ",
         )
         .unwrap();
         let actual = parse_join_transform(config).unwrap();
-        let expected = JoinTransform::new(
-            "test",
-            "birth_state_province_name",
-            "birth_state_province_name",
-            &[
-                SelectField::new("birth_state_province_code", "code"),
-                SelectField::new("birth_state_province_name", "name"),
-            ],
-            JoinType::Left,
-        );
+        let expected = JoinTransform::new("player", "firstName,lastName", "first,last", &[], JoinType::Right);
         println!("{:?}", actual);
         assert_eq!(actual, expected);
     }
@@ -107,7 +145,7 @@ right_select:
     last: playerLastName.default
 left_on: [ firstName, lastName ]
 right_on: [ first, last ]
-how: right
+how: full
 ",
         )
         .unwrap();
@@ -120,9 +158,81 @@ how: right
                 SelectField::new("first", "playerFirstName.default"),
                 SelectField::new("last", "playerLastName.default"),
             ],
-            JoinType::Right,
+            JoinType::Full,
         );
         println!("{:?}", actual);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn invalid_missing_values() {
+        [
+            "
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+left_on: [ firstName, lastName ]
+right_on: [ first, last ]
+how: right
+",
+            "
+join: player
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+right_on: [ first, last ]
+how: right
+",
+            "
+join: player
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+left_on: [ firstName, lastName ]
+how: right
+",
+            "
+join: player
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+left_on: [ firstName, lastName ]
+right_on: [ first, last ]
+",
+        ]
+        .iter()
+        .for_each(|&s| {
+            let config = yaml_from_str(s).unwrap();
+            parse_join_transform(config).unwrap_err();
+        });
+    }
+
+    #[test]
+    fn invalid_mismatched() {
+        [
+            "
+join: player
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+left_on: firstName
+right_on: [ first, last ]
+how: full
+",
+            "
+join: player
+right_select:
+    first: playerFirstName.default
+    last: playerLastName.default
+left_on: [ firstName, lastName ]
+right_on: first
+how: full
+",
+        ]
+        .iter()
+        .for_each(|&s| {
+            let config = yaml_from_str(s).unwrap();
+            parse_join_transform(config).unwrap_err();
+        });
     }
 }

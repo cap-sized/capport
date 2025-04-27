@@ -44,10 +44,7 @@ impl ModelField {
         ModelField {
             label: label.to_string(),
             dtype: DType(dtype),
-            constraints: match constraints {
-                Some(x) => Some(x.iter().map(|x| x.to_string()).collect()),
-                None => None,
-            },
+            constraints: constraints.map(|x| x.iter().map(|x| x.to_string()).collect()),
         }
     }
 
@@ -95,7 +92,7 @@ impl<'de> Deserialize<'de> for DType {
             "list[str]" => Ok(DType(DataType::List(Box::new(DataType::String)))),
             "list[int]" => Ok(DType(DataType::List(Box::new(DataType::Int64)))),
             "list[double]" => Ok(DType(DataType::List(Box::new(DataType::Float64)))),
-            s => return Err(de::Error::custom(format!("Unknown dtype in model: {}", s))),
+            s => Err(de::Error::custom(format!("Unknown dtype in model: {}", s))),
         }
     }
 }

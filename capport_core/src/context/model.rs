@@ -79,9 +79,12 @@ impl Configurable for ModelRegistry {
 #[cfg(test)]
 mod tests {
 
-    use polars::prelude::DataType;
+    use polars::prelude::{DataType, TimeZone};
 
-    use crate::{model::common::ModelField, util::common::create_config_pack};
+    use crate::{
+        model::common::ModelField,
+        util::common::{NYT, UTC, create_config_pack},
+    };
 
     use super::*;
 
@@ -104,6 +107,8 @@ person:
     full_name: str
     first_name: str
     last_name: str
+    last_game_time: datetime_nyt
+    last_updated: datetime_utc
 ",
         );
         let actual_model = mr.get_model("person").unwrap();
@@ -113,6 +118,16 @@ person:
                 ModelField::new("full_name", DataType::String, None),
                 ModelField::new("first_name", DataType::String, None),
                 ModelField::new("last_name", DataType::String, None),
+                ModelField::new(
+                    "last_game_time",
+                    DataType::Datetime(polars::prelude::TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))),
+                    None,
+                ),
+                ModelField::new(
+                    "last_updated",
+                    DataType::Datetime(polars::prelude::TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC))),
+                    None,
+                ),
             ],
         );
         assert_eq!(actual_model, expected_model);

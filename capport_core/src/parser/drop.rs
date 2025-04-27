@@ -54,16 +54,18 @@ mod tests {
         let config = yaml_from_str(
             "
 first_name: true
-last_name: true
+last_name: false
 full.name: True
+id: False
 ",
         )
         .unwrap();
         let actual = parse_drop_transform(config).unwrap();
         let expected = DropTransform::new(&[
             DropField::new("first_name"),
-            DropField::new("last_name"),
+            DropField::new_inactive("last_name"),
             DropField::new("full.name"),
+            DropField::new_inactive("id"),
         ]);
         println!("{:?}", actual);
         assert_eq!(actual, expected);
@@ -94,6 +96,17 @@ full.name:
         let config = yaml_from_str(
             "
 first_name, last_name
+",
+        )
+        .unwrap();
+        let _ = parse_drop_transform(config).unwrap_err();
+    }
+
+    #[test]
+    fn invalid_value_drop_transform() {
+        let config = yaml_from_str(
+            "
+first_name: badvalue
 ",
         )
         .unwrap();

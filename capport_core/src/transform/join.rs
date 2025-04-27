@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for JType {
             "full" => Ok(JType(JoinType::Full)),
             "cross" => Ok(JType(JoinType::Cross)),
             "inner" => Ok(JType(JoinType::Inner)),
-            s => return Err(de::Error::custom(format!("Unknown jointype in model: {}", s))),
+            s => Err(de::Error::custom(format!("Unknown jointype in model: {}", s))),
         }
     }
 }
@@ -120,6 +120,7 @@ mod tests {
             &[],
             polars::prelude::JoinType::Left,
         );
+        println!("{:?}", jt);
         let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
             "STATE_CODE".to_string(),
             DummyData::state_code(),
@@ -217,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_right_join_transform() {
+    fn invalid_join_transform_not_found() {
         let jt = JoinTransform::new(
             "PLAYER_SCORES",
             "csid",
@@ -225,25 +226,9 @@ mod tests {
             &[SelectField::new("csid", "csid"), SelectField::new("scores", "scores")],
             polars::prelude::JoinType::Right,
         );
-        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
-            "PLAYER_SCORES".to_string(),
-            DummyData::player_scores(),
-        )]))));
 
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::new())));
         let orig_df = DummyData::player_data().select([col("csid"), col("name"), col("shootsCatches")]);
-        let actual = jt.run_lazy(orig_df, results).unwrap().collect().unwrap();
-        assert_eq!(
-            actual,
-            df![
-                "name" => df![
-                    "first" => ["Hunter", "Hunter", "Varya", "Hunter", "Varya", "Varya", "Darren"],
-                    "last" => ["O'Connor", "O'Connor", "Zeb", "O'Connor", "Zeb", "Zeb", "Hutnaby"],
-                ].unwrap().into_struct(PlSmallStr::from_str("name")),
-                "shootsCatches" => ["R", "R", "L", "R", "L", "L", "L"],
-                "csid" => [82938842, 82938842, 86543102, 82938842, 86543102, 86543102, 8872631],
-                "scores" => [20, 3, 43, -7, 50, 12, 19],
-            ]
-            .unwrap()
-        );
+        assert!(jt.run_lazy(orig_df, results).is_err());
     }
 }

@@ -1,95 +1,62 @@
-use std::collections::HashSet;
-
-use yaml_rust2::Yaml;
-
 use crate::{
     pipeline::common::{Pipeline, PipelineStage},
-    util::error::SubResult,
+    util::error::CpResult,
 };
 
-use super::common::{YamlMapRead, YamlRead};
+use super::common::YamlRead;
 
-const LABEL_KEYWORD: &str = "label";
-const TASK_KEYWORD: &str = "task";
-const ARGS_KEYWORD: &str = "args";
-
-pub fn parse_pipeline_stage(node: &Yaml) -> SubResult<PipelineStage> {
-    let nodemap = node.to_map(format!("PipelineStage is not a map: {:?}", node))?;
-    let label = nodemap.get_str(
-        LABEL_KEYWORD,
-        format!("PipelineStage requires `{}`: {:?}", LABEL_KEYWORD, &node),
-    )?;
-    let task_name = nodemap.get_str(
-        TASK_KEYWORD,
-        format!("PipelineStage requires `{}`: {:?}", TASK_KEYWORD, &node),
-    )?;
-    let args_node = match nodemap.get(ARGS_KEYWORD) {
-        Some(&x) => x.clone(),
-        None => return Err(format!("PipelineStage requires `{}`: {:?}", ARGS_KEYWORD, &node)),
-    };
-    Ok(PipelineStage {
-        label,
-        task_name,
-        args_node,
-    })
-}
-
-pub fn parse_pipeline(name: &str, node: &Yaml) -> SubResult<Pipeline> {
-    let stage_configs = node.to_list(format!("Pipeline is not a list of PipelineStage configs: {:?}", &node))?;
-    let mut stages: Vec<PipelineStage> = vec![];
-    let mut seen_label: HashSet<String> = HashSet::new();
-    for config in stage_configs {
-        match parse_pipeline_stage(config) {
-            Ok(x) => {
-                if seen_label.contains(&x.label) {
-                    return Err(format!("Duplicate stage label `{}` in pipeline", &x.label));
-                }
-                seen_label.insert(x.label.clone());
-                stages.push(x);
-            }
-            Err(e) => return Err(e),
-        }
+pub fn parse_pipeline(name: &str, value: serde_yaml_ng::Value) -> CpResult<Pipeline> {
+    let raw_stages = value.to_val_vec(true)?;
+    let mut stages = vec![];
+    for stage in raw_stages {
+        stages.push(serde_yaml_ng::from_value::<PipelineStage>(stage)?);
     }
-
     Ok(Pipeline {
-        label: name.to_string(),
+        label: name.to_owned(),
         stages,
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{pipeline::common::PipelineStage, util::common::yaml_from_str};
+    use crate::{
+        parser::pipeline::parse_pipeline,
+        pipeline::common::{Pipeline, PipelineStage},
+        util::common::yaml_from_str,
+    };
 
-    use super::parse_pipeline_stage;
+    const DUMMY_PIPELINE_NAME: &str = "mypipe";
 
     #[test]
     fn valid_basic_pipeline_stage() {
         let config = yaml_from_str(
             "
-label: fetch_cs_player_data
-task: find
-args: 
-    database: csdb
-    table: players
-    find: '{ player.id : {$in: [1, 2, 3]} }'
-    save_df: CS_PLAYER_DATA
+- label: fetch_cs_player_data
+  task: find
+  args: 
+      database: csdb
+      table: players
+      find: \"{ player.id : {$in: [1, 2, 3]} }\"
+      save_df: CS_PLAYER_DATA
 ",
         )
         .unwrap();
-        let actual = parse_pipeline_stage(&config).unwrap();
-        let expected = PipelineStage::new(
-            "fetch_cs_player_data",
-            "find",
-            &yaml_from_str(
-                "
+        let actual = parse_pipeline(DUMMY_PIPELINE_NAME, config).unwrap();
+        let expected = Pipeline::new(
+            "mypipe",
+            &[PipelineStage::new(
+                "fetch_cs_player_data",
+                "find",
+                &yaml_from_str(
+                    "
 database: csdb
 table: players
-find: '{ player.id : {$in: [1, 2, 3]} }'
+find: \"{ player.id : {$in: [1, 2, 3]} }\"
 save_df: CS_PLAYER_DATA
 ",
-            )
-            .unwrap(),
+                )
+                .unwrap(),
+            )],
         );
         assert_eq!(actual, expected);
     }
@@ -98,52 +65,22 @@ save_df: CS_PLAYER_DATA
     fn valid_empty_args() {
         let config = yaml_from_str(
             "
-label: fetch_cs_player_data
-task: __noop
-args: 
+- label: fetch_cs_player_data
+  task: __noop
+  args: 
 ",
         )
         .unwrap();
-        let actual = parse_pipeline_stage(&config).unwrap();
+        let actual = parse_pipeline(DUMMY_PIPELINE_NAME, config).unwrap();
         assert_eq!(
             actual,
-            PipelineStage::new("fetch_cs_player_data", "__noop", &yaml_from_str("---").unwrap(),)
-        );
-    }
-
-    #[test]
-    fn check_yaml_str_maintain_arg_integrity() {
-        let config = yaml_from_str(
-            "
-label: fetch_cs_player_data
-task: find
-args: 
-    database: csdb
-    table: players
-    find: '{ player.id : {$in: [1, 2, 3]} }'
-    save_df: CS_PLAYER_DATA
-",
-        )
-        .unwrap();
-        let actual = parse_pipeline_stage(&config).unwrap();
-        assert_ne!(
-            actual,
-            PipelineStage::new("fetch_cs_player_data", "find", &yaml_from_str("---").unwrap())
-        );
-        assert_ne!(
-            actual,
-            PipelineStage::new(
-                "fetch_cs_player_data",
-                "find",
-                &yaml_from_str(
-                    "
-database: csdb
-table: players
-find: '{ player.id:{$in: [1, 2, 3]} }'
-save_df: CS_PLAYER_DATA
-"
-                )
-                .unwrap()
+            Pipeline::new(
+                "mypipe",
+                &[PipelineStage::new(
+                    "fetch_cs_player_data",
+                    "__noop",
+                    &yaml_from_str("---").unwrap(),
+                )]
             )
         );
     }

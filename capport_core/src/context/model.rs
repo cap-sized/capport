@@ -1,5 +1,3 @@
-use yaml_rust2::Yaml;
-
 use crate::model::common::Model;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
@@ -41,7 +39,7 @@ impl ModelRegistry {
         self.registry.insert(model.name.clone(), model);
         prev
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<ModelRegistry> {
+    pub fn from(config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>) -> CpResult<ModelRegistry> {
         let mut reg = ModelRegistry {
             registry: HashMap::new(),
         };
@@ -57,10 +55,13 @@ impl Configurable for ModelRegistry {
     fn get_node_name() -> &'static str {
         "model"
     }
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
+    fn extract_parse_config(
+        &mut self,
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<()> {
         let configs = config_pack.remove(ModelRegistry::get_node_name()).unwrap_or_default();
         for (config_name, node) in configs {
-            let model = match parse_model(&config_name, &node) {
+            let model = match parse_model(&config_name, node) {
                 Ok(x) => x,
                 Err(e) => {
                     return Err(CpError::ComponentError(
@@ -78,9 +79,12 @@ impl Configurable for ModelRegistry {
 #[cfg(test)]
 mod tests {
 
-    use polars::prelude::DataType;
+    use polars::prelude::{DataType, TimeZone};
 
-    use crate::{model::common::ModelField, util::common::create_config_pack};
+    use crate::{
+        model::common::ModelField,
+        util::common::{NYT, UTC, create_config_pack},
+    };
 
     use super::*;
 
@@ -103,6 +107,8 @@ person:
     full_name: str
     first_name: str
     last_name: str
+    last_game_time: datetime_nyt
+    last_updated: datetime_utc
 ",
         );
         let actual_model = mr.get_model("person").unwrap();
@@ -112,6 +118,16 @@ person:
                 ModelField::new("full_name", DataType::String, None),
                 ModelField::new("first_name", DataType::String, None),
                 ModelField::new("last_name", DataType::String, None),
+                ModelField::new(
+                    "last_game_time",
+                    DataType::Datetime(polars::prelude::TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))),
+                    None,
+                ),
+                ModelField::new(
+                    "last_updated",
+                    DataType::Datetime(polars::prelude::TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC))),
+                    None,
+                ),
             ],
         );
         assert_eq!(actual_model, expected_model);
@@ -164,9 +180,9 @@ player:
         constraints: [primary, unique]
     positions:
         dtype: list[str]
-
 ",
         );
+        println!("{:?}", &mr);
         {
             let actual_model = mr.get_model("person").unwrap();
             let expected_model: Model = Model::new(

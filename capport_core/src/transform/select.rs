@@ -1,7 +1,7 @@
 use std::sync::RwLock;
 
 use polars::prelude::*;
-use yaml_rust2::Yaml;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     pipeline::results::PipelineResults,
@@ -45,11 +45,11 @@ impl Transform for SelectTransform {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SelectField {
     pub label: String,
     pub action: Option<String>,
-    pub args: Yaml,
+    pub args: serde_yaml_ng::Value,
 }
 
 impl SelectField {
@@ -57,7 +57,7 @@ impl SelectField {
         SelectField {
             label: label.to_string(),
             action: None,
-            args: Yaml::Null,
+            args: serde_yaml_ng::Value::Null,
         }
     }
 
@@ -65,7 +65,7 @@ impl SelectField {
         SelectField {
             label: label.to_string(),
             action: None,
-            args: yaml_from_str(args).unwrap_or(Yaml::Null),
+            args: yaml_from_str(args).unwrap_or(serde_yaml_ng::Value::Null),
         }
     }
 
@@ -73,7 +73,7 @@ impl SelectField {
         SelectField {
             label: label.to_string(),
             action: Some(action.to_string()),
-            args: yaml_from_str(args).unwrap_or(Yaml::Null),
+            args: yaml_from_str(args).unwrap_or(serde_yaml_ng::Value::Null),
         }
     }
 
@@ -81,7 +81,7 @@ impl SelectField {
         SelectField {
             label: label.to_string(),
             action: action.map(|x| x.to_string()),
-            args: yaml_from_str(args).unwrap_or_else(|| panic!("[args] invalid yaml to parse: {}", args)),
+            args: yaml_from_str(args).unwrap_or_else(|e| panic!("[args] invalid yaml to parse ({:?}): {}", e, args)),
         }
     }
 
@@ -94,7 +94,7 @@ impl SelectField {
             };
             Ok(col_expr.alias(&self.label))
         } else {
-            parse_action_to_expr(&self.label, self.action.clone().unwrap().as_str(), &self.args)
+            parse_action_to_expr(&self.label, self.action.clone().unwrap().as_str(), self.args.clone())
         }
     }
 }

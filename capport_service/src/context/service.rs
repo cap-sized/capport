@@ -2,11 +2,8 @@ use std::collections::HashMap;
 
 use capport_core::{
     context::common::Configurable,
-    task::common::{deserialize_arg_str, yaml_to_task_arg_str},
     util::error::{CpError, CpResult},
 };
-
-use yaml_rust2::Yaml;
 
 use crate::service::mongo::{HasMongoClient, MongoClient, MongoClientConfig};
 
@@ -29,16 +26,18 @@ impl Configurable for DefaultSvcDistributor {
         "service"
     }
 
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
+    fn extract_parse_config(
+        &mut self,
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<()> {
         let configs = config_pack
             .remove(DefaultSvcDistributor::get_node_name())
             .unwrap_or_default();
         let mut svc_config = DefaultSvcConfig::default();
         for (config_name, node) in configs {
-            let args = yaml_to_task_arg_str(&node, "ServiceConfig")?;
             match config_name.as_str() {
                 "mongo" => {
-                    let _ = svc_config.mongo.insert(deserialize_arg_str(&args, "ServiceConfig")?);
+                    let _ = svc_config.mongo.insert(serde_yaml_ng::from_value(node)?);
                 }
                 _ => {
                     return Err(CpError::ComponentError(

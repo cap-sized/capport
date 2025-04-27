@@ -47,8 +47,10 @@ pipelines.
 - High priority (by mid May)
   - [ ] (task.md) HttpRequestTask enhancements 
     - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
-    - [ ] Create`HttpSingleRequestTask`
-  - [ ] (service.md) MongoDB Service
+    - [x] Create`HttpSingleRequestTask`
+  - [ ] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
+  - [x] (service.md) MongoDB Service
+    - [ ] `find` task
   - [ ] (service.md) SQL connection Service
     - [ ] `create_table` task
     - [ ] `insert` task
@@ -58,8 +60,6 @@ pipelines.
   - [ ] (logger.md) Setup global logging
   - [ ] (pipeline.md) Design `PipelineScheduler`
   - [ ] (pipeline.md) Parse runner config
-  - [ ] (transform.md) SQL support
-    - [ ] Integrate [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
 
 - Mid priority (by end June)
   - [ ] (context.md) Parse results config
@@ -130,7 +130,7 @@ let mut pack = pack_configs_from_files(&config_files).unwrap();
 Each config YAML file must be a map at its root level. Each key at the root represents a configurable, 
 identified by the `Configurable` in the `context/` directory by their `get_node_name()`.
 
-All configurables must be parsable into a map of named `HashMap<String, Yaml>`.
+All configurables must be parsable into a map of named `HashMap<String, serde_yaml_ng::Value>`.
 `parse_configs_from_files` collapses each configurable across different files into one map of named configs.
 
 e.g. config/data_pipelines_A.yml
@@ -356,26 +356,12 @@ Every task that interacts with a service must access the `ServiceDistributor` fr
 `ctx.svc()` method from the PipelineContext. Similar to the PipelineContext this must implement the unsafe
 traits `Send` and `Sync` (see capport_core/src/pipeline/)
 
-Services will go into a separate crate `capport_service`. 
+The service-based tasks should be implemented with the specialization that the `ServiceDistributor` is  
+of the type`ServiceDistributor: HasMyService`, where `HasMyService` should be the unique interface that a
+distributor that has the ability to provide this service's client should have in order for the task to access 
+the client.
 
-## Important dependencies
-
-See the full lists of dependencies from the Cargo.toml files.
-
-### capport_core
-
-- [serde_yaml_ng](https://github.com/acatton/serde-yaml-ng)
-  - Since we use serde_yaml_ng which only parses YAML specification 1.1, our configs are also necessarily 
-  only following YAML 1.1
-- [yaml_rust2](https://docs.rs/yaml-rust2/latest/yaml_rust2/)
-  - for dynamic traversal of YAML configs
-- [polars](https://github.com/pola-rs/polars)
-- [argh](https://github.com/google/argh)
-  - argument parsing
-- [reqwest](https://github.com/seanmonstar/reqwest)
-  - HTTP client
-- [tokio](https://github.com/tokio-rs/tokio)
-  - async runtime
+Service implementations and their tasks/distributors will go into a separate crate `capport_service`. 
 
 ## For Contributors
 
@@ -409,8 +395,7 @@ cargo +stable install cargo-llvm-cov --locked
 1. All code must be linted
 
 2. All code additiions must pass the **function** and **line** coverage tests by at least 80% 
-(if there are existing files with coverage below 80% e.g. parser/join.rs or parser/model.rs, 
-it is a todo to fix them)
+(if there are existing files with coverage below 80%, it is a todo to fix them)
 
 ![Coverage Report](https://github.com/cap-sized/capport/raw/main/docs/img/readme_coverage.png )
 

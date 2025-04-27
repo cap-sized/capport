@@ -60,6 +60,13 @@ impl DropField {
         }
     }
 
+    pub fn new_inactive(target: &str) -> DropField {
+        DropField {
+            target: target.to_string(),
+            delete: false,
+        }
+    }
+
     pub fn expr(&self) -> SubResult<Expr> {
         // Currently only supports top level column deletion, structs cannot be modified
         Ok(col(&self.target))

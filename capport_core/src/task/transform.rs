@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use polars::prelude::LazyFrame;
 use serde::{Deserialize, Serialize};
-use yaml_rust2::Yaml;
 
 use crate::{
     pipeline::{
@@ -12,8 +11,6 @@ use crate::{
     transform::common::Transform,
     util::error::{CpError, CpResult},
 };
-
-use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransformTask {
@@ -40,9 +37,8 @@ pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_t
 }
 
 impl HasTask for TransformTask {
-    fn lazy_task<S>(args: &Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
-        let arg_str = yaml_to_task_arg_str(args, "TransformTask")?;
-        let trf: TransformTask = deserialize_arg_str(&arg_str, "TransformTask")?;
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+        let trf: TransformTask = serde_yaml_ng::from_value::<TransformTask>(args.to_owned())?;
         Ok(Box::new(move |ctx| run_transform::<S>(ctx, &trf)))
     }
 }

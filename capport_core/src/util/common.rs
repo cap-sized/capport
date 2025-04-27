@@ -3,38 +3,30 @@ use polars_lazy::frame::{IntoLazy, LazyFrame};
 use std::collections::HashMap;
 
 use rand::{Rng, distr::Alphanumeric};
-use yaml_rust2::{Yaml, YamlEmitter, YamlLoader};
 
-use super::error::SubResult;
+use crate::parser::common::YamlRead;
+
+use super::error::CpResult;
 
 pub const NYT: &str = "America/New_York";
 pub const UTC: &str = "UTC";
 
-pub fn create_config_pack(yaml_str: &str, configurable: &str) -> HashMap<String, HashMap<String, Yaml>> {
-    let configs = YamlLoader::load_from_str(yaml_str)
-        .unwrap()
-        .first()
-        .unwrap()
-        .as_hash()
-        .unwrap()
-        .iter()
-        .map(|(name, yamlconf)| (name.as_str().unwrap().to_string(), yamlconf.to_owned()))
-        .collect::<HashMap<String, Yaml>>();
-    HashMap::from([(configurable.to_owned(), configs)])
+pub type YamlValue = serde_yaml_ng::Value;
+
+pub fn create_config_pack(
+    yaml_str: &str,
+    configurable: &str,
+) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>> {
+    let configs: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+    HashMap::from([(configurable.to_owned(), configs.to_str_map().unwrap())])
 }
 
-pub fn yaml_from_str(s: &str) -> Option<Yaml> {
-    YamlLoader::load_from_str(s).unwrap().first().cloned()
+pub fn yaml_from_str(s: &str) -> CpResult<serde_yaml_ng::Value> {
+    Ok(serde_yaml_ng::from_str(s)?)
 }
 
-pub fn yaml_to_str(doc: &Yaml) -> SubResult<String> {
-    let mut out_str = String::new();
-    let mut emitter = YamlEmitter::new(&mut out_str);
-    // dump the YAML object to a String
-    match emitter.dump(doc) {
-        Ok(_) => Ok(out_str),
-        Err(e) => Err(e.to_string()),
-    }
+pub fn yaml_to_str(doc: &serde_yaml_ng::Value) -> CpResult<String> {
+    Ok(serde_yaml_ng::to_string(doc)?)
 }
 
 pub fn rng_str(len: usize) -> String {

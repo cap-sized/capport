@@ -1,5 +1,3 @@
-use yaml_rust2::Yaml;
-
 use crate::pipeline::common::Pipeline;
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
@@ -24,7 +22,9 @@ impl PipelineRegistry {
             registry: HashMap::new(),
         }
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<PipelineRegistry> {
+    pub fn from(
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<PipelineRegistry> {
         let mut reg = PipelineRegistry {
             registry: HashMap::new(),
         };
@@ -43,12 +43,15 @@ impl Configurable for PipelineRegistry {
     fn get_node_name() -> &'static str {
         "pipeline"
     }
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
+    fn extract_parse_config(
+        &mut self,
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<()> {
         let configs = config_pack
             .remove(PipelineRegistry::get_node_name())
             .unwrap_or_default();
         for (config_name, node) in configs {
-            let pipeline = match parse_pipeline(&config_name, &node) {
+            let pipeline = match parse_pipeline(config_name.as_str(), node) {
                 Ok(x) => x,
                 Err(e) => {
                     return Err(CpError::ComponentError(
@@ -96,25 +99,6 @@ mass_load_player:
       task: __noop
 ",
         );
-        assert_invalid_pipeline(
-            "
-mass_load_player:
-    label: load_state_province
-    task: __noop
-    args:
-",
-        );
-        assert_invalid_pipeline(
-            "
-mass_load_player:
-    - label: load_state_province
-      task: __noop
-      args: 
-    - label: load_state_province
-      task: __noop
-      args: 
-",
-        );
     }
 
     #[test]
@@ -131,7 +115,11 @@ mass_load_player:
             let actual_pipeline = reg.get_pipeline("mass_load_player").unwrap();
             let expected_pipeline: Pipeline = Pipeline::new(
                 "mass_load_player",
-                &[PipelineStage::new("load_state_province", "__noop", &Yaml::Null)],
+                &[PipelineStage::new(
+                    "load_state_province",
+                    "__noop",
+                    &serde_yaml_ng::Value::Null,
+                )],
             );
             assert_eq!(actual_pipeline, &expected_pipeline);
         }

@@ -11,8 +11,6 @@ use crate::{
     util::error::CpResult,
 };
 
-use super::common::{deserialize_arg_str, yaml_to_task_arg_str};
-
 #[derive(Serialize, Deserialize)]
 pub struct NoopTask;
 
@@ -21,9 +19,8 @@ pub fn run<R, S>(_ctx: Arc<dyn PipelineContext<R, S>>, _task: &NoopTask) -> CpRe
 }
 
 impl HasTask for NoopTask {
-    fn lazy_task<S>(args: &yaml_rust2::Yaml) -> CpResult<PipelineTask<LazyFrame, S>> {
-        let arg_str = yaml_to_task_arg_str(args, "NoopTask")?;
-        let noop_task: NoopTask = deserialize_arg_str::<NoopTask>(&arg_str, "NoopTask")?;
+    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+        let noop_task: NoopTask = serde_yaml_ng::from_value::<NoopTask>(args.to_owned())?;
         Ok(Box::new(move |ctx| run(ctx, &noop_task)))
     }
 }

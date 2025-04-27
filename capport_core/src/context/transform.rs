@@ -2,7 +2,6 @@ use crate::transform::common::{RootTransform, Transform};
 use crate::util::error::{CpError, CpResult};
 use std::collections::HashMap;
 use std::fmt;
-use yaml_rust2::Yaml;
 
 use crate::parser::transform::parse_root_transform;
 
@@ -36,7 +35,9 @@ impl TransformRegistry {
             registry: HashMap::new(),
         }
     }
-    pub fn from(config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<TransformRegistry> {
+    pub fn from(
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<TransformRegistry> {
         let mut reg = TransformRegistry::default();
         reg.extract_parse_config(config_pack)?;
         Ok(reg)
@@ -58,12 +59,15 @@ impl Configurable for TransformRegistry {
     fn get_node_name() -> &'static str {
         "transform"
     }
-    fn extract_parse_config(&mut self, config_pack: &mut HashMap<String, HashMap<String, Yaml>>) -> CpResult<()> {
+    fn extract_parse_config(
+        &mut self,
+        config_pack: &mut HashMap<String, HashMap<String, serde_yaml_ng::Value>>,
+    ) -> CpResult<()> {
         let configs = config_pack
             .remove(TransformRegistry::get_node_name())
             .unwrap_or_default();
         for (config_name, node) in configs {
-            let model = match parse_root_transform(&config_name, &node) {
+            let model = match parse_root_transform(&config_name, node) {
                 Ok(x) => x,
                 Err(e) => {
                     return Err(CpError::ComponentError(

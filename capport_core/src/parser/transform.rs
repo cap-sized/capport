@@ -1,5 +1,3 @@
-use yaml_rust2::Yaml;
-
 use crate::{
     transform::{
         common::{RootTransform, Transform},
@@ -7,61 +5,62 @@ use crate::{
         join::JoinTransform,
         select::SelectTransform,
     },
-    util::error::SubResult,
+    util::error::{CpError, CpResult},
 };
 
 use super::{common::YamlRead, drop::parse_drop_transform, join::parse_join_transform, select::parse_select_transform};
 
-const ALLOWED_NODES: [&str; 3] = [
-    SelectTransform::keyword(),
-    JoinTransform::keyword(),
-    DropTransform::keyword(),
-];
+const SELECT: &str = SelectTransform::keyword();
+const JOIN: &str = JoinTransform::keyword();
+const DROP: &str = DropTransform::keyword();
 
-pub fn parse_root_transform(name: &str, node: &Yaml) -> SubResult<RootTransform> {
-    let stages_configs = node.to_list(format!(
-        "Child of transform node {} is not a list of select/join/drop nodes, invalid: {:?}",
-        name, node
-    ))?;
+const ALLOWED_NODES: [&str; 3] = [SELECT, JOIN, DROP];
+
+pub fn parse_root_transform(name: &str, node: serde_yaml_ng::Value) -> CpResult<RootTransform> {
+    let stages_configs = node.to_val_vec(true)?;
 
     let mut stages: Vec<Box<dyn Transform>> = vec![];
     for raw_config in stages_configs {
-        let config = raw_config.to_map(format!(
-            "Stage of transform node {} is not a map/join/drop node: {:?}",
-            name, raw_config,
-        ))?;
+        let mut config = raw_config.to_str_val_vec()?;
         if config.len() != 1 {
-            return Err(format!(
-                "Stage of transform node {} does not have exactly one key of {:?} (keys: {:?}, len={})",
-                name,
-                ALLOWED_NODES,
-                &config.keys(),
-                &config.len()
+            return Err(CpError::ConfigError(
+                "Transform subnodes can only have one key each",
+                format!(
+                    "Stage of transform node {} does not have exactly one key of {:?} (config: {:?})",
+                    name, ALLOWED_NODES, &config,
+                ),
             ));
         }
-        if config.contains_key(SelectTransform::keyword()) {
-            match parse_select_transform(config.get(SelectTransform::keyword()).unwrap()) {
-                Ok(x) => stages.push(Box::new(x)),
-                Err(e) => return Err(e),
-            };
-        } else if config.contains_key(JoinTransform::keyword()) {
-            match parse_join_transform(config.get(JoinTransform::keyword()).unwrap()) {
-                Ok(x) => stages.push(Box::new(x)),
-                Err(e) => return Err(e),
-            };
-        } else if config.contains_key(DropTransform::keyword()) {
-            match parse_drop_transform(config.get(DropTransform::keyword()).unwrap()) {
-                Ok(x) => stages.push(Box::new(x)),
-                Err(e) => return Err(e),
-            };
-        } else {
-            return Err(format!(
-                "Stage of transform node {} does not have exactly one key of {:?} (keys: {:?})",
-                name,
-                ALLOWED_NODES,
-                &config.keys()
-            ));
-        }
+        let (nodetype, args) = config.pop().unwrap();
+        match nodetype.as_str() {
+            SELECT => {
+                stages.push(Box::new(match parse_select_transform(args) {
+                    Ok(x) => x,
+                    Err(e) => return Err(CpError::ConfigError("Error parsing Select", e.to_string())),
+                }));
+            }
+            JOIN => {
+                stages.push(Box::new(match parse_join_transform(args) {
+                    Ok(x) => x,
+                    Err(e) => return Err(CpError::ConfigError("Error parsing Join", e.to_string())),
+                }));
+            }
+            DROP => {
+                stages.push(Box::new(match parse_drop_transform(args) {
+                    Ok(x) => x,
+                    Err(e) => return Err(CpError::ConfigError("Error parsing Drop", e.to_string())),
+                }));
+            }
+            x => {
+                return Err(CpError::ConfigError(
+                    "Transform subnodes not recognized",
+                    format!(
+                        "Stage of transform node {} is not one of {:?}: {}",
+                        name, ALLOWED_NODES, x,
+                    ),
+                ));
+            }
+        };
     }
     Ok(RootTransform::new(name, stages))
 }
@@ -114,7 +113,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let res_before = create_results();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)
@@ -150,7 +149,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)
             .unwrap()
@@ -174,7 +173,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let res_before = create_results();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)
@@ -213,7 +212,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let res_before = create_results();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)
@@ -252,7 +251,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let res_before = create_results();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)
@@ -291,7 +290,7 @@ mod tests {
 ",
         )
         .unwrap();
-        let root = parse_root_transform("player", &config).unwrap();
+        let root = parse_root_transform("player", config).unwrap();
         let res_before = create_results();
         let actual_df = root
             .run_lazy(DummyData::player_data(), res_before)

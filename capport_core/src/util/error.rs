@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum CpError {
     #[error("ERROR [COMPONENT >> {0}]: {1}")]
     ComponentError(&'static str, String),
+    #[error("ERROR [CONFIG >> {0}]: {1}")]
+    ConfigError(&'static str, String),
     #[error("ERROR [PIPELINE >> {0}]: {1}")]
     PipelineError(&'static str, String),
     #[error("ERROR [TASK >> {0}]: {1}")]
@@ -23,6 +25,12 @@ pub enum CpError {
 impl From<PolarsError> for CpError {
     fn from(value: PolarsError) -> Self {
         Self::TableError(value)
+    }
+}
+
+impl From<serde_yaml_ng::Error> for CpError {
+    fn from(value: serde_yaml_ng::Error) -> Self {
+        Self::ConfigError("YML Parsing Error", value.to_string())
     }
 }
 

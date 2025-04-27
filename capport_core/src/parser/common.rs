@@ -1,140 +1,100 @@
 use std::collections::HashMap;
 
-use yaml_rust2::Yaml;
+use serde::de::DeserializeOwned;
 
-use crate::util::error::SubResult;
+use crate::util::error::{CpError, CpResult};
 
 pub trait YamlRead {
-    fn _to_str(&self, msg_if_fail: &str) -> SubResult<String>;
-    fn to_str(&self, msg_if_fail: String) -> SubResult<String>;
-    fn to_map(&self, msg_if_fail: String) -> SubResult<HashMap<String, &Yaml>>;
-    fn over_map<Out, F>(&self, func: F, msg_if_fail: String) -> SubResult<Vec<Out>>
+    fn to_str_map(self) -> CpResult<HashMap<String, serde_yaml_ng::Value>>;
+    fn to_val_vec(self, is_strict: bool) -> CpResult<Vec<serde_yaml_ng::Value>>;
+    fn to_val_vec_t<T>(self, is_strict: bool) -> CpResult<Vec<T>>
     where
-        F: Fn(&str, &Yaml) -> SubResult<Out>;
-    fn to_list(&self, msg_if_fail: String) -> SubResult<&Vec<Yaml>>;
-    fn to_list_str(&self, msg_if_fail: String) -> SubResult<Vec<String>>;
+        T: DeserializeOwned;
+    fn to_str_val_vec(self) -> CpResult<Vec<(String, serde_yaml_ng::Value)>>;
+    fn add_to_map(&mut self, key: serde_yaml_ng::Value, value: serde_yaml_ng::Value) -> CpResult<()>;
 }
 
-pub trait YamlMapRead {
-    fn get_str(&self, key: &str, msg_if_fail: String) -> SubResult<String>;
-    fn get_list_str(&self, key: &str, msg_if_fail: String) -> SubResult<Vec<String>>;
-}
-
-impl YamlRead for Yaml {
-    fn _to_str(&self, msg_if_fail: &str) -> SubResult<String> {
-        match self.as_str() {
-            Some(x) => Ok(x.to_string()),
-            None => Err(msg_if_fail.to_owned()),
-        }
-    }
-    fn to_str(&self, msg_if_fail: String) -> SubResult<String> {
-        match self.as_str() {
-            Some(x) => Ok(x.to_string()),
-            None => Err(msg_if_fail),
-        }
-    }
-    fn to_map(&self, msg_if_fail: String) -> SubResult<HashMap<String, &Yaml>> {
-        let itermap = match self.as_hash() {
-            Some(x) => x.iter(),
-            None => return Err(msg_if_fail),
-        };
-        let mut map = HashMap::new();
-        for (k, v) in itermap {
-            match k._to_str(&msg_if_fail) {
-                Ok(x) => map.insert(x, v),
-                Err(e) => return Err(e),
-            };
-        }
-        Ok(map)
-    }
-    fn to_list(&self, msg_if_fail: String) -> SubResult<&Vec<Yaml>> {
-        match self.as_vec() {
-            Some(x) => Ok(x),
-            None => Err(msg_if_fail),
-        }
-    }
-    fn to_list_str(&self, msg_if_fail: String) -> SubResult<Vec<String>> {
-        let vecstr = match self.to_list(msg_if_fail.clone()) {
-            Ok(x) => x
-                .iter()
-                .map(|x| x._to_str(&msg_if_fail))
-                .collect::<Vec<SubResult<String>>>(),
-            Err(e) => {
-                return Err(e);
+impl YamlRead for serde_yaml_ng::Value {
+    fn to_str_map(self) -> CpResult<HashMap<String, serde_yaml_ng::Value>> {
+        match self {
+            serde_yaml_ng::Value::Mapping(map) => {
+                let mut result = HashMap::new();
+                for (k, v) in map {
+                    if let serde_yaml_ng::Value::String(field_name) = k {
+                        result.insert(field_name, v);
+                    } else {
+                        return Err(CpError::ConfigError(
+                            "Invalid field key",
+                            format!("Field keys must be strings, received: {:?}", v),
+                        ));
+                    }
+                }
+                Ok(result)
             }
-        };
-        let mut list_str: Vec<String> = vec![];
-        for s in vecstr {
-            match s {
-                Ok(x) => list_str.push(x),
-                Err(e) => {
-                    return Err(e);
+            value => Err(CpError::ConfigError(
+                "Not a mapping",
+                format!("Expected a mapping inside node block, received: {:?}", &value),
+            )),
+        }
+    }
+    fn to_val_vec(self, is_strict: bool) -> CpResult<Vec<serde_yaml_ng::Value>> {
+        match self {
+            serde_yaml_ng::Value::Sequence(seq) => Ok(seq),
+            value => {
+                if is_strict {
+                    Err(CpError::ConfigError(
+                        "Not a sequence",
+                        format!("Expected a sequence inside node block, received: {:?}", &value),
+                    ))
+                } else {
+                    Ok(vec![value])
                 }
             }
         }
-        Ok(list_str)
     }
-    fn over_map<Out, F>(&self, func: F, msg_if_fail: String) -> SubResult<Vec<Out>>
+    fn to_val_vec_t<T>(self, is_strict: bool) -> CpResult<Vec<T>>
     where
-        F: Fn(&str, &Yaml) -> SubResult<Out>,
+        T: DeserializeOwned,
     {
-        let mut list_out: Vec<Out> = vec![];
-        let itermap = match self.as_hash() {
-            Some(x) => x,
-            None => return Err(msg_if_fail),
-        };
-        for (key, val) in itermap {
-            let keystr = key._to_str(&msg_if_fail)?;
-            match func(&keystr, val) {
-                Ok(x) => list_out.push(x),
-                Err(e) => return Err(e),
-            }
+        let val_vec = self.to_val_vec(is_strict)?;
+        let mut val_vec_t = vec![];
+        for val in val_vec {
+            val_vec_t.push(serde_yaml_ng::from_value::<T>(val)?);
         }
-        Ok(list_out)
+        Ok(val_vec_t)
     }
-}
-
-impl YamlMapRead for HashMap<String, &Yaml> {
-    fn get_str(&self, key: &str, msg_if_fail: String) -> SubResult<String> {
-        match &self.get(key).is_some_and(|x| x.as_str().is_some()) {
-            true => {
-                let keyyaml = match self.get(key) {
-                    Some(x) => x,
-                    None => return Err(format!("No key `{}` found", key)),
-                };
-                let keystr = match keyyaml.as_str() {
-                    Some(x) => x,
-                    None => return Err(format!("key `{}` is not a string: {:?}", key, keyyaml)),
-                };
-                Ok(keystr.to_owned())
-            }
-            false => Err(msg_if_fail),
-        }
-    }
-    fn get_list_str(&self, key: &str, msg_if_fail: String) -> SubResult<Vec<String>> {
-        match &self.get(key).is_some_and(|x| x.as_vec().is_some()) {
-            true => {
-                let vecyaml = match self.get(key) {
-                    Some(x) => x,
-                    None => return Err(format!("No key `{}` found", key)),
-                };
-                let vec = match vecyaml.as_vec() {
-                    Some(x) => x,
-                    None => return Err(format!("key `{}` is not a vector: {:?}", key, vecyaml)),
-                };
-                let mut vecstr: Vec<String> = vec![];
-                for v in vec {
-                    match v._to_str(&msg_if_fail) {
-                        Ok(x) => vecstr.push(x),
-                        Err(e) => return Err(e),
-                    };
+    fn to_str_val_vec(self) -> CpResult<Vec<(String, serde_yaml_ng::Value)>> {
+        match self {
+            serde_yaml_ng::Value::Mapping(map) => {
+                let mut result = Vec::new();
+                for (k, v) in map {
+                    if let serde_yaml_ng::Value::String(field_name) = k {
+                        result.push((field_name, v));
+                    } else {
+                        return Err(CpError::ConfigError(
+                            "Invalid field key",
+                            format!("Field keys must be strings, received: {:?}", v),
+                        ));
+                    }
                 }
-                Ok(vecstr)
+                Ok(result)
             }
-            false => match &self.get_str(key, msg_if_fail.clone()) {
-                Ok(x) => Ok(vec![x.to_string()]),
-                Err(e) => Err(e.clone()),
-            },
+            value => Err(CpError::ConfigError(
+                "Not a mapping",
+                format!("Expected a mapping inside node block, received: {:?}", &value),
+            )),
+        }
+    }
+    fn add_to_map(&mut self, key: serde_yaml_ng::Value, value: serde_yaml_ng::Value) -> CpResult<()> {
+        match self {
+            serde_yaml_ng::Value::Mapping(map) => {
+                map.insert(key, value);
+                Ok(())
+            }
+            value => Err(CpError::ConfigError(
+                "Not a mapping",
+                format!("Expected a mapping inside node block, received: {:?}", &value),
+            )),
         }
     }
 }

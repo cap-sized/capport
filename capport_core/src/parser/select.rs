@@ -7,6 +7,9 @@ pub fn parse_select_transform(node: serde_yaml_ng::Value) -> CpResult<SelectTran
     let select_field_map = node.to_str_val_vec()?;
     let mut select_fields = vec![];
     for (to_field, mut select_field) in select_field_map {
+        if select_field.is_null() {
+            select_field = yaml_from_str(&to_field)?;
+        }
         if select_field.is_string() {
             select_fields.push(SelectField {
                 action: None,
@@ -149,5 +152,24 @@ positions:
             let config = yaml_from_str(s).unwrap();
             parse_select_transform(config).unwrap_err();
         });
+    }
+
+    #[test]
+    fn valid_select_default_value() {
+        let config = yaml_from_str(
+            "
+id: csid
+first_name:
+last_name:
+",
+        )
+        .unwrap();
+        let actual = parse_select_transform(config).unwrap();
+        let expected = SelectTransform::new(&[
+            SelectField::new("id", "csid"),
+            SelectField::new("first_name", "first_name"),
+            SelectField::new("last_name", "last_name"),
+        ]);
+        assert_eq!(actual, expected);
     }
 }

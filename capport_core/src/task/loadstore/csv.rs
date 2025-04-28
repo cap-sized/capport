@@ -127,6 +127,7 @@ mod tests {
 
     use crate::{
         context::{
+            logger::LoggerRegistry,
             model::ModelRegistry,
             task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
@@ -213,6 +214,7 @@ id,name
                 ("save_csv", generate_lazy_task::<CsvModelSaveTask, ()>()),
             ]),
             (),
+            LoggerRegistry::new(),
         ))
     }
 

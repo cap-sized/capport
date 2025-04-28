@@ -1,3 +1,4 @@
+use chrono::Utc;
 use polars::{df, frame::DataFrame, prelude::PlSmallStr};
 use polars_lazy::frame::{IntoLazy, LazyFrame};
 use std::collections::HashMap;
@@ -12,6 +13,10 @@ pub const NYT: &str = "America/New_York";
 pub const UTC: &str = "UTC";
 
 pub type YamlValue = serde_yaml_ng::Value;
+
+pub fn get_utc_time_str_now() -> String {
+    Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, false)
+}
 
 pub fn create_config_pack(
     yaml_str: &str,

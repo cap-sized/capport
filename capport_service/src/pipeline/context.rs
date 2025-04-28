@@ -1,5 +1,5 @@
 use capport_core::{
-    context::{model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
+    context::{logger::LoggerRegistry, model::ModelRegistry, task::TaskDictionary, transform::TransformRegistry},
     pipeline::context::DefaultContext,
 };
 use polars::prelude::LazyFrame;
@@ -13,6 +13,7 @@ impl SvcDefault for DefaultContext<LazyFrame, DefaultSvcDistributor> {
             TransformRegistry::new(),
             TaskDictionary::default_with_svc(),
             DefaultSvcDistributor::new(),
+            LoggerRegistry::new(),
         )
     }
 }

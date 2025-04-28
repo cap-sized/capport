@@ -51,6 +51,7 @@ mod tests {
 
     use crate::{
         context::{
+            logger::LoggerRegistry,
             model::ModelRegistry,
             task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
@@ -114,6 +115,7 @@ mod tests {
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
             (),
+            LoggerRegistry::new(),
         );
         ctx.insert_result("PLAYER_DATA", DummyData::player_data()).unwrap();
         Arc::new(ctx)
@@ -128,6 +130,7 @@ mod tests {
             transform_reg,
             TaskDictionary::new(vec![("transform", generate_lazy_task::<TransformTask, ()>())]),
             (),
+            LoggerRegistry::new(),
         );
         ctx.insert_result("ID_NAME_MAP", DummyData::id_name_map()).unwrap();
         Arc::new(ctx)

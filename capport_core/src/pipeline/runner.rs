@@ -28,6 +28,7 @@ mod tests {
 
     use crate::{
         context::{
+            logger::LoggerRegistry,
             model::ModelRegistry,
             task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
@@ -52,6 +53,7 @@ mod tests {
             TransformRegistry::new(),
             TaskDictionary::new(vec![("noop", generate_lazy_task::<NoopTask, ()>())]),
             (),
+            LoggerRegistry::new(),
         ))
     }
 

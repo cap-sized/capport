@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 argh = "0.1.13"
+log = "0.4.27"
 capport_core = { path = "../capport_core" }
 polars = { version = "0.46.0", features = ['lazy', 'csv', 'polars-io'] }
 polars-lazy = { version = "0.46.0", features = ['dtype-struct'] }

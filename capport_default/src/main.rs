@@ -29,13 +29,15 @@ fn main() {
     ctx_setup
         .init_log(console_logger_name, args.print_to_console)
         .expect("Failed to initialize logging");
-    let ctx = Arc::new(ctx_setup);
     let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
         Some(x) => x,
         None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),
     };
-    info!("Started running pipeline: {:?}", &pipeline);
-    let pipeline_results = match PipelineRunner::run_lazy(ctx.clone(), pipeline) {
+    ctx_setup
+        .set_curr_pipeline(pipeline.clone())
+        .expect("Failed to attach pipeline to context");
+    let ctx = Arc::new(ctx_setup);
+    let pipeline_results = match PipelineRunner::run_lazy(ctx.clone()) {
         Ok(x) => x,
         Err(e) => panic!("{}", e),
     };

@@ -49,6 +49,9 @@ pipelines.
     - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
     - [x] Create`HttpSingleRequestTask`
   - [ ] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
+  - [x] (logger.md) Setup global logging
+  - [ ] (pipeline.md) Handle environment variables
+  - [ ] (pipeline.md) Configure runner
   - [x] (service.md) MongoDB Service
     - [ ] `find` task
   - [ ] (service.md) SQL connection Service
@@ -57,9 +60,7 @@ pipelines.
     - [ ] `insert_batched` task (from lazyframe)
     - [ ] `select` task
     - [ ] `execute` task (takes in a SQL string query and runs it directly on the database)
-  - [ ] (logger.md) Setup global logging
   - [ ] (pipeline.md) Design `PipelineScheduler`
-  - [ ] (pipeline.md) Parse runner config
 
 - Mid priority (by end June)
   - [ ] (context.md) Parse results config

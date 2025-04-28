@@ -9,7 +9,10 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::{common::PipelineTask, results::PipelineResults};
+use super::{
+    common::{Pipeline, PipelineTask},
+    results::PipelineResults,
+};
 
 pub trait PipelineContext<ResultType, ServiceDistributor> {
     // Results
@@ -22,6 +25,12 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
     fn insert_result(&self, key: &str, result: ResultType) -> CpResult<Option<ResultType>>;
 
     // Immutables
+    fn set_curr_pipeline(&mut self, pipeline: Pipeline) -> CpResult<()>;
+
+    fn get_curr_pipeline(&self) -> Option<Pipeline>;
+
+    fn del_curr_pipeline(&mut self) -> Option<Pipeline>;
+
     fn get_model(&self, key: &str) -> CpResult<Model>;
 
     fn get_task(
@@ -49,6 +58,7 @@ pub struct DefaultContext<ResultType, ServiceDistributor> {
     results: Arc<RwLock<PipelineResults<ResultType>>>,
     logger_registry: LoggerRegistry,
     service_distributor: ServiceDistributor,
+    pipeline: Option<Pipeline>,
 }
 
 unsafe impl<ResultType, ServiceDistributor> Send for DefaultContext<ResultType, ServiceDistributor> {}
@@ -69,6 +79,7 @@ impl<R, S> DefaultContext<R, S> {
             results: Arc::new(RwLock::new(PipelineResults::<R>::default())),
             service_distributor,
             logger_registry,
+            pipeline: None,
         }
     }
 }
@@ -161,6 +172,30 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
     fn close_log(&self) {
         self.logger_registry.show_output();
     }
+
+    fn set_curr_pipeline(&mut self, pipeline: Pipeline) -> CpResult<()> {
+        if self.pipeline.is_some() {
+            return Err(CpError::PipelineError(
+                "Pipeline already running with context",
+                format!(
+                    "Remove pipeline {} before setting new pipeline",
+                    self.pipeline.as_ref().unwrap().label
+                ),
+            ));
+        }
+        let _ = self.pipeline.insert(pipeline.to_owned());
+        Ok(())
+    }
+
+    fn get_curr_pipeline(&self) -> Option<Pipeline> {
+        self.pipeline.clone().to_owned()
+    }
+
+    fn del_curr_pipeline(&mut self) -> Option<Pipeline> {
+        let last_pipeline = self.pipeline.clone();
+        self.pipeline = None;
+        last_pipeline
+    }
 }
 
 impl<R, S> Drop for DefaultContext<R, S> {
@@ -178,5 +213,21 @@ impl Default for DefaultContext<LazyFrame, ()> {
             (),
             LoggerRegistry::new(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pipeline::common::Pipeline;
+
+    use super::{DefaultContext, PipelineContext};
+
+    #[test]
+    fn invalid_double_set_pipeline() {
+        let mut ctx = DefaultContext::default();
+        let p1 = Pipeline::new("my_first_pipeline", &[]);
+        let p2 = Pipeline::new("my_second_pipeline", &[]);
+        ctx.set_curr_pipeline(p1.clone()).unwrap();
+        ctx.set_curr_pipeline(p2.clone()).unwrap_err();
     }
 }

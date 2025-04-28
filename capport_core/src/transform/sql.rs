@@ -26,9 +26,21 @@ impl SqlTransform {
 }
 
 impl Transform for SqlTransform {
-    fn run_lazy(&self, curr: LazyFrame, _results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
+    fn run_lazy(&self, curr: LazyFrame, results: Arc<RwLock<PipelineResults<LazyFrame>>>) -> CpResult<LazyFrame> {
         let mut context = SQLContext::new();
-
+        let b = results.read()?;
+        for df_name in b.keys() {
+            let df = match b.get_unchecked(&df_name) {
+                Some(x) => x,
+                None => {
+                    return Err(CpError::ComponentError(
+                        "Dataframe not found in results: ",
+                        df_name.to_string(),
+                    ));
+                }
+            };
+            context.register(&df_name, df);
+        }
         context.register("self", curr);
 
         let new_frame = context
@@ -52,6 +64,7 @@ mod tests {
     use crate::util::json::vec_str_json_to_df;
     use polars::prelude::*;
     use polars_lazy::frame::LazyFrame;
+    use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
 
     #[test]
@@ -76,6 +89,47 @@ mod tests {
 
         let actual_sorted = actual_df.sort(["id"], SortMultipleOptions::default()).unwrap();
         let expected_sorted = expected_df.sort(["id"], SortMultipleOptions::default()).unwrap();
+
+        assert_eq!(actual_sorted, expected_sorted);
+    }
+
+    #[test]
+    fn sql_transform_join() {
+        let df1 = df![
+            "id" => [1, 2, 2],
+            "val_1" => [5, 6, 7],
+        ]
+        .unwrap()
+        .lazy();
+        let df2 = df![
+            "id" => [2, 2, 3],
+            "val_2" => [8, 9, 10],
+        ]
+        .unwrap()
+        .lazy();
+        let expected_df = df![
+            "id" => [2, 2, 2, 2],
+            "val_1" => [6, 6, 7, 7],
+            "val_2" => [8, 9, 8, 9],
+        ]
+        .unwrap();
+
+        let results = Arc::new(RwLock::new(PipelineResults::new(HashMap::from([(
+            "df2".to_string(),
+            df2,
+        )]))));
+
+        let transform =
+            SqlTransform::new("select self.id, self.val_1, df2.val_2 from self join df2 on self.id = df2.id");
+
+        let actual_df = transform.run_lazy(df1, results).unwrap().collect().unwrap();
+
+        let actual_sorted = actual_df
+            .sort(["id", "val_1", "val_2"], SortMultipleOptions::default())
+            .unwrap();
+        let expected_sorted = expected_df
+            .sort(["id", "val_1", "val_2"], SortMultipleOptions::default())
+            .unwrap();
 
         assert_eq!(actual_sorted, expected_sorted);
     }

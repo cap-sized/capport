@@ -1,6 +1,6 @@
 logger:
   default:
-    level: info
+    level: debug
     output: output/
 
 transform:

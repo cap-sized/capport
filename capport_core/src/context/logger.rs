@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use log::info;
+
 use crate::{
     logger::common::{DEFAULT_CONSOLE_LOGGER_NAME, Logger},
     parser::logger::parse_logger,
@@ -46,7 +48,7 @@ impl LoggerRegistry {
                 format!("Logger {} already running", self.running_logger.clone().unwrap()),
             ));
         }
-        let logger = match self.registry.get(logger_name) {
+        let logger = match self.registry.get_mut(logger_name) {
             Some(x) => x,
             None => {
                 return Err(CpError::ComponentError(
@@ -58,6 +60,18 @@ impl LoggerRegistry {
         logger.start(to_console)?;
         let _ = self.running_logger.insert(logger_name.to_owned());
         Ok(())
+    }
+
+    pub fn show_output(&self) {
+        if self.running_logger.is_none() {
+            return;
+        }
+        let logger_name = self.running_logger.as_ref().unwrap();
+        if let Some(x) = &self.get_logger(logger_name) { info!(
+            "Logger {}: Printed output to {}",
+            logger_name,
+            x._final_output_path.clone().unwrap_or("console".to_owned())
+        ) }
     }
 }
 
@@ -183,6 +197,18 @@ base_log:
             None,
         );
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn invalid_field() {
+        let config = "
+base_log:
+    level: bad
+    output: /tmp/
+    file_prefix: myprogram_
+    _final_output_path: something
+        ";
+        assert_invalid_model(config);
     }
 
     #[test]

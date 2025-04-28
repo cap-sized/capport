@@ -6,10 +6,10 @@ use crate::util::{
     error::{CpError, CpResult},
 };
 
-pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "";
+pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 const DEFAULT_LOG_PREFIX: &str = "programlog_";
-const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%dT%H%M%S.log";
+const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
 
 const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;
@@ -27,6 +27,8 @@ pub struct Logger {
     pub output: Option<String>, // absence => for
     pub file_prefix: Option<String>,
     pub file_timestamp: Option<String>,
+
+    pub _final_output_path: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for LogLevelFilter {
@@ -61,6 +63,7 @@ impl Logger {
             output: output.map(|x| x.to_owned()),
             file_prefix: file_prefix.map(|x| x.to_owned()),
             file_timestamp: file_timestamp.map(|x| x.to_owned()),
+            _final_output_path: None,
         }
     }
     pub fn get_full_prefix(&self) -> Option<String> {
@@ -72,7 +75,7 @@ impl Logger {
             )
         })
     }
-    pub fn start(&self, to_stdout: bool) -> CpResult<()> {
+    pub fn start(&mut self, to_stdout: bool) -> CpResult<()> {
         let colors = ColoredLevelConfig::new()
             .debug(COLOR_DEBUG)
             .info(COLOR_INFO)
@@ -97,12 +100,18 @@ impl Logger {
                 } else {
                     base_dispatch
                 };
-                d.chain(fern::DateBased::new(
+                let outfile = fern::DateBased::new(
                     full_file_prefix,
                     self.file_timestamp
                         .clone()
                         .unwrap_or(DEFAULT_TIMESTAMP_SUFFIX.to_owned()),
-                ))
+                )
+                .utc_time();
+                // TODO 1: Change this to actually by the real output file, currently logs the datebased.
+                // TODO 2: Remove dependency on datebased
+                // TODO 3: Add pipeline name
+                self._final_output_path = Some(format!("{:?}", outfile));
+                d.chain(outfile)
             }
             None => base_dispatch.chain(std::io::stdout()),
         };
@@ -119,7 +128,6 @@ impl Logger {
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::logger::common::{DEFAULT_LOG_PREFIX, LogLevelFilter, Logger};
 

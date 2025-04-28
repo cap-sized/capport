@@ -93,8 +93,7 @@ Example proposed config:
 ```yml
 runner:
   logger: default
-  pipeline: pipelineA
-  runner: async_eager # or async_lazy or sync_eager or sync_lazy
+  run_with: async_eager # or async_lazy or sync_eager or sync_lazy
   schedule:
     timezone: UTC
     # 1d or 1w or 10s or 2M (month) or 1Y or 10m30s
@@ -102,3 +101,5 @@ runner:
 ```
 
 Can use [clockwerk](https://docs.rs/clokwerk/latest/clokwerk/index.html) for this.
+
+The correct pipeline should be passed in via command line args.

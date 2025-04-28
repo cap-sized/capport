@@ -36,8 +36,10 @@ pub trait PipelineContext<ResultType, ServiceDistributor> {
 
     fn mut_svc(&mut self) -> &mut ServiceDistributor;
 
-    // Logger initializer
+    // Logger handlers
     fn init_log(&mut self, logger_name: &str, to_console: bool) -> CpResult<()>;
+
+    fn close_log(&self);
 }
 
 pub struct DefaultContext<ResultType, ServiceDistributor> {
@@ -154,6 +156,16 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
 
     fn init_log(&mut self, logger_name: &str, to_console: bool) -> CpResult<()> {
         self.logger_registry.start_logger(logger_name, to_console)
+    }
+
+    fn close_log(&self) {
+        self.logger_registry.show_output();
+    }
+}
+
+impl<R, S> Drop for DefaultContext<R, S> {
+    fn drop(&mut self) {
+        self.logger_registry.show_output();
     }
 }
 

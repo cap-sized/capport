@@ -19,10 +19,15 @@ fn main() {
     let transform_reg = TransformRegistry::from(&mut pack).expect("Failed to build transform registry");
     let pipeline_reg = PipelineRegistry::from(&mut pack).expect("Failed to build pipeline registry");
     let logger_reg = LoggerRegistry::from(&mut pack).expect("Failed to build logger registry");
+    let console_logger_name = if logger_reg.get_logger("default").is_some() {
+        "default"
+    } else {
+        DEFAULT_CONSOLE_LOGGER_NAME
+    };
     let mut ctx_setup =
         DefaultContext::<LazyFrame, ()>::new(model_reg, transform_reg, TaskDictionary::default(), (), logger_reg);
     ctx_setup
-        .init_log(DEFAULT_CONSOLE_LOGGER_NAME, args.output_to_console)
+        .init_log(console_logger_name, args.print_to_console)
         .expect("Failed to initialize logging");
     let ctx = Arc::new(ctx_setup);
     let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
@@ -30,7 +35,7 @@ fn main() {
         None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),
     };
     info!("Started running pipeline: {:?}", &pipeline);
-    let pipeline_results = match PipelineRunner::run_lazy(ctx, pipeline) {
+    let pipeline_results = match PipelineRunner::run_lazy(ctx.clone(), pipeline) {
         Ok(x) => x,
         Err(e) => panic!("{}", e),
     };

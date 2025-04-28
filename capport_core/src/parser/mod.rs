@@ -6,4 +6,5 @@ pub mod logger;
 pub mod model;
 pub mod pipeline;
 pub mod select;
+pub mod sql;
 pub mod transform;

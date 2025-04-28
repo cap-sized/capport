@@ -155,6 +155,57 @@ impl DummyData {
         .collect()
     }
 
+    pub fn shift_charts() -> String {
+        r###"{
+  "data": [
+    {
+      "id": 13679994,
+      "detailCode": 0,
+      "duration": "00:33",
+      "endTime": "01:57",
+      "eventDescription": null,
+      "eventDetails": null,
+      "eventNumber": 166,
+      "firstName": "Alec",
+      "gameId": 2023020573,
+      "hexValue": "#B9975B",
+      "lastName": "Martinez",
+      "period": 1,
+      "playerId": 8474166,
+      "shiftNumber": 1,
+      "startTime": "01:24",
+      "teamAbbrev": "VGK",
+      "teamId": 54,
+      "teamName": "Vegas Golden Knights",
+      "typeCode": 517
+    },
+    {
+      "id": 13679995,
+      "detailCode": 0,
+      "duration": "00:29",
+      "endTime": "04:17",
+      "eventDescription": null,
+      "eventDetails": null,
+      "eventNumber": 203,
+      "firstName": "Alec",
+      "gameId": 2023020573,
+      "hexValue": "#B9975B",
+      "lastName": "Martinez",
+      "period": 1,
+      "playerId": 8474166,
+      "shiftNumber": 2,
+      "startTime": "03:48",
+      "teamAbbrev": "VGK",
+      "teamId": 54,
+      "teamName": "Vegas Golden Knights",
+      "typeCode": 517
+    }
+  ],
+  "total": 2
+}"###
+            .to_string()
+    }
+
     pub fn meta_info() -> String {
         // sample response from https://api-web.nhle.com/v1/meta?players=8478401,8478402&teams=EDM,TOR
         r#"{

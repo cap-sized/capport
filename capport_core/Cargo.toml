@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 argh = "0.1.13"
-chrono = "0.4"
+chrono = { version = "0.4", features = ['serde'] }
 chrono-tz = "0.10.3"
-fern = { version = "0.7.1", features = ["date-based", "colored"] }
+fern = { version = "0.7.1", features = ['date-based', 'colored'] }
 log = "0.4.27"
 flexi_logger = "0.30.1"
 polars = { version = "0.46.0", features = [
@@ -17,7 +17,7 @@ polars = { version = "0.46.0", features = [
     'polars-io',
     'concat_str',
     'strings',
-    'sql'
+    'sql',
 ] }
 polars-lazy = { version = "0.46.0", features = ['dtype-struct'] }
 polars-sql = { version = "0.46.0" }

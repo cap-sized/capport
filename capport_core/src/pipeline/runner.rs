@@ -10,7 +10,7 @@ use super::{context::PipelineContext, results::PipelineResults};
 pub struct PipelineRunner;
 impl PipelineRunner {
     pub fn run_lazy<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<PipelineResults<LazyFrame>> {
-        let pipeline = match ctx.get_curr_pipeline() {
+        let pipeline = match ctx.get_pipeline() {
             Some(p) => p,
             None => {
                 return Err(CpError::PipelineError(
@@ -67,7 +67,7 @@ mod tests {
 
     fn create_context(pipeline: Pipeline) -> Arc<DefaultContext<LazyFrame, ()>> {
         let mut ctx = raw_context();
-        ctx.set_curr_pipeline(pipeline).unwrap();
+        ctx.set_pipeline(pipeline).unwrap();
         Arc::new(ctx)
     }
 

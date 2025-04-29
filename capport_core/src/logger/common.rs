@@ -11,6 +11,10 @@ const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 const DEFAULT_LOG_PREFIX: &str = "programlog_";
 const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
 
+pub const DEFAULT_KEYWORD_REFDATE_DIR: &str = "__refdate__";
+pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "__output__";
+pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "__config__";
+
 const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;
 const COLOR_WARN: Color = Color::BrightYellow;
@@ -75,7 +79,9 @@ impl Logger {
             )
         })
     }
-    pub fn start(&mut self, to_stdout: bool) -> CpResult<()> {
+
+    // TODO: use pipeline_name and env var for logging directory
+    pub fn start(&mut self, _pipeline_name: &str, to_stdout: bool) -> CpResult<()> {
         let colors = ColoredLevelConfig::new()
             .debug(COLOR_DEBUG)
             .info(COLOR_INFO)

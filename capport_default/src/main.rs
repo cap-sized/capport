@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use capport_core::context::envvar::EnvironmentVariableRegistry;
 use capport_core::context::logger::LoggerRegistry;
 use capport_core::context::task::TaskDictionary;
 use capport_core::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
@@ -13,6 +14,7 @@ use polars::prelude::LazyFrame;
 
 fn main() {
     let args: RunPipelineArgs = argh::from_env();
+    let _ = EnvironmentVariableRegistry::from_args(&args); // Need to setup env reg
     let config_files = read_configs(&args.config_dir, &["yml", "yaml"]).unwrap();
     let mut pack = pack_configs_from_files(&config_files).unwrap();
     let model_reg = ModelRegistry::from(&mut pack).expect("Failed to build model registry");

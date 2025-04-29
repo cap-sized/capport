@@ -26,6 +26,21 @@ impl Default for EnvironmentVariableRegistry {
     }
 }
 
+pub fn get_env_var_str(key: &str) -> CpResult<String>{
+    match std::env::var(key) {
+        Ok(x) => Ok(x.trim().to_owned()),
+        Err(e) => Err(CpError::ComponentError(
+            "Environment variable error: ",
+            format!("[variable: {}] {:?}", key, e),
+        )),
+    }
+}
+
+pub fn get_env_var<T>(key: &str) -> CpResult<T> where  T: for<'a> Deserialize<'a> {
+    let value = get_env_var_str(key)?;
+    Ok(serde_yaml_ng::from_str::<T>(&value)?)
+}
+
 impl EnvironmentVariableRegistry {
     pub fn new() -> EnvironmentVariableRegistry {
         EnvironmentVariableRegistry { keys: HashSet::new() }
@@ -57,24 +72,6 @@ impl EnvironmentVariableRegistry {
         }
         self.keys.insert(key.to_owned());
         Ok(())
-    }
-
-    pub fn get_str(&self, key: &str) -> CpResult<String> {
-        match std::env::var(key) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(CpError::ComponentError(
-                "Environment variable error: ",
-                format!("[variable: {}] {:?}", key, e),
-            )),
-        }
-    }
-
-    pub fn get<T>(&self, key: &str) -> CpResult<T>
-    where
-        T: for<'a> Deserialize<'a>,
-    {
-        let value = self.get_str(key)?;
-        Ok(serde_yaml_ng::from_str::<T>(&value)?)
     }
 
     pub fn set<T>(&mut self, key: &str, value: &T) -> CpResult<()>
@@ -114,11 +111,9 @@ impl EnvironmentVariableRegistry {
 #[cfg(test)]
 mod tests {
     use crate::{
-        logger::common::{
-            DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATE_DIR,
-            DEFAULT_KEYWORD_REF_DATETIME_DIR,
-        },
-        util::args::RunPipelineArgs,
+        context::envvar::{get_env_var, get_env_var_str}, logger::common::{
+            DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATETIME_DIR, DEFAULT_KEYWORD_REF_DATE_DIR
+        }, util::args::RunPipelineArgs
     };
 
     use super::EnvironmentVariableRegistry;
@@ -131,7 +126,7 @@ mod tests {
         let mut ev = EnvironmentVariableRegistry::new();
         let s = String::from("12345");
         ev.set_str(KEYA, s.clone()).unwrap();
-        assert_eq!(ev.get_str(KEYA).unwrap(), s);
+        assert_eq!(get_env_var_str(KEYA).unwrap(), s);
         assert!(ev.has_key(KEYA));
         ev.pop(KEYA).unwrap();
         assert!(!ev.has_key(KEYA));
@@ -142,7 +137,7 @@ mod tests {
         let mut ev = EnvironmentVariableRegistry::new();
         let s = 12345;
         ev.set::<i32>(KEYA, &s).unwrap();
-        assert_eq!(ev.get::<i32>(KEYA).unwrap(), s);
+        assert_eq!(get_env_var::<i32>(KEYA).unwrap(), s);
         assert!(ev.has_key(KEYA));
         assert!(ev.has_key(KEYA));
         ev.pop(KEYA).unwrap();
@@ -153,9 +148,9 @@ mod tests {
     fn valid_set_get_yml_variable_date_invalid_parse() {
         let mut ev = EnvironmentVariableRegistry::new();
         let dt = Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap();
-        assert!(ev.get::<i32>(KEYB).is_err());
+        assert!(get_env_var::<i32>(KEYB).is_err());
         ev.set::<DateTime<Utc>>(KEYB, &dt).unwrap();
-        assert_eq!(ev.get::<DateTime<Utc>>(KEYB).unwrap(), dt);
+        assert_eq!(get_env_var::<DateTime<Utc>>(KEYB).unwrap(), dt);
         assert!(ev.has_key(KEYB));
         ev.pop(KEYB).unwrap();
         assert!(!ev.has_key(KEYB));
@@ -178,12 +173,12 @@ mod tests {
                     print_to_console: true,
                 };
                 let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
-                assert_eq!(ev.get::<DateTime<Utc>>(DEFAULT_KEYWORD_REF_DATETIME_DIR).unwrap(), dt);
+                assert_eq!(get_env_var::<DateTime<Utc>>(DEFAULT_KEYWORD_REF_DATETIME_DIR).unwrap(), dt);
                 assert_eq!(
-                    ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
+                    get_env_var::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
                     args.config_dir.to_owned()
                 );
-                assert_eq!(ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
+                assert_eq!(get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
                 ev.drop_all().unwrap();
             }
         }
@@ -199,12 +194,12 @@ mod tests {
                     print_to_console: true,
                 };
                 let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
-                assert_eq!(ev.get::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE_DIR).unwrap(), dt);
+                assert_eq!(get_env_var::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE_DIR).unwrap(), dt);
                 assert_eq!(
-                    ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
+                    get_env_var::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
                     args.config_dir.to_owned()
                 );
-                assert_eq!(ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
+                assert_eq!(get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
                 ev.drop_all().unwrap();
             }
         }

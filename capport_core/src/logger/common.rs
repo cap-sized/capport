@@ -1,10 +1,10 @@
 use fern::colors::{Color, ColoredLevelConfig};
 use serde::{Deserialize, Deserializer, de};
 
-use crate::util::{
+use crate::{context::envvar::get_env_var_str, util::{
     common::get_utc_time_str_now,
     error::{CpError, CpResult},
-};
+}};
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
@@ -72,6 +72,9 @@ impl Logger {
         }
     }
     pub fn get_full_prefix(&self) -> Option<String> {
+        // TODO: Remove the print stmt when the correct prefixing is complete
+        let output_dir = get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap_or("".to_owned());
+        println!("{}", output_dir);
         self.output.as_ref().map(|filepath| {
             format!(
                 "{}/{}",

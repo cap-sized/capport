@@ -26,6 +26,7 @@ pipelines.
       - [Config layout](#config-layout)
     - [Pipeline](#pipeline)
       - [Pipeline Runner](#pipeline-runner)
+    - [Environment Variables](#environment-variables)
     - [Dataframes](#dataframes)
     - [Context](#context)
     - [Stages and tasks](#stages-and-tasks)
@@ -35,8 +36,6 @@ pipelines.
       - [Transform actions in `SelectField`](#transform-actions-in-selectfield)
       - [Implementing new transforms operations](#implementing-new-transforms-operations)
     - [Services](#services)
-  - [Important dependencies](#important-dependencies)
-    - [capport\_core](#capport_core)
   - [For Contributors](#for-contributors)
     - [Setup](#setup)
     - [Contribution guidelines](#contribution-guidelines)
@@ -50,7 +49,7 @@ pipelines.
     - [x] Create`HttpSingleRequestTask`
   - [ ] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
   - [x] (logger.md) Setup global logging
-  - [ ] (pipeline.md) Handle environment variables
+  - [x] (pipeline.md) Handle environment variables
   - [ ] (pipeline.md) Configure runner
   - [x] (service.md) MongoDB Service
     - [ ] `find` task
@@ -217,9 +216,16 @@ Stages are currently run linearly with `PipelineRunner`. Soon this will either b
 
 Eventually this runner should be configurable as well, with the pipeline run scheduler/executor.
 
+### Environment Variables
+
+Not part of the pipeline context, but should be initialized in order for certain core functionalities
+like the logger csv reader/writer to read from the correct default input/output directories.
+
+See `EnvironmentVariablesRegistry` and `envvar.md` in the `docs/` folder for more information.
+
 ### Dataframes
 
-The whole pipeline is based on the manipulation of data with the [Polars](https://docs.rs/polars/latest/polars/) 
+The whole pipeline is based on tev.has_keyhe manipulation of data with the [Polars](https://docs.rs/polars/latest/polars/) 
 library. Tasks load from and store **manipulated Dataframes** or their lazily computed version, 
 **Lazyframes**.
 

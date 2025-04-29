@@ -1,18 +1,21 @@
 use fern::colors::{Color, ColoredLevelConfig};
 use serde::{Deserialize, Deserializer, de};
 
-use crate::{context::envvar::get_env_var_str, util::{
-    common::get_utc_time_str_now,
-    error::{CpError, CpResult},
-}};
+use crate::{
+    context::envvar::get_env_var_str,
+    util::{
+        common::get_utc_time_str_now,
+        error::{CpError, CpResult},
+    },
+};
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 const DEFAULT_LOG_PREFIX: &str = "programlog_";
 const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
 
-pub const DEFAULT_KEYWORD_REF_DATETIME_DIR: &str = "REF_DATETIME";
-pub const DEFAULT_KEYWORD_REF_DATE_DIR: &str = "REF_DATE";
+pub const DEFAULT_KEYWORD_REF_DATETIME: &str = "REF_DATETIME";
+pub const DEFAULT_KEYWORD_REF_DATE: &str = "REF_DATE";
 pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "OUTPUT_DIR";
 pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "CONFIG_DIR";
 

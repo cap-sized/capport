@@ -171,12 +171,10 @@ impl<ResultType: Clone, ServiceDistributor> PipelineContext<ResultType, ServiceD
         let lr = &mut self.logger_registry;
         match pipeline_name {
             Some(pipeline) => lr.start_logger(logger_name, pipeline.as_str(), to_console),
-            None => {
-                Err(CpError::PipelineError(
-                    "Pipeline not set yet",
-                    "No pipeline set yet before `init_log` called".to_owned(),
-                ))
-            }
+            None => Err(CpError::PipelineError(
+                "Pipeline not set yet",
+                "No pipeline set yet before `init_log` called".to_owned(),
+            )),
         }
     }
 

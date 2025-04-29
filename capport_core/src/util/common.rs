@@ -28,24 +28,22 @@ pub fn parse_date_str(datetime_str: &str) -> CpResult<NaiveDate> {
             }
         }
     }
-    return Err(CpError::RawError(std::io::Error::new(
+    Err(CpError::RawError(std::io::Error::new(
         std::io::ErrorKind::InvalidInput,
         format!(
             "Invalid date `{}` parsed, only the following patterns are recognized: {:?}",
             datetime_str, &RECOGNIZED_DATE_PATTERNS
         ),
-    )));
+    )))
 }
 
 pub fn parse_datetime_str(datetime_str: &str) -> CpResult<DateTime<FixedOffset>> {
     match datetime_str.parse() {
-        Ok(x) => return Ok(x),
-        Err(e) => {
-            return Err(CpError::RawError(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("Invalid datetime `{}` parsed, {:?}", datetime_str, e),
-            )));
-        }
+        Ok(x) => Ok(x),
+        Err(e) => Err(CpError::RawError(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Invalid datetime `{}` parsed, {:?}", datetime_str, e),
+        ))),
     }
 }
 

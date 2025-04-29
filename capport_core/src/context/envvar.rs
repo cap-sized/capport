@@ -1,10 +1,13 @@
 use std::collections::HashSet;
 
-use chrono::{DateTime, TimeZone};
+use chrono::{DateTime, FixedOffset, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    logger::common::{DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REFDATE_DIR},
+    logger::common::{
+        DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATE_DIR,
+        DEFAULT_KEYWORD_REF_DATETIME_DIR,
+    },
     util::{
         args::RunPipelineArgs,
         common::{parse_date_str, parse_datetime_str},
@@ -28,25 +31,24 @@ impl EnvironmentVariableRegistry {
         EnvironmentVariableRegistry { keys: HashSet::new() }
     }
 
-    pub fn init<T>(
-        default_config_dir: String,
-        default_output_dir: String,
-        default_ref_date: &T,
-    ) -> CpResult<EnvironmentVariableRegistry>
-    where
-        T: Serialize,
-    {
+    pub fn init(default_config_dir: String, default_output_dir: String) -> CpResult<EnvironmentVariableRegistry> {
         let mut ev = EnvironmentVariableRegistry::new();
         ev.set_str(DEFAULT_KEYWORD_CONFIG_DIR, default_config_dir)?;
         ev.set_str(DEFAULT_KEYWORD_OUTPUT_DIR, default_output_dir)?;
 
-        ev.set::<T>(DEFAULT_KEYWORD_REFDATE_DIR, default_ref_date)?;
         Ok(ev)
     }
 
     pub fn from_args(args: &RunPipelineArgs) -> CpResult<EnvironmentVariableRegistry> {
-        let dt = parse_datetime_str(args.date.as_ref().unwrap())?;
-        EnvironmentVariableRegistry::init(args.config_dir.to_owned(), args.output.to_owned(), &dt)
+        let mut ev = EnvironmentVariableRegistry::init(args.config_dir.to_owned(), args.output.to_owned())?;
+        if args.datetime.is_some() {
+            let dt = parse_datetime_str(args.datetime.as_ref().unwrap())?;
+            ev.set::<DateTime<FixedOffset>>(DEFAULT_KEYWORD_REF_DATETIME_DIR, &dt)?;
+        } else if args.date.is_some() {
+            let dt = parse_date_str(args.date.as_ref().unwrap())?;
+            ev.set::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE_DIR, &dt)?;
+        }
+        Ok(ev)
     }
 
     pub fn set_str(&mut self, key: &str, value: String) -> CpResult<()> {
@@ -112,7 +114,10 @@ impl EnvironmentVariableRegistry {
 #[cfg(test)]
 mod tests {
     use crate::{
-        logger::common::{DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REFDATE_DIR},
+        logger::common::{
+            DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATE_DIR,
+            DEFAULT_KEYWORD_REF_DATETIME_DIR,
+        },
         util::args::RunPipelineArgs,
     };
 
@@ -120,6 +125,7 @@ mod tests {
     use chrono::prelude::*;
 
     const KEYA: &str = "KEYA";
+    const KEYB: &str = "KEYB";
     #[test]
     fn valid_set_get_variable() {
         let mut ev = EnvironmentVariableRegistry::new();
@@ -147,60 +153,60 @@ mod tests {
     fn valid_set_get_yml_variable_date_invalid_parse() {
         let mut ev = EnvironmentVariableRegistry::new();
         let dt = Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap();
-        ev.set::<DateTime<Utc>>(KEYA, &dt).unwrap();
-        assert!(ev.get::<i32>(KEYA).is_err());
-        assert_eq!(ev.get::<DateTime<Utc>>(KEYA).unwrap(), dt);
-        assert!(ev.has_key(KEYA));
-        ev.pop(KEYA).unwrap();
-        assert!(!ev.has_key(KEYA));
+        assert!(ev.get::<i32>(KEYB).is_err());
+        ev.set::<DateTime<Utc>>(KEYB, &dt).unwrap();
+        assert_eq!(ev.get::<DateTime<Utc>>(KEYB).unwrap(), dt);
+        assert!(ev.has_key(KEYB));
+        ev.pop(KEYB).unwrap();
+        assert!(!ev.has_key(KEYB));
     }
 
     #[test]
-    fn valid_set_drop_all() {
-        let dt = Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap();
-        let mut ev =
-            EnvironmentVariableRegistry::init("/tmp/config".to_owned(), "/tmp/output".to_owned(), &dt).unwrap();
-        assert_eq!(ev.get::<DateTime<Utc>>(DEFAULT_KEYWORD_REFDATE_DIR).unwrap(), dt);
-        assert_eq!(
-            ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
-            "/tmp/config".to_owned()
-        );
-        assert_eq!(
-            ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(),
-            "/tmp/output".to_owned()
-        );
-        ev.drop_all().unwrap();
-        assert!(!ev.has_key(DEFAULT_KEYWORD_CONFIG_DIR));
-        assert!(!ev.has_key(DEFAULT_KEYWORD_OUTPUT_DIR));
-        assert!(!ev.has_key(DEFAULT_KEYWORD_REFDATE_DIR));
-    }
-
-    #[test]
-    fn valid_set_drop_all_from_args() {
-        let str_dt = [
-            (
+    fn valid_set_drop_all_from_args_datetime() {
+        {
+            let str_dt = [(
                 Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap(),
                 "2014-11-28T12:00:09+00:00",
-            ),
-            (Utc.with_ymd_and_hms(2014, 11, 28, 0, 0, 0).unwrap(), "2014-11-28"),
-        ];
-        for (dt, dt_str) in str_dt {
-            let args = RunPipelineArgs {
-                config_dir: "/tmp/config".to_owned(),
-                output: "/tmp/output".to_owned(),
-                date: None,
-                datetime: Some(dt_str.to_string()),
-                pipeline: "ignore".to_owned(),
-                print_to_console: true,
-            };
-            let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
-            assert_eq!(ev.get::<DateTime<Utc>>(DEFAULT_KEYWORD_REFDATE_DIR).unwrap(), dt);
-            assert_eq!(
-                ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
-                args.config_dir.to_owned()
-            );
-            assert_eq!(ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
-            ev.drop_all().unwrap();
+            )];
+            for (dt, dt_str) in str_dt {
+                let args = RunPipelineArgs {
+                    config_dir: "/tmp/config".to_owned(),
+                    output: "/tmp/output".to_owned(),
+                    date: None,
+                    datetime: Some(dt_str.to_string()),
+                    pipeline: "ignore".to_owned(),
+                    print_to_console: true,
+                };
+                let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
+                assert_eq!(ev.get::<DateTime<Utc>>(DEFAULT_KEYWORD_REF_DATETIME_DIR).unwrap(), dt);
+                assert_eq!(
+                    ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
+                    args.config_dir.to_owned()
+                );
+                assert_eq!(ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
+                ev.drop_all().unwrap();
+            }
+        }
+        {
+            let str_dt = [(NaiveDate::from_ymd_opt(1988, 9, 8).unwrap(), "1988-09-08")];
+            for (dt, dt_str) in str_dt {
+                let args = RunPipelineArgs {
+                    config_dir: "/tmp/config".to_owned(),
+                    output: "/tmp/output".to_owned(),
+                    date: Some(dt_str.to_string()),
+                    datetime: None,
+                    pipeline: "ignore".to_owned(),
+                    print_to_console: true,
+                };
+                let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
+                assert_eq!(ev.get::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE_DIR).unwrap(), dt);
+                assert_eq!(
+                    ev.get::<String>(DEFAULT_KEYWORD_CONFIG_DIR).unwrap(),
+                    args.config_dir.to_owned()
+                );
+                assert_eq!(ev.get_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(), args.output.to_owned());
+                ev.drop_all().unwrap();
+            }
         }
     }
 }

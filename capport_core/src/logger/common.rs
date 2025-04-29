@@ -11,9 +11,10 @@ const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 const DEFAULT_LOG_PREFIX: &str = "programlog_";
 const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
 
-pub const DEFAULT_KEYWORD_REFDATE_DIR: &str = "__refdate__";
-pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "__output__";
-pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "__config__";
+pub const DEFAULT_KEYWORD_REF_DATETIME_DIR: &str = "REF_DATETIME";
+pub const DEFAULT_KEYWORD_REF_DATE_DIR: &str = "REF_DATE";
+pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "OUTPUT_DIR";
+pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "CONFIG_DIR";
 
 const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;

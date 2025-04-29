@@ -102,24 +102,28 @@ impl EnvironmentVariableRegistry {
 
     pub fn drop_all(&mut self) -> CpResult<()> {
         let keys = self.keys.clone();
-        for key in keys {
-            self.pop(&key)?;
+        let mut failed_keys = vec![];
+        for key in &keys {
+            match self.pop(key) {
+                Ok(_) => {}
+                Err(x) => failed_keys.push(format!("{}: {:?}\n", key, x)),
+            }
         }
-        self.keys.clear();
+        if !failed_keys.is_empty() {
+            return Err(CpError::ComponentError(
+                "Keys not found or deregistered correctly",
+                format!("{:?}", failed_keys),
+            ));
+        }
         Ok(())
     }
 }
 
 impl Drop for EnvironmentVariableRegistry {
     fn drop(&mut self) {
-        let keys = self.keys.clone();
         match self.drop_all() {
             Ok(_) => {}
-            Err(e) => log::error!(
-                "Failed to deregister EnvironmentVariableRegistry with keys {:?} : {:?}",
-                keys,
-                e
-            ),
+            Err(e) => log::error!("{:?}", e),
         }
     }
 }
@@ -140,6 +144,7 @@ mod tests {
 
     const KEYA: &str = "KEYA";
     const KEYB: &str = "KEYB";
+    const KEYC: &str = "KEYC";
     #[test]
     fn valid_set_get_variable() {
         let mut ev = EnvironmentVariableRegistry::new();
@@ -168,12 +173,24 @@ mod tests {
         {
             let mut ev = EnvironmentVariableRegistry::new();
             let dt = Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap();
-            assert!(get_env_var::<i32>(KEYB).is_err());
             ev.set::<DateTime<Utc>>(KEYB, &dt).unwrap();
+            assert!(get_env_var::<i32>(KEYB).is_err());
             assert_eq!(get_env_var::<DateTime<Utc>>(KEYB).unwrap(), dt);
             assert!(ev.has_key(KEYB));
         }
         assert!(get_env_var_str(KEYB).is_err());
+    }
+
+    #[test]
+    fn handle_externally_removed_envvar() {
+        let mut ev = EnvironmentVariableRegistry::new();
+        let dt = Utc.with_ymd_and_hms(2014, 11, 28, 12, 0, 9).unwrap();
+        ev.set::<DateTime<Utc>>(KEYC, &dt).unwrap();
+        unsafe {
+            // Removing this here will not lead to an error while dropping later
+            std::env::remove_var(KEYC);
+        }
+        ev.drop_all().unwrap();
     }
 
     #[test]

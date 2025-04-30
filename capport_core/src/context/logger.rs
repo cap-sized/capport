@@ -41,7 +41,7 @@ impl LoggerRegistry {
         self.registry.get(logger_name).map(|x| x.to_owned())
     }
 
-    pub fn start_logger(&mut self, logger_name: &str, to_console: bool) -> CpResult<()> {
+    pub fn start_logger(&mut self, logger_name: &str, pipeline_name: &str, to_console: bool) -> CpResult<()> {
         if self.running_logger.is_some() {
             return Err(CpError::ComponentError(
                 "config.logger",
@@ -57,7 +57,7 @@ impl LoggerRegistry {
                 ));
             }
         };
-        logger.start(to_console)?;
+        logger.start(pipeline_name, to_console)?;
         let _ = self.running_logger.insert(logger_name.to_owned());
         Ok(())
     }
@@ -67,11 +67,13 @@ impl LoggerRegistry {
             return;
         }
         let logger_name = self.running_logger.as_ref().unwrap();
-        if let Some(x) = &self.get_logger(logger_name) { info!(
-            "Logger {}: Printed output to {}",
-            logger_name,
-            x._final_output_path.clone().unwrap_or("console".to_owned())
-        ) }
+        if let Some(x) = &self.get_logger(logger_name) {
+            info!(
+                "Logger {}: Printed output to {}",
+                logger_name,
+                x._final_output_path.clone().unwrap_or("console".to_owned())
+            )
+        }
     }
 }
 
@@ -269,8 +271,8 @@ second_log:
             dir_path, dir_path
         );
         let mut reg = create_logger_registry(&config);
-        reg.start_logger("base_log", true).unwrap();
-        assert!(reg.start_logger("second_log", true).is_err());
+        reg.start_logger("base_log", "test", true).unwrap();
+        assert!(reg.start_logger("second_log", "test", true).is_err());
         fs::remove_dir_all(dir_path).unwrap();
     }
 }

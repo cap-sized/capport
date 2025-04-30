@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use capport_core::context::envvar::EnvironmentVariableRegistry;
 use capport_core::context::logger::LoggerRegistry;
 use capport_core::context::task::TaskDictionary;
 use capport_core::context::{model::ModelRegistry, pipeline::PipelineRegistry, transform::TransformRegistry};
@@ -13,6 +14,7 @@ use polars::prelude::LazyFrame;
 
 fn main() {
     let args: RunPipelineArgs = argh::from_env();
+    let _ = EnvironmentVariableRegistry::from_args(&args); // Need to setup env reg
     let config_files = read_configs(&args.config_dir, &["yml", "yaml"]).unwrap();
     let mut pack = pack_configs_from_files(&config_files).unwrap();
     let model_reg = ModelRegistry::from(&mut pack).expect("Failed to build model registry");
@@ -26,16 +28,18 @@ fn main() {
     };
     let mut ctx_setup =
         DefaultContext::<LazyFrame, ()>::new(model_reg, transform_reg, TaskDictionary::default(), (), logger_reg);
-    ctx_setup
-        .init_log(console_logger_name, args.print_to_console)
-        .expect("Failed to initialize logging");
-    let ctx = Arc::new(ctx_setup);
     let pipeline = match pipeline_reg.get_pipeline(&args.pipeline) {
         Some(x) => x,
         None => panic!("Pipeline `{}` not found in pipeline registry", &args.pipeline),
     };
-    info!("Started running pipeline: {:?}", &pipeline);
-    let pipeline_results = match PipelineRunner::run_lazy(ctx.clone(), pipeline) {
+    ctx_setup
+        .set_pipeline(pipeline.clone())
+        .expect("Failed to attach pipeline to context");
+    ctx_setup
+        .init_log(console_logger_name, args.print_to_console)
+        .expect("Failed to initialize logging");
+    let ctx = Arc::new(ctx_setup);
+    let pipeline_results = match PipelineRunner::run_lazy(ctx.clone()) {
         Ok(x) => x,
         Err(e) => panic!("{}", e),
     };

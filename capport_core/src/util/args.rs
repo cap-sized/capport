@@ -12,7 +12,10 @@ pub struct RunPipelineArgs {
     #[argh(option, short = 'p', description = "name of pipeline to run")]
     pub pipeline: String,
 
-    #[argh(option, short = 'd', description = "reference datetime of pipeline input")]
+    #[argh(option, short = 'd', description = "reference date of pipeline input")]
+    pub date: Option<String>,
+
+    #[argh(option, short = 'T', description = "reference datetime of pipeline input")]
     pub datetime: Option<String>,
 
     #[argh(switch, short = 'C', description = "print output to console")]

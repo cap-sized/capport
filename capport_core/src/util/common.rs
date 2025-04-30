@@ -1,4 +1,5 @@
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+use log::debug;
 use polars::{df, frame::DataFrame, prelude::PlSmallStr};
 use polars_lazy::frame::{IntoLazy, LazyFrame};
 use std::collections::HashMap;
@@ -7,12 +8,44 @@ use rand::{Rng, distr::Alphanumeric};
 
 use crate::parser::common::YamlRead;
 
-use super::error::CpResult;
+use super::error::{CpError, CpResult};
 
 pub const NYT: &str = "America/New_York";
 pub const UTC: &str = "UTC";
 
 pub type YamlValue = serde_yaml_ng::Value;
+
+pub const RECOGNIZED_DATE_PATTERNS: [&str; 2] = ["%Y-%m-%d", "%Y.%m.%d"];
+pub const RECOGNIZED_TIME_PATTERNS: [&str; 2] = ["%H:%M:%S", "%H.%M.%S"];
+
+pub fn parse_date_str(datetime_str: &str) -> CpResult<NaiveDate> {
+    for &pattern in &RECOGNIZED_DATE_PATTERNS {
+        match NaiveDate::parse_from_str(datetime_str, pattern) {
+            Ok(x) => return Ok(x),
+            Err(e) => {
+                debug!("Date string `{}` cannot be parsed with pattern `{}`", pattern, e);
+                println!("Date string `{}` cannot be parsed with pattern `{}`", pattern, e);
+            }
+        }
+    }
+    Err(CpError::RawError(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!(
+            "Invalid date `{}` parsed, only the following patterns are recognized: {:?}",
+            datetime_str, &RECOGNIZED_DATE_PATTERNS
+        ),
+    )))
+}
+
+pub fn parse_datetime_str(datetime_str: &str) -> CpResult<DateTime<FixedOffset>> {
+    match datetime_str.parse() {
+        Ok(x) => Ok(x),
+        Err(e) => Err(CpError::RawError(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Invalid datetime `{}` parsed, {:?}", datetime_str, e),
+        ))),
+    }
+}
 
 pub fn get_utc_time_str_now() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, false)

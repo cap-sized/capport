@@ -1,17 +1,25 @@
 use std::sync::Arc;
 
+use log::info;
 use polars::prelude::LazyFrame;
 
-use crate::util::error::CpResult;
+use crate::util::error::{CpError, CpResult};
 
-use super::{common::Pipeline, context::PipelineContext, results::PipelineResults};
+use super::{context::PipelineContext, results::PipelineResults};
 
 pub struct PipelineRunner;
 impl PipelineRunner {
-    pub fn run_lazy<S>(
-        ctx: Arc<dyn PipelineContext<LazyFrame, S>>,
-        pipeline: &Pipeline,
-    ) -> CpResult<PipelineResults<LazyFrame>> {
+    pub fn run_lazy<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<PipelineResults<LazyFrame>> {
+        let pipeline = match ctx.get_pipeline() {
+            Some(p) => p,
+            None => {
+                return Err(CpError::PipelineError(
+                    "No pipeline found in context",
+                    "PipelineContext requires a pipeline before runner can execute".to_string(),
+                ));
+            }
+        };
+        info!("Initating pipeline: {}", &pipeline.label);
         for stage in &pipeline.stages {
             let task = ctx.get_task(&stage.task, &stage.args)?;
             task(ctx.clone())?;
@@ -35,7 +43,7 @@ mod tests {
         },
         pipeline::{
             common::{Pipeline, PipelineStage},
-            context::DefaultContext,
+            context::{DefaultContext, PipelineContext},
             results::PipelineResults,
         },
         task::noop::NoopTask,
@@ -47,14 +55,20 @@ mod tests {
         PipelineStage::new(name, "noop", &serde_yaml_ng::Value::Null)
     }
 
-    fn create_context() -> Arc<DefaultContext<LazyFrame, ()>> {
-        Arc::new(DefaultContext::new(
+    fn raw_context() -> DefaultContext<LazyFrame, ()> {
+        DefaultContext::new(
             ModelRegistry::new(),
             TransformRegistry::new(),
             TaskDictionary::new(vec![("noop", generate_lazy_task::<NoopTask, ()>())]),
             (),
             LoggerRegistry::new(),
-        ))
+        )
+    }
+
+    fn create_context(pipeline: Pipeline) -> Arc<DefaultContext<LazyFrame, ()>> {
+        let mut ctx = raw_context();
+        ctx.set_pipeline(pipeline).unwrap();
+        Arc::new(ctx)
     }
 
     #[test]
@@ -68,8 +82,8 @@ mod tests {
             .map(|x| Pipeline::new("noop", &x))
             .collect::<Vec<_>>();
         n_pipelines.iter().for_each(|pipeline| {
-            let ctx = create_context();
-            let actual = PipelineRunner::run_lazy(ctx.clone(), pipeline).unwrap();
+            let ctx = create_context(pipeline.clone());
+            let actual = PipelineRunner::run_lazy(ctx.clone()).unwrap();
             assert_eq!(actual, PipelineResults::<LazyFrame>::default());
         });
     }
@@ -80,7 +94,13 @@ mod tests {
             "invalid",
             &[PipelineStage::new("not_found", "nooop", &serde_yaml_ng::Value::Null)],
         );
-        let ctx = create_context();
-        assert!(PipelineRunner::run_lazy(ctx.clone(), &pipeline).is_err());
+        let ctx = create_context(pipeline.clone());
+        assert!(PipelineRunner::run_lazy(ctx.clone()).is_err());
+    }
+
+    #[test]
+    fn invalid_no_pipeline() {
+        let ctx = Arc::new(raw_context());
+        assert!(PipelineRunner::run_lazy(ctx.clone()).is_err());
     }
 }

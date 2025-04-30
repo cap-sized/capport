@@ -1,15 +1,23 @@
 use fern::colors::{Color, ColoredLevelConfig};
 use serde::{Deserialize, Deserializer, de};
 
-use crate::util::{
-    common::get_utc_time_str_now,
-    error::{CpError, CpResult},
+use crate::{
+    context::envvar::get_env_var_str,
+    util::{
+        common::get_utc_time_str_now,
+        error::{CpError, CpResult},
+    },
 };
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 const DEFAULT_LOG_PREFIX: &str = "programlog_";
 const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
+
+pub const DEFAULT_KEYWORD_REF_DATETIME: &str = "REF_DATETIME";
+pub const DEFAULT_KEYWORD_REF_DATE: &str = "REF_DATE";
+pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "OUTPUT_DIR";
+pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "CONFIG_DIR";
 
 const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;
@@ -67,6 +75,9 @@ impl Logger {
         }
     }
     pub fn get_full_prefix(&self) -> Option<String> {
+        // TODO: Remove the print stmt when the correct prefixing is complete
+        let output_dir = get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap_or("".to_owned());
+        println!("{}", output_dir);
         self.output.as_ref().map(|filepath| {
             format!(
                 "{}/{}",
@@ -75,7 +86,9 @@ impl Logger {
             )
         })
     }
-    pub fn start(&mut self, to_stdout: bool) -> CpResult<()> {
+
+    // TODO: use pipeline_name and env var for logging directory
+    pub fn start(&mut self, _pipeline_name: &str, to_stdout: bool) -> CpResult<()> {
         let colors = ColoredLevelConfig::new()
             .debug(COLOR_DEBUG)
             .info(COLOR_INFO)

@@ -227,7 +227,7 @@ id,name
 
     #[test]
     fn valid_no_model() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_no_model/";
         fs::create_dir_all(mydir).unwrap();
 
         let tmp = create_temp_csv(mydir);
@@ -252,7 +252,7 @@ id,name
 
     #[test]
     fn valid_load_csv_force_str() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_force_str/";
         fs::create_dir_all(mydir).unwrap();
         let tmp = create_temp_csv(mydir);
         let ctx = create_context(true);
@@ -277,7 +277,7 @@ id,name
 
     #[test]
     fn valid_load_csv_default() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_load_csv_default/";
         fs::create_dir_all(mydir).unwrap();
         let tmp = create_temp_csv(mydir);
         let ctx = create_context(false);
@@ -302,7 +302,7 @@ id,name
 
     #[test]
     fn valid_load_csv_from_default_config_dir_env() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_load_csv_from_default_config_dir_env/";
         fs::create_dir_all(mydir).unwrap();
         let tmp = create_temp_csv(mydir);
         let fp = std::path::Path::new(&tmp.filepath);
@@ -334,10 +334,11 @@ id,name
 
     #[test]
     fn valid_save_csv_default() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_save_csv_default/";
         fs::create_dir_all(mydir).unwrap();
         let intmp = create_temp_csv(mydir);
         let outtmp = create_temp_csv(mydir);
+        println!("{} {}", &intmp.filepath, &outtmp.filepath);
         let ctx = create_context(false);
         ctx.insert_result("ID_NAME_MAP", create_equiv_lf(false)).unwrap();
         let config = format!(
@@ -358,7 +359,7 @@ id,name
 
     #[test]
     fn valid_save_csv_default_output_dir_env() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_save_csv_default_output_dir_env/";
         fs::create_dir_all(mydir).unwrap();
         let intmp = create_temp_csv(mydir);
         let outtmp = create_temp_csv(mydir);
@@ -389,7 +390,7 @@ id,name
 
     #[test]
     fn invalid_bad_args() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_bad_args/";
         fs::create_dir_all(mydir).unwrap();
         let outtmp = create_temp_csv(mydir);
         let configs_templates = vec![
@@ -432,7 +433,7 @@ id,name
 
     #[test]
     fn invalid_args_not_list() {
-        let mydir = "/tmp/capport_testing/csv/";
+        let mydir = "/tmp/capport_testing/csv_args_not_list/";
         fs::create_dir_all(mydir).unwrap();
         let outtmp = create_temp_csv(mydir);
         let configs_templates = vec![format!(

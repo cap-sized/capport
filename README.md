@@ -47,7 +47,7 @@ pipelines.
   - [ ] (task.md) HttpRequestTask enhancements 
     - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
     - [x] Create`HttpSingleRequestTask`
-  - [ ] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
+  - [x] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
   - [x] (logger.md) Setup global logging
   - [x] (pipeline.md) Handle environment variables
   - [ ] (pipeline.md) Configure runner

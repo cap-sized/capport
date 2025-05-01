@@ -532,6 +532,7 @@ dependencies = [
  "polars-lazy",
  "polars-sql",
  "rand 0.9.1",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

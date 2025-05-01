@@ -1,5 +1,7 @@
 use std::fs::{self, File};
 
+use log::info;
+
 use super::{common::rng_str, error::SubResult};
 
 #[derive(Debug)]
@@ -19,7 +21,7 @@ impl TempFile {
     pub fn default_in_dir(dir: &str, ext: &str) -> SubResult<TempFile> {
         let rndstr = rng_str(12);
         let filepath = format!("{}/{}.{}", dir, &rndstr, ext);
-        println!("test {}", &filepath);
+        info!("temp filepath created: {}", &filepath);
         // sleep(time::Duration::from_secs(2000));
         TempFile::new(&filepath)
     }
@@ -31,7 +33,6 @@ impl TempFile {
     }
 }
 
-// TODO: move to CpDefault where it returns a wrapped result
 impl Default for TempFile {
     fn default() -> Self {
         let rndstr = rng_str(12);
@@ -42,7 +43,10 @@ impl Default for TempFile {
 
 impl Drop for TempFile {
     fn drop(&mut self) {
-        fs::remove_file(&self.filepath).unwrap_or_else(|_| panic!("Failed to delete TempFile {}", &self.filepath));
+        fs::remove_file(&self.filepath).unwrap_or_else(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => {}
+            other => panic!("Failed to delete TempFile {}: {:?}", &self.filepath, other),
+        });
     }
 }
 
@@ -75,7 +79,6 @@ mod tests {
     fn check_delete_on_drop() {
         let fp = "/tmp/__delete_on_drop_7862af50be.log";
         {
-            // TODO: Use default in dir
             TempFile::new(fp).unwrap();
         }
         assert!(!fs::exists(fp).unwrap());
@@ -83,7 +86,6 @@ mod tests {
 
     #[test]
     fn invalid_file_no_dir() {
-        // TODO: Check for non-existence
         let fp = "/tmp/__nondir_7862/__fail_to_delete_7862af50be.log";
         TempFile::new(fp).unwrap_err();
     }

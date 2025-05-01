@@ -3,6 +3,7 @@ use std::{
     path::Path,
 };
 
+use log::warn;
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,10 @@ use crate::{
         common::{HasTask, PipelineTask},
         context::PipelineContext,
     },
-    util::error::{CpError, CpResult},
+    util::{
+        common::get_full_path,
+        error::{CpError, CpResult},
+    },
 };
 
 #[derive(Serialize, Deserialize)]
@@ -32,8 +36,8 @@ pub struct CsvModelSaveTask {
 
 impl CsvModel {
     pub fn build(&self, model: Option<Model>) -> CpResult<LazyFrame> {
-        // TODO: Warn if filepath is not absolute
-        let lf: LazyFrame = LazyCsvReader::new(&self.filepath).with_has_header(true).finish()?;
+        let fp = get_full_path(&self.filepath, true)?;
+        let lf: LazyFrame = LazyCsvReader::new(fp).with_has_header(true).finish()?;
         match model {
             Some(model) => match model.reshape(lf) {
                 Ok(x) => Ok(x),
@@ -67,8 +71,7 @@ pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
         };
         let lf: LazyFrame = csv_model.build(model)?;
         if let Some(x) = ctx.insert_result(&csv_model.df_name, lf)? {
-            // TODO: correct warning if replace
-            println!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
+            warn!("previously contained the lazyframe of size:\n{:?}", x.count().collect());
         }
     }
     Ok(())
@@ -76,6 +79,7 @@ pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
 
 pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
+        let fp = get_full_path(&csv_model.filepath, false)?;
         let lf: LazyFrame = ctx.clone_result(&csv_model.df_name)?;
         let model: Option<Model> = match &csv_model.model {
             Some(model_name) => Some(ctx.get_model(model_name)?),
@@ -88,7 +92,7 @@ pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
                 fs::create_dir_all(x)?;
             }
         };
-        let mut output_file = File::create(dir_path)?;
+        let mut output_file = File::create(fp)?;
         let mut writer = CsvWriter::new(&mut output_file).include_header(true);
         writer.finish(&mut df)?;
     }
@@ -116,6 +120,7 @@ impl HasTask for CsvModelLoadTask {
 #[cfg(test)]
 mod tests {
     use std::{
+        fs,
         io::{Read, Write},
         sync::Arc,
     };
@@ -127,11 +132,13 @@ mod tests {
 
     use crate::{
         context::{
+            envvar::EnvironmentVariableRegistry,
             logger::LoggerRegistry,
             model::ModelRegistry,
             task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
         },
+        logger::common::{DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR},
         model::common::{Model, ModelField},
         pipeline::{
             common::HasTask,
@@ -165,8 +172,8 @@ mod tests {
         assert_eq!(astr.trim(), bstr.trim());
     }
 
-    fn create_temp_csv() -> TempFile {
-        let temp = TempFile::default();
+    fn create_temp_csv(dir: &str) -> TempFile {
+        let temp = TempFile::default_in_dir(dir, "csv").unwrap();
         temp.get_mut()
             .unwrap()
             .write_all(
@@ -220,7 +227,10 @@ id,name
 
     #[test]
     fn valid_no_model() {
-        let tmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+
+        let tmp = create_temp_csv(mydir);
         let ctx = Arc::new(DefaultContext::default());
         let config = format!(
             "
@@ -237,11 +247,14 @@ id,name
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
         let actual_results = ctx.clone_results().unwrap();
         assert_eq!(expected_results, actual_results);
+        fs::remove_dir_all(mydir).unwrap();
     }
 
     #[test]
     fn valid_load_csv_force_str() {
-        let tmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let tmp = create_temp_csv(mydir);
         let ctx = create_context(true);
         let config = format!(
             "
@@ -259,11 +272,14 @@ id,name
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(true));
         let actual_results = ctx.clone_results().unwrap();
         assert_eq!(expected_results, actual_results);
+        fs::remove_dir_all(mydir).unwrap();
     }
 
     #[test]
     fn valid_load_csv_default() {
-        let tmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let tmp = create_temp_csv(mydir);
         let ctx = create_context(false);
         let config = format!(
             "
@@ -281,12 +297,47 @@ id,name
         expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
         let actual_results = ctx.clone_results().unwrap();
         assert_eq!(expected_results, actual_results);
+        fs::remove_dir_all(mydir).unwrap();
+    }
+
+    #[test]
+    fn valid_load_csv_from_default_config_dir_env() {
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let tmp = create_temp_csv(mydir);
+        let fp = std::path::Path::new(&tmp.filepath);
+        let dir = fp.parent().unwrap();
+        let child = fp.file_name().unwrap();
+        let mut myenv = EnvironmentVariableRegistry::new();
+        myenv
+            .set_str(DEFAULT_KEYWORD_CONFIG_DIR, dir.to_str().unwrap().to_owned())
+            .unwrap();
+        let config = format!(
+            "
+---
+- filepath: {}
+  model: idname
+  df_name: ID_NAME_MAP
+",
+            child.to_str().unwrap()
+        );
+        let ctx = create_context(false);
+        let args = yaml_from_str(&config).unwrap();
+        let t = CsvModelLoadTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
+        let mut expected_results = PipelineResults::<LazyFrame>::default();
+        expected_results.insert("ID_NAME_MAP", create_equiv_lf(false));
+        let actual_results = ctx.clone_results().unwrap();
+        assert_eq!(expected_results, actual_results);
+        fs::remove_dir_all(mydir).unwrap();
     }
 
     #[test]
     fn valid_save_csv_default() {
-        let intmp = create_temp_csv();
-        let outtmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let intmp = create_temp_csv(mydir);
+        let outtmp = create_temp_csv(mydir);
         let ctx = create_context(false);
         ctx.insert_result("ID_NAME_MAP", create_equiv_lf(false)).unwrap();
         let config = format!(
@@ -302,11 +353,45 @@ id,name
         let t = CsvModelSaveTask::lazy_task(&args).unwrap();
         t(ctx.clone()).unwrap();
         check_temp_csvs_identical(&intmp, &outtmp);
+        fs::remove_dir_all(mydir).unwrap();
+    }
+
+    #[test]
+    fn valid_save_csv_default_output_dir_env() {
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let intmp = create_temp_csv(mydir);
+        let outtmp = create_temp_csv(mydir);
+        let fp = std::path::Path::new(&outtmp.filepath);
+        let dir = fp.parent().unwrap();
+        let child = fp.file_name().unwrap();
+        let mut myenv = EnvironmentVariableRegistry::new();
+        myenv
+            .set_str(DEFAULT_KEYWORD_OUTPUT_DIR, dir.to_str().unwrap().to_owned())
+            .unwrap();
+        let ctx = create_context(false);
+        ctx.insert_result("ID_NAME_MAP", create_equiv_lf(false)).unwrap();
+        let config = format!(
+            "
+---
+- filepath: {}
+  model: idname
+  df_name: ID_NAME_MAP
+",
+            child.to_str().unwrap()
+        );
+        let args = yaml_from_str(&config).unwrap();
+        let t = CsvModelSaveTask::lazy_task(&args).unwrap();
+        t(ctx.clone()).unwrap();
+        check_temp_csvs_identical(&intmp, &outtmp);
+        fs::remove_dir_all(mydir).unwrap();
     }
 
     #[test]
     fn invalid_bad_args() {
-        let outtmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let outtmp = create_temp_csv(mydir);
         let configs_templates = vec![
             format!(
                 "
@@ -342,11 +427,14 @@ id,name
             let t = CsvModelSaveTask::lazy_task(&args).unwrap();
             t(ctx.clone()).unwrap_err();
         }
+        fs::remove_dir_all(mydir).unwrap();
     }
 
     #[test]
     fn invalid_args_not_list() {
-        let outtmp = create_temp_csv();
+        let mydir = "/tmp/capport_testing/csv/";
+        fs::create_dir_all(mydir).unwrap();
+        let outtmp = create_temp_csv(mydir);
         let configs_templates = vec![format!(
             "
 --- # df_name not present in context to save
@@ -360,5 +448,6 @@ df_name: ID_NAME_MAP
             let args = yaml_from_str(&config).unwrap();
             assert!(CsvModelSaveTask::lazy_task::<()>(&args).is_err());
         }
+        fs::remove_dir_all(mydir).unwrap();
     }
 }

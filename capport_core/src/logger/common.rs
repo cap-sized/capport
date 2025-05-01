@@ -1,18 +1,15 @@
 use fern::colors::{Color, ColoredLevelConfig};
+use log::info;
 use serde::{Deserialize, Deserializer, de};
 
-use crate::{
-    context::envvar::get_env_var_str,
-    util::{
-        common::get_utc_time_str_now,
+use crate::util::{
+        common::{get_fmt_time_str_now, get_full_path, get_utc_time_str_now},
         error::{CpError, CpResult},
-    },
-};
+    };
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
-const DEFAULT_LOG_PREFIX: &str = "programlog_";
-const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y-%m-%d_%H%M%S.log";
+const DEFAULT_TIMESTAMP_SUFFIX: &str = "%Y%m%d-%H%M%S";
 
 pub const DEFAULT_KEYWORD_REF_DATETIME: &str = "REF_DATETIME";
 pub const DEFAULT_KEYWORD_REF_DATE: &str = "REF_DATE";
@@ -32,9 +29,7 @@ pub struct LogLevelFilter(pub log::LevelFilter);
 pub struct Logger {
     pub label: String,
     pub level: Option<LogLevelFilter>,
-    pub output: Option<String>, // absence => for
-    pub file_prefix: Option<String>,
-    pub file_timestamp: Option<String>,
+    pub output_path_prefix: Option<String>,
 
     pub _final_output_path: Option<String>,
 }
@@ -58,37 +53,34 @@ impl<'de> Deserialize<'de> for LogLevelFilter {
 }
 
 impl Logger {
-    pub fn new(
-        label: &str,
-        level: Option<log::LevelFilter>,
-        output: Option<&str>,
-        file_prefix: Option<&str>,
-        file_timestamp: Option<&str>,
-    ) -> Self {
+    pub fn new(label: &str, level: Option<log::LevelFilter>, output: Option<&str>) -> Self {
         Logger {
             label: label.to_owned(),
             level: level.map(LogLevelFilter),
-            output: output.map(|x| x.to_owned()),
-            file_prefix: file_prefix.map(|x| x.to_owned()),
-            file_timestamp: file_timestamp.map(|x| x.to_owned()),
+            output_path_prefix: output.map(|x| x.to_owned()),
             _final_output_path: None,
         }
     }
-    pub fn get_full_prefix(&self) -> Option<String> {
-        // TODO: Remove the print stmt when the correct prefixing is complete
-        let output_dir = get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap_or("".to_owned());
-        println!("{}", output_dir);
-        self.output.as_ref().map(|filepath| {
-            format!(
-                "{}/{}",
-                filepath,
-                self.file_prefix.clone().unwrap_or(DEFAULT_LOG_PREFIX.to_owned())
-            )
-        })
+    pub fn get_full_path(&self, pipeline_name: &str) -> Option<String> {
+        self.output_path_prefix.as_ref()?;
+        let output_dir = match get_full_path(self.output_path_prefix.as_ref().unwrap(), false) {
+            Ok(x) => x,
+            Err(e) => {
+                println!("No output log will be produced: {:?}", e);
+                return None;
+            }
+        };
+        let datetime_str = get_fmt_time_str_now(DEFAULT_TIMESTAMP_SUFFIX);
+        Some(format!(
+            "{}{}_{}.log",
+            output_dir.to_str().unwrap(),
+            pipeline_name,
+            datetime_str
+        ))
     }
 
     // TODO: use pipeline_name and env var for logging directory
-    pub fn start(&mut self, _pipeline_name: &str, to_stdout: bool) -> CpResult<()> {
+    pub fn start(&mut self, pipeline_name: &str, to_stdout: bool) -> CpResult<()> {
         let colors = ColoredLevelConfig::new()
             .debug(COLOR_DEBUG)
             .info(COLOR_INFO)
@@ -106,23 +98,14 @@ impl Logger {
                     message
                 ))
             });
-        let dispatch = match &self.get_full_prefix() {
-            Some(full_file_prefix) => {
+        let dispatch = match &self.get_full_path(pipeline_name) {
+            Some(full_file_path) => {
                 let d = if to_stdout {
                     base_dispatch.chain(std::io::stdout())
                 } else {
                     base_dispatch
                 };
-                let outfile = fern::DateBased::new(
-                    full_file_prefix,
-                    self.file_timestamp
-                        .clone()
-                        .unwrap_or(DEFAULT_TIMESTAMP_SUFFIX.to_owned()),
-                )
-                .utc_time();
-                // TODO 1: Change this to actually by the real output file, currently logs the datebased.
-                // TODO 2: Remove dependency on datebased
-                // TODO 3: Add pipeline name
+                let outfile = fern::log_file(full_file_path)?;
                 self._final_output_path = Some(format!("{:?}", outfile));
                 d.chain(outfile)
             }
@@ -130,7 +113,10 @@ impl Logger {
         };
 
         match dispatch.apply() {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                info!("Log recording into {}", self._final_output_path.as_ref().unwrap());
+                Ok(())
+            }
             Err(e) => Err(CpError::ComponentError(
                 "Logger",
                 format!("Failed to setup logger, quiting: {:?}", e),
@@ -142,7 +128,15 @@ impl Logger {
 #[cfg(test)]
 mod tests {
 
-    use crate::logger::common::{DEFAULT_LOG_PREFIX, LogLevelFilter, Logger};
+    use chrono::Utc;
+    use regex::Regex;
+
+    use crate::{
+        context::envvar::EnvironmentVariableRegistry,
+        logger::common::{LogLevelFilter, Logger},
+    };
+
+    use super::DEFAULT_KEYWORD_OUTPUT_DIR;
 
     #[test]
     fn deserializing_log_level() {
@@ -170,23 +164,40 @@ mod tests {
 
     #[test]
     fn valid_prefixing_full_paths() {
+        let pipeline_name = "mypipe";
         {
-            let writer = Logger::new("test", None, Some("/tmp/"), None, None);
-            assert_eq!(
-                std::path::Path::new(writer.get_full_prefix().unwrap().as_str()),
-                std::path::Path::new(format!("/tmp/{}", DEFAULT_LOG_PREFIX).as_str())
+            let writer = Logger::new("test", None, Some("/tmp/"));
+            let date_utc = Utc::now().format("%Y%m%d").to_string();
+            // may spuriously fail near midnight, just rerun in that case
+            let fmt_date = format!("/tmp/mypipe_{}-([0-9]*).log", date_utc);
+
+            let prefix_re = Regex::new(&fmt_date).unwrap();
+            assert!(
+                prefix_re
+                    .find(writer.get_full_path(pipeline_name).unwrap().as_str())
+                    .is_some()
             );
         }
+
         {
-            let writer = Logger::new("test", None, Some("/tmp/"), Some("custom"), None);
-            assert_eq!(
-                std::path::Path::new(writer.get_full_prefix().unwrap().as_str()),
-                std::path::Path::new(format!("/tmp/{}", "custom").as_str())
+            let mut ev = EnvironmentVariableRegistry::new();
+            ev.set_str(DEFAULT_KEYWORD_OUTPUT_DIR, "/tmp/".to_owned()).unwrap();
+
+            let writer = Logger::new("test", None, Some("test/test_"));
+            let date_utc = Utc::now().format("%Y%m%d").to_string();
+            // may spuriously fail near midnight, just rerun in that case
+            let fmt_date = format!("/tmp/test/test_mypipe_{}-([0-9]*).log", date_utc);
+            let prefix_re = Regex::new(&fmt_date).unwrap();
+            assert!(
+                prefix_re
+                    .find(writer.get_full_path(pipeline_name).unwrap().as_str())
+                    .is_some()
             );
         }
+
         {
-            let writer = Logger::new("test", None, None, Some("custom"), None);
-            assert_eq!(writer.get_full_prefix(), None);
+            let writer = Logger::new("test", None, None);
+            assert_eq!(writer.get_full_path(pipeline_name), None);
         }
     }
 }

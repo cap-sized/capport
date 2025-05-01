@@ -27,7 +27,7 @@ impl LoggerRegistry {
         LoggerRegistry {
             registry: HashMap::from([(
                 DEFAULT_CONSOLE_LOGGER_NAME.to_owned(),
-                Logger::new(DEFAULT_CONSOLE_LOGGER_NAME, None, None, None, None),
+                Logger::new(DEFAULT_CONSOLE_LOGGER_NAME, None, None),
             )]),
             running_logger: None,
         }
@@ -89,7 +89,7 @@ impl Configurable for LoggerRegistry {
         for (config_name, node) in configs {
             let pipeline = match parse_logger(&config_name, node) {
                 Ok(x) => {
-                    if x.output.is_none() {
+                    if x.output_path_prefix.is_none() {
                         return Err(CpError::ComponentError(
                             "config.logger",
                             format!(
@@ -136,20 +136,12 @@ mod tests {
         let config = "
 base_log:
     level: debug
-    output: /tmp/
-    file_prefix: myprogram_
-    file_timestamp: \"%Y-%m-%d\"
+    output_path_prefix: myprogram_
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = Logger::new(
-            "base_log",
-            Some(log::LevelFilter::Debug),
-            Some("/tmp/"),
-            Some("myprogram_"),
-            Some("%Y-%m-%d"),
-        );
+        let expected = Logger::new("base_log", Some(log::LevelFilter::Debug), Some("myprogram_"));
         assert_eq!(actual, expected);
     }
 
@@ -157,12 +149,12 @@ base_log:
     fn valid_missing_output_prefix_timestamp_fields() {
         let config = "
 base_log:
-    output: /tmp/
+    output_path_prefix: /tmp/
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = Logger::new("base_log", None, Some("/tmp/"), None, None);
+        let expected = Logger::new("base_log", None, Some("/tmp/"));
         assert_eq!(actual, expected);
     }
 
@@ -171,12 +163,12 @@ base_log:
         let config = "
 base_log:
     level: warn
-    output: /tmp/
+    output_path_prefix: /tmp/
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = Logger::new("base_log", Some(log::LevelFilter::Warn), Some("/tmp/"), None, None);
+        let expected = Logger::new("base_log", Some(log::LevelFilter::Warn), Some("/tmp/"));
         assert_eq!(actual, expected);
     }
 
@@ -185,19 +177,12 @@ base_log:
         let config = "
 base_log:
     level: error
-    output: /tmp/
-    file_prefix: myprogram_
+    output_path_prefix: /tmp/myprogram_
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
         let actual = reg.get_logger("base_log").unwrap();
-        let expected = Logger::new(
-            "base_log",
-            Some(log::LevelFilter::Error),
-            Some("/tmp/"),
-            Some("myprogram_"),
-            None,
-        );
+        let expected = Logger::new("base_log", Some(log::LevelFilter::Error), Some("/tmp/myprogram_"));
         assert_eq!(actual, expected);
     }
 
@@ -206,8 +191,7 @@ base_log:
         let config = "
 base_log:
     level: bad
-    output: /tmp/
-    file_prefix: myprogram_
+    output_path_prefix: /tmp/
     _final_output_path: something
         ";
         assert_invalid_model(config);
@@ -218,8 +202,7 @@ base_log:
         let config = "
 base_log:
     level: bad
-    output: /tmp/
-    file_prefix: myprogram_
+    output_path_prefix: /tmp/myprogram_
         ";
         assert_invalid_model(config);
     }
@@ -229,14 +212,10 @@ base_log:
         [
             "
 base_log:
-        ",
-            "
-base_log:
     level: error
         ",
             "
 base_log:
-    file_prefix: myprogram_
         ",
         ]
         .iter()
@@ -261,12 +240,10 @@ base_log:
             "
 base_log:
     level: error
-    output: {}
-    file_prefix: myprogram_
+    output_path_prefix: {}/myprogram_
 second_log:
     level: error
-    output: {}
-    file_prefix: anothermyprogram_
+    output_path_prefix: {}/anothermyprogram_
         ",
             dir_path, dir_path
         );

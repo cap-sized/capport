@@ -48,6 +48,10 @@ impl EnvironmentVariableRegistry {
         EnvironmentVariableRegistry { keys: HashSet::new() }
     }
 
+    pub fn get_keys(&self) -> HashSet<String> {
+        self.keys.clone()
+    }
+
     pub fn init(default_config_dir: String, default_output_dir: String) -> CpResult<EnvironmentVariableRegistry> {
         let mut ev = EnvironmentVariableRegistry::new();
         ev.set_str(DEFAULT_KEYWORD_CONFIG_DIR, default_config_dir)?;

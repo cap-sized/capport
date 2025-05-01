@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use log::warn;
+use log::{debug, warn};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +37,7 @@ pub struct CsvModelSaveTask {
 impl CsvModel {
     pub fn build(&self, model: Option<Model>) -> CpResult<LazyFrame> {
         let fp = get_full_path(&self.filepath, true)?;
+        debug!("Loading frame {} from {:?}", &self.df_name, fp);
         let lf: LazyFrame = LazyCsvReader::new(fp).with_has_header(true).finish()?;
         match model {
             Some(model) => match model.reshape(lf) {
@@ -80,6 +81,7 @@ pub fn csv_load<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
 pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &CsvModelLoadTask) -> CpResult<()> {
     for csv_model in &csv_models.models {
         let fp = get_full_path(&csv_model.filepath, false)?;
+        debug!("Saving frame {} to {:?}", &csv_model.df_name, fp);
         let lf: LazyFrame = ctx.clone_result(&csv_model.df_name)?;
         let model: Option<Model> = match &csv_model.model {
             Some(model_name) => Some(ctx.get_model(model_name)?),

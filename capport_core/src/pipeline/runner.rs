@@ -4,12 +4,9 @@ use log::info;
 use polars::prelude::LazyFrame;
 use serde::{Deserialize, de};
 
-use crate::util::{
-    args::RunPipelineArgs,
-    error::{CpError, CpResult},
-};
+use crate::util::error::{CpError, CpResult};
 
-use super::{common::RunnerConfig, context::PipelineContext, results::PipelineResults};
+use super::{context::PipelineContext, results::PipelineResults};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunMethodType {

@@ -15,7 +15,8 @@ use polars::prelude::LazyFrame;
 
 fn main() {
     let args: RunPipelineArgs = argh::from_env();
-    let _ = EnvironmentVariableRegistry::from_args(&args); // Need to setup env reg
+    let ev = EnvironmentVariableRegistry::from_args(&args).expect("Failed to register env variables"); // Need to setup env reg
+    println!("Initialized environment variables: {:?}", ev.get_keys());
     let config_files = read_configs(&args.config_dir, &["yml", "yaml"]).unwrap();
     let mut pack = pack_configs_from_files(&config_files).unwrap();
     let model_reg = ModelRegistry::from(&mut pack).expect("Failed to build model registry");
@@ -45,10 +46,11 @@ fn main() {
     ctx_setup
         .init_log(console_logger_name, args.print_to_console)
         .expect("Failed to initialize logging");
+
     let ctx = Arc::new(ctx_setup);
 
     match runner.run_method {
-        RunMethodType::SyncEager => {
+        RunMethodType::SyncLazy => {
             let pipeline_results = match PipelineRunner::run_lazy(ctx.clone()) {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),

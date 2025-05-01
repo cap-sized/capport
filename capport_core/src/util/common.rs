@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
-use log::{debug, info};
+use log::{debug, trace};
 use polars::{df, frame::DataFrame, prelude::PlSmallStr};
 use polars_lazy::frame::{IntoLazy, LazyFrame};
 use std::collections::HashMap;
@@ -62,18 +62,19 @@ pub fn get_utc_time_str_now() -> String {
 pub fn get_full_path(abs_or_rel_path_str: &str, is_config: bool) -> CpResult<std::path::PathBuf> {
     let path = std::path::Path::new(abs_or_rel_path_str);
     if path.is_absolute() {
-        info!("Loading from absolute path: {:?}", path);
+        trace!("Loading from absolute path: {:?}", path);
         return Ok(path.to_owned());
     }
 
-    info!("Received relative path: {:?}; appending root...", path);
+    trace!("Received relative path: {:?}; appending root...", path);
     let base = get_env_var_str(if is_config {
         DEFAULT_KEYWORD_CONFIG_DIR
     } else {
         DEFAULT_KEYWORD_OUTPUT_DIR
     })?;
+    trace!("Default root dir: {}", base.as_str());
     let full_path = std::path::Path::new(base.as_str()).join(path);
-    info!("Derived absolute path: {:?} (from {:?})", full_path, path);
+    trace!("Derived path: {:?} (from {:?})", full_path, path);
     Ok(full_path)
 }
 

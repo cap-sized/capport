@@ -40,7 +40,7 @@ impl Default for HttpOptions {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct HttpRequestTask {
+pub struct HttpBatchRequestTask {
     pub df_from: String,
     pub df_to: String,
     pub url_column: String,
@@ -128,7 +128,7 @@ fn run_get_http_urls_full(
     ))
 }
 
-fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) -> CpResult<()> {
+fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpBatchRequestTask) -> CpResult<()> {
     let mtd = task.method.clone().unwrap_or("get".to_owned()).to_lowercase();
     let urls = task.to_urls(ctx.clone())?;
     match mtd.as_str() {
@@ -140,7 +140,7 @@ fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) ->
     }
 }
 
-impl HttpRequestTask {
+impl HttpBatchRequestTask {
     fn get<S>(&self, urls: Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
         let results = run_get_http_urls_full(
             urls,
@@ -192,9 +192,9 @@ impl HttpRequestTask {
     }
 }
 
-impl HasTask for HttpRequestTask {
+impl HasTask for HttpBatchRequestTask {
     fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
-        let task: HttpRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
+        let task: HttpBatchRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
         Ok(Box::new(move |ctx| run(ctx, task.clone())))
     }
 }
@@ -307,7 +307,7 @@ mod tests {
     use httpmock::{Mock, prelude::*};
     use polars::{
         df,
-        prelude::{IntoLazy, LazyFrame},
+        prelude::{IntoLazy, LazyFrame, PlSmallStr, SortMultipleOptions},
     };
     use serde::{Deserialize, Serialize};
 
@@ -322,7 +322,7 @@ mod tests {
         },
     };
 
-    use super::HttpRequestTask;
+    use super::HttpBatchRequestTask;
     use super::HttpSingleRequestTask;
 
     #[derive(Serialize, Deserialize)]
@@ -403,10 +403,18 @@ url_column: url
                 optional
             );
             let args = yaml_from_str(&config).unwrap();
-            let t = HttpRequestTask::lazy_task(&args).unwrap();
+            let t = HttpBatchRequestTask::lazy_task(&args).unwrap();
             t(ctx.clone()).unwrap();
-            let actual = ctx.clone_result("DATA").unwrap().collect().unwrap();
-            let expected = vec_str_json_to_df(&DummyData::json_actions()).unwrap();
+            let actual = ctx
+                .clone_result("DATA")
+                .unwrap()
+                .sort([PlSmallStr::from_str("id")], SortMultipleOptions::new())
+                .collect()
+                .unwrap();
+            let expected = vec_str_json_to_df(&DummyData::json_actions())
+                .unwrap()
+                .sort([PlSmallStr::from_str("id")], SortMultipleOptions::new())
+                .unwrap();
             mocks.iter().for_each(|m| {
                 m.assert();
             });

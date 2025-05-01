@@ -5,7 +5,7 @@ use capport_core::{
     task::{
         loadstore::csv::{CsvModelLoadTask, CsvModelSaveTask},
         noop::NoopTask,
-        requests::http::HttpRequestTask,
+        requests::http::HttpBatchRequestTask,
         transform::TransformTask,
     },
 };
@@ -35,7 +35,7 @@ impl SvcDefault for TaskDictionary<LazyFrame, DefaultSvcDistributor> {
                 ),
                 (
                     "http_request".to_string(),
-                    generate_lazy_task::<HttpRequestTask, DefaultSvcDistributor>(),
+                    generate_lazy_task::<HttpBatchRequestTask, DefaultSvcDistributor>(),
                 ),
             ]),
         }

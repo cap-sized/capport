@@ -144,8 +144,8 @@ impl HttpBatchRequestTask {
     fn get<S>(&self, urls: Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
         let results = run_get_http_urls_full(
             urls,
-            self.options.as_ref().map_or(None, |x| x.max_retry.clone()),
-            self.options.as_ref().map_or(None, |x| x.init_retry_interval_ms.clone()),
+            self.options.as_ref().and_then(|x| x.max_retry),
+            self.options.as_ref().and_then(|x| x.init_retry_interval_ms),
         )?;
         let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
         let df = match fmt.as_str() {
@@ -280,8 +280,8 @@ impl HttpSingleRequestTask {
     fn get<S>(&self, url: &str, ctx: &Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
         let results = run_get_http_urls_full(
             vec![url.to_owned()],
-            self.options.as_ref().map_or(None, |x| x.max_retry.clone()),
-            self.options.as_ref().map_or(None, |x| x.init_retry_interval_ms.clone()),
+            self.options.as_ref().and_then(|x| x.max_retry),
+            self.options.as_ref().and_then(|x| x.init_retry_interval_ms),
         )?;
         let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
         let df = match fmt.as_str() {

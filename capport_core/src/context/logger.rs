@@ -93,7 +93,7 @@ impl Configurable for LoggerRegistry {
                         return Err(CpError::ComponentError(
                             "config.logger",
                             format!(
-                                "Invalid logger config {}: Configured logger output cannot be empty",
+                                "Invalid logger config {}: Configured logger output_path_prefix cannot be empty",
                                 &config_name
                             ),
                         ));

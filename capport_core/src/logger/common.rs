@@ -20,7 +20,7 @@ const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;
 const COLOR_WARN: Color = Color::BrightYellow;
 const COLOR_ERROR: Color = Color::Red;
-const COLOR_TRACE: Color = Color::Blue;
+const COLOR_TRACE: Color = Color::BrightCyan;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LogLevelFilter(pub log::LevelFilter);
@@ -106,7 +106,7 @@ impl Logger {
                     base_dispatch
                 };
                 let outfile = fern::log_file(full_file_path)?;
-                self._final_output_path = Some(format!("{:?}", outfile));
+                self._final_output_path = Some(full_file_path.to_owned());
                 d.chain(outfile)
             }
             None => base_dispatch.chain(std::io::stdout()),

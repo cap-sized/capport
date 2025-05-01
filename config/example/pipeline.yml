@@ -1,7 +1,12 @@
 logger:
   default:
-    level: debug
-    output: output/
+    level: trace
+    output_path_prefix: ""
+
+runner:
+  default:
+    logger: default
+    run_method: sync_lazy
 
 transform:
 
@@ -19,11 +24,11 @@ pipeline:
     - label: load_puckdata
       task: load_csv
       args: 
-        - filepath: "/home/trxe/projects/capport/config/example/puckdata.csv"
+        - filepath: "puckdata.csv"
           df_name: PUCKDATA
-        - filepath: "/home/trxe/projects/capport/config/example/team.csv"
+        - filepath: "team.csv"
           df_name: TEAM
-        - filepath: "/home/trxe/projects/capport/config/example/player.csv"
+        - filepath: "player.csv"
           df_name: PLAYER
 
     - label: collate_player_events

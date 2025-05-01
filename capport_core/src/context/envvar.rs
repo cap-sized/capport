@@ -48,6 +48,10 @@ impl EnvironmentVariableRegistry {
         EnvironmentVariableRegistry { keys: HashSet::new() }
     }
 
+    pub fn get_keys(&self) -> HashSet<String> {
+        self.keys.clone()
+    }
+
     pub fn init(default_config_dir: String, default_output_dir: String) -> CpResult<EnvironmentVariableRegistry> {
         let mut ev = EnvironmentVariableRegistry::new();
         ev.set_str(DEFAULT_KEYWORD_CONFIG_DIR, default_config_dir)?;
@@ -205,6 +209,7 @@ mod tests {
                     config_dir: "/tmp/config".to_owned(),
                     output: "/tmp/output".to_owned(),
                     date: None,
+                    runner: "".to_string(),
                     datetime: Some(dt_str.to_string()),
                     pipeline: "ignore".to_owned(),
                     print_to_console: true,
@@ -230,6 +235,7 @@ mod tests {
                     output: "/tmp/output".to_owned(),
                     date: Some(dt_str.to_string()),
                     datetime: None,
+                    runner: "".to_string(),
                     pipeline: "ignore".to_owned(),
                     print_to_console: true,
                 };

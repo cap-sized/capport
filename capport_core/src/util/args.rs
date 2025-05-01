@@ -9,6 +9,9 @@ pub struct RunPipelineArgs {
     #[argh(option, short = 'o', description = "root directory for outputs")]
     pub output: String,
 
+    #[argh(option, short = 'r', description = "name of runner to use")]
+    pub runner: String,
+
     #[argh(option, short = 'p', description = "name of pipeline to run")]
     pub pipeline: String,
 

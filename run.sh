@@ -1,1 +1,1 @@
-cargo run -- -c config/example -o -p puckdata
+cargo run -- -c config/example -o output/ -p puckdata -r default -C

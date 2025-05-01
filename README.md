@@ -44,13 +44,13 @@ pipelines.
 ## Roadmap
 
 - High priority (by mid May)
-  - [ ] (task.md) HttpRequestTask enhancements 
-    - [ ] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
+  - [x] (task.md) HttpRequestTask enhancements 
+    - [x] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
     - [x] Create`HttpSingleRequestTask`
   - [x] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
   - [x] (logger.md) Setup global logging
   - [x] (pipeline.md) Handle environment variables
-  - [ ] (pipeline.md) Configure runner
+  - [x] (pipeline.md) Configure runner
   - [x] (service.md) MongoDB Service
     - [ ] `find` task
   - [ ] (service.md) SQL connection Service

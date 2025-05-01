@@ -53,7 +53,7 @@ mod tests {
         context::{
             logger::LoggerRegistry,
             model::ModelRegistry,
-            task::{TaskDictionary, generate_lazy_task},
+            task::{generate_lazy_task, TaskDictionary},
             transform::TransformRegistry,
         },
         pipeline::{
@@ -64,7 +64,7 @@ mod tests {
             common::RootTransform,
             select::{SelectField, SelectTransform},
         },
-        util::common::{DummyData, yaml_from_str},
+        util::common::{yaml_from_str, DummyData},
     };
 
     use super::TransformTask;

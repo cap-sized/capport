@@ -66,10 +66,10 @@ async fn get_http_url(client: Arc<Client>, url: String, max_retry: u8, init_retr
             }
         }
     }
-    return Err(CpError::ConnectionError(format!(
+    Err(CpError::ConnectionError(format!(
         "Reach max retries on GET request to {}",
         &url
-    )));
+    )))
 }
 
 async fn get_http_urls_async(urls: Vec<String>, max_retry: u8, init_retry_interval: u64) -> CpResult<Vec<String>> {

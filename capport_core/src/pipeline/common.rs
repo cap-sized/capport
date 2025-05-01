@@ -43,7 +43,7 @@ pub trait HasTask {
     fn lazy_task<SvcDistributor>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct RunnerConfig {
     pub label: String,
     pub logger: String,

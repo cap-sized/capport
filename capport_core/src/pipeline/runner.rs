@@ -1,16 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use log::info;
 use polars::prelude::LazyFrame;
 use serde::{Deserialize, de};
 
 use crate::util::{
+    args::RunPipelineArgs,
     error::{CpError, CpResult},
 };
 
-use super::{context::PipelineContext, results::PipelineResults};
+use super::{common::RunnerConfig, context::PipelineContext, results::PipelineResults};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunMethodType {
     SyncLazy,
     SyncEager,

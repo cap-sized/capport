@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use log::trace;
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,6 +17,28 @@ use crate::{
 };
 use polars::prelude::*;
 
+const DEFAULT_HTTP_REQ_WORKERS: u8 = 8;
+const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 8;
+const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct HttpOptions {
+    pub workers: Option<u8>,
+    pub max_retry: Option<u8>,
+    pub init_retry_interval_ms: Option<u64>,
+    // pub timeout_ms: Option<i64>,
+}
+
+impl Default for HttpOptions {
+    fn default() -> Self {
+        Self {
+            workers: Some(DEFAULT_HTTP_REQ_WORKERS),
+            max_retry: Some(DEFAULT_HTTP_REQ_MAX_RETRY),
+            init_retry_interval_ms: Some(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS), // timeout_ms: Some(DEFAULT_HTTP_REQ_TIMEOUT_MS),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct HttpRequestTask {
     pub df_from: String,
@@ -20,27 +46,61 @@ pub struct HttpRequestTask {
     pub url_column: String,
     pub format: Option<String>, // defaults to JSON
     pub method: Option<String>, // defaults to GET
+    pub options: Option<HttpOptions>,
 }
 
-async fn get_http_urls(urls: Vec<String>) -> CpResult<Vec<String>> {
+async fn get_http_url(client: Arc<Client>, url: String, max_retry: u8, init_retry_interval: u64) -> CpResult<Response> {
+    let mut retry_interval = init_retry_interval.to_owned();
+    for attempt in 0..max_retry {
+        let req = client.get(url.clone());
+        trace!("Attempt #{}: GET {}", attempt, url);
+        match req.send().await {
+            Ok(x) => return Ok(x),
+            Err(e) => {
+                trace!(
+                    "Failed attempt #{} [GET {}]: {}. Retrying in {}ms...",
+                    attempt, url, e, retry_interval
+                );
+                std::thread::sleep(std::time::Duration::from_millis(retry_interval));
+                retry_interval *= 2;
+            }
+        }
+    }
+    return Err(CpError::ConnectionError(format!(
+        "Reach max retries on GET request to {}",
+        &url
+    )));
+}
+
+async fn get_http_urls_async(urls: Vec<String>, max_retry: u8, init_retry_interval: u64) -> CpResult<Vec<String>> {
     let client = Arc::new(reqwest::Client::new());
     let handles = urls
-        .iter()
+        .into_iter()
         .map(|urlref| {
-            let cli = client.clone();
-            let req = cli.get(urlref);
-            // TODO: This may timeout! Need to have a backoff retry strategy
-            tokio::task::spawn(async move { req.send().await })
+            let c = client.clone();
+            (
+                urlref.clone(),
+                tokio::task::spawn(
+                    async move { get_http_url(c, urlref.to_owned(), max_retry, init_retry_interval).await },
+                ),
+            )
         })
         .collect::<Vec<_>>();
     let mut responses = vec![];
-    for result in handles {
+    let mut failed = HashMap::<String, CpError>::new();
+    for (url, result) in handles {
         match result.await {
             Ok(x) => match x {
-                Ok(r) => responses.push(r.text().await),
-                Err(e) => return Err(CpError::ConnectionError(e.to_string())),
+                Ok(r) => {
+                    responses.push(r.text().await);
+                }
+                Err(e) => {
+                    failed.insert(url, e);
+                }
             },
-            Err(e) => return Err(CpError::TaskError("Tokio error", e.to_string())),
+            Err(e) => {
+                failed.insert(url, CpError::TaskError("Tokio error", e.to_string()));
+            }
         }
     }
     let mut texts = vec![];
@@ -53,12 +113,19 @@ async fn get_http_urls(urls: Vec<String>) -> CpResult<Vec<String>> {
     Ok(texts)
 }
 
-fn run_get_http_urls(url: Vec<String>) -> CpResult<Vec<String>> {
-    // TODO: This is unnecessary if it is one url, and overkill if it is like 10000
+fn run_get_http_urls_full(
+    url: Vec<String>,
+    max_retry: Option<u8>,
+    init_retry_interval: Option<u64>,
+) -> CpResult<Vec<String>> {
     let mut rt_builder = tokio::runtime::Builder::new_current_thread();
     rt_builder.enable_all();
     let rt = rt_builder.build().unwrap();
-    rt.block_on(get_http_urls(url))
+    rt.block_on(get_http_urls_async(
+        url,
+        max_retry.unwrap_or(DEFAULT_HTTP_REQ_MAX_RETRY),
+        init_retry_interval.unwrap_or(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS),
+    ))
 }
 
 fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) -> CpResult<()> {
@@ -75,7 +142,11 @@ fn run<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, task: HttpRequestTask) ->
 
 impl HttpRequestTask {
     fn get<S>(&self, urls: Vec<String>, ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
-        let results = run_get_http_urls(urls)?;
+        let results = run_get_http_urls_full(
+            urls,
+            self.options.as_ref().map_or(None, |x| x.max_retry.clone()),
+            self.options.as_ref().map_or(None, |x| x.init_retry_interval_ms.clone()),
+        )?;
         let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
         let df = match fmt.as_str() {
             "json" => vec_str_json_to_df(&results)?, // json default
@@ -96,17 +167,27 @@ impl HttpRequestTask {
             }
         };
         let df = lf.select([url_expr.alias("url")]).collect()?;
-        let urls = df
-            .column("url")?
-            .phys_iter()
-            .map(|x| {
-                let url = x.get_str();
-                match url {
-                    Some(x) => x.to_owned(),
-                    None => x.to_string(),
-                }
-            })
-            .collect::<Vec<String>>();
+        let df_type = df.column("url")?.dtype().clone();
+        let url_column = df.column("url")?.drop_nulls().unique()?;
+        let url_series = match url_column
+            .as_series()
+            .expect("Did not receive a column named `url`")
+            .try_str()
+        {
+            Some(x) => x,
+            None => {
+                return Err(CpError::ComponentError(
+                    "Invalid HTTP url column",
+                    format!(
+                        "Expected a column of strings, received a column of {:?} in {}",
+                        df_type, &self.url_column
+                    ),
+                ));
+            }
+        };
+        let mut urls = vec![];
+        url_series.for_each(|x| x.map_or_else(|| {}, |url| urls.push(url.to_owned())));
+
         Ok(urls)
     }
 }
@@ -132,6 +213,7 @@ pub struct HttpSingleRequestTask {
     pub url_params: Vec<UrlParam>,
     pub format: Option<String>, // defaults to JSON
     pub method: Option<String>, // defaults to GET
+    pub options: Option<HttpOptions>,
 }
 
 impl HttpSingleRequestTask {
@@ -196,7 +278,11 @@ impl HttpSingleRequestTask {
     }
 
     fn get<S>(&self, url: &str, ctx: &Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<()> {
-        let results = run_get_http_urls(vec![url.to_string()])?;
+        let results = run_get_http_urls_full(
+            vec![url.to_owned()],
+            self.options.as_ref().map_or(None, |x| x.max_retry.clone()),
+            self.options.as_ref().map_or(None, |x| x.init_retry_interval_ms.clone()),
+        )?;
         let fmt = self.format.clone().unwrap_or("json".to_owned()).to_lowercase();
         let df = match fmt.as_str() {
             "json" => vec_str_json_to_df(&results)?, // json default

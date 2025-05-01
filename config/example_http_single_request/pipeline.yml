@@ -1,15 +1,45 @@
+logger:
+  default:
+    level: trace
+    output_path_prefix: ""
+
+runner:
+  default:
+    logger: default
+    run_method: sync_lazy
+
 pipeline:
+  http_multiple:
+    - label: load_dfs
+      task: load_csv
+      args:
+        - filepath: "player_trunc.csv"
+          df_name: PLAYER_DF
+
+    - label: build_urls
+      task: transform
+      args: 
+        name: cs_player_to_nhl_player_url
+        input: PLAYER_DF
+        save_df: NHL_PLAYER_URLS
+
+    - label: fetch_meta
+      task: http_request
+      args:
+        df_to: PLAYER_FULL_DF
+        df_from: NHL_PLAYER_URLS
+        url_column: nhl_url
 
   http_single_request:
     - label: load_dfs
       task: load_csv
       args:
-        - filepath: "config/example_http_single_request/game.csv"
-          df_name: GAME_DF
-        - filepath: "config/example_http_single_request/player.csv"
+        # - filepath: "config/example_http_single_request/game.csv"
+        #   df_name: GAME_DF
+        - filepath: "player.csv"
           df_name: PLAYER_DF
-        - filepath: "config/example_http_single_request/team.csv"
-          df_name: TEAM_DF
+        # - filepath: "config/example_http_single_request/team.csv"
+        #   df_name: TEAM_DF
 
     - label: fetch_meta
       task: http_single_request
@@ -20,34 +50,51 @@ pipeline:
           - df_from: PLAYER_DF
             param_column: player
             template: "players={}"
-          - df_from: TEAM_DF
-            param_column: team
-            template: "teams={}"
+          # - df_from: TEAM_DF
+          #   param_column: team
+          #   template: "teams={}"
 
-    - label: fetch_shift_chart
-      task: http_single_request
-      args:
-        df_to: SHIFT_CHART_DF
-        template: "https://api.nhle.com/stats/rest/en/shiftcharts"
-        url_params:
-          - df_from: GAME_DF
-            param_column: game
-            template: "cayenneExp=gameId%20in%20({})"
+    # - label: fetch_shift_chart
+    #   task: http_single_request
+    #   args:
+    #     df_to: SHIFT_CHART_DF
+    #     template: "https://api.nhle.com/stats/rest/en/shiftcharts"
+    #     url_params:
+    #       - df_from: GAME_DF
+    #         param_column: game
+    #         template: "cayenneExp=gameId%20in%20({})"
 
-    - label: transform_shift_chart
+    - label: transform_player_meta
       task: transform
       args:
-        name: data_total_unpack
-        input: SHIFT_CHART_DF
-        save_df: SHIFT_CHART_DF
+        name: players_total_unpack
+        input: META_DF
+        save_df: FINAL_PLAYER_DF
 
-    - label: save_shift_chart
-      task: save_csv
-      args:
-        - filepath: "config/example_http_single_request/shift_charts.csv"
-          df_name: SHIFT_CHART_DF
+    # - label: transform_shift_chart
+    #   task: transform
+    #   args:
+    #     name: data_total_unpack
+    #     input: SHIFT_CHART_DF
+    #     save_df: SHIFT_CHART_DF
+
+    # - label: save_shift_chart
+    #   task: save_csv
+    #   args:
+    #     - filepath: "config/example_http_single_request/shift_charts.csv"
+    #       df_name: SHIFT_CHART_DF
 
 transform:
+  players_total_unpack:
+    - sql: "select players.* from (SELECT unnest(players) FROM self) unnested_data"
+
   data_total_unpack:
-    - sql: "select data.* 
-    from (SELECT unnest(data) FROM self) unnested_data"
+    - sql: "select data.* from (SELECT unnest(data) FROM self) unnested_data"
+
+  cs_player_to_nhl_player_url:
+    - select:
+        nhl_url: 
+          action: format
+          args: 
+            template: "https://api-web.nhle.com/v1/player/{}/landing"
+            cols: [ "player" ]

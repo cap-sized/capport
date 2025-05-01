@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +39,7 @@ impl CsvModel {
         let fp = get_full_path(&self.filepath, true)?;
         debug!("Loading frame {} from {:?}", &self.df_name, fp);
         let lf: LazyFrame = LazyCsvReader::new(fp).with_has_header(true).finish()?;
+        trace!("Loaded lazyframe {}", &self.df_name);
         match model {
             Some(model) => match model.reshape(lf) {
                 Ok(x) => Ok(x),

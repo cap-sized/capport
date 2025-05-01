@@ -3,9 +3,9 @@ use log::info;
 use serde::{Deserialize, Deserializer, de};
 
 use crate::util::{
-        common::{get_fmt_time_str_now, get_full_path, get_utc_time_str_now},
-        error::{CpError, CpResult},
-    };
+    common::{get_fmt_time_str_now, get_full_path, get_utc_time_str_now},
+    error::{CpError, CpResult},
+};
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
@@ -181,18 +181,16 @@ mod tests {
 
         {
             let mut ev = EnvironmentVariableRegistry::new();
-            ev.set_str(DEFAULT_KEYWORD_OUTPUT_DIR, "/tmp/".to_owned()).unwrap();
+            ev.set_str(DEFAULT_KEYWORD_OUTPUT_DIR, "/tmp/capport_testing/logger/".to_owned())
+                .unwrap();
 
             let writer = Logger::new("test", None, Some("test/test_"));
             let date_utc = Utc::now().format("%Y%m%d").to_string();
             // may spuriously fail near midnight, just rerun in that case
-            let fmt_date = format!("/tmp/test/test_mypipe_{}-([0-9]*).log", date_utc);
+            let fmt_date = format!("/tmp/capport_testing/logger/test/test_mypipe_{}-([0-9]*).log", date_utc);
             let prefix_re = Regex::new(&fmt_date).unwrap();
-            assert!(
-                prefix_re
-                    .find(writer.get_full_path(pipeline_name).unwrap().as_str())
-                    .is_some()
-            );
+            let path = writer.get_full_path(pipeline_name).unwrap();
+            assert!(prefix_re.find(path.as_str()).is_some());
         }
 
         {

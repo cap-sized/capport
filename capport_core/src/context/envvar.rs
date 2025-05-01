@@ -205,6 +205,7 @@ mod tests {
                     config_dir: "/tmp/config".to_owned(),
                     output: "/tmp/output".to_owned(),
                     date: None,
+                    runner: "".to_string(),
                     datetime: Some(dt_str.to_string()),
                     pipeline: "ignore".to_owned(),
                     print_to_console: true,
@@ -230,6 +231,7 @@ mod tests {
                     output: "/tmp/output".to_owned(),
                     date: Some(dt_str.to_string()),
                     datetime: None,
+                    runner: "".to_string(),
                     pipeline: "ignore".to_owned(),
                     print_to_console: true,
                 };

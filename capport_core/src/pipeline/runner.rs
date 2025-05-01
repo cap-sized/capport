@@ -1,13 +1,41 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use log::info;
 use polars::prelude::LazyFrame;
+use serde::{Deserialize, de};
 
-use crate::util::error::{CpError, CpResult};
+use crate::util::{
+    error::{CpError, CpResult},
+};
 
 use super::{context::PipelineContext, results::PipelineResults};
 
+#[derive(Debug, Clone, Copy)]
+pub enum RunMethodType {
+    SyncLazy,
+    SyncEager,
+    AsyncLazy,
+    AsyncEager,
+}
+
+impl<'de> Deserialize<'de> for RunMethodType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "sync_lazy" => Ok(RunMethodType::SyncLazy),
+            "sync_eager" => Ok(RunMethodType::SyncEager),
+            "async_lazy" => Ok(RunMethodType::AsyncLazy),
+            "async_eager" => Ok(RunMethodType::AsyncEager),
+            s => Err(de::Error::custom(format!("Unknown run_method: {}", s))),
+        }
+    }
+}
+
 pub struct PipelineRunner;
+
 impl PipelineRunner {
     pub fn run_lazy<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>) -> CpResult<PipelineResults<LazyFrame>> {
         let pipeline = match ctx.get_pipeline() {

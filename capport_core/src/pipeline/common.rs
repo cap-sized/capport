@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::util::error::CpResult;
 
-use super::context::PipelineContext;
+use super::{context::PipelineContext, runner::RunMethodType};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pipeline {
@@ -43,11 +43,23 @@ pub trait HasTask {
     fn lazy_task<SvcDistributor>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
-// Eventually we will need to make live stages which acculumate their own results over time.
-// They will extend the current functionality of PipelineStage.
-pub trait LoopJobStage {
-    fn poll();
-    fn push();
+#[derive(Debug, Deserialize, Clone)]
+pub struct RunnerConfig {
+    pub label: String,
+    pub logger: String,
+    pub run_method: RunMethodType,
+    pub schedule: Option<String>,
+}
+
+impl RunnerConfig {
+    pub fn new(label: &str, logger: &str, run_method: RunMethodType, schedule: Option<&str>) -> Self {
+        Self {
+            label: label.to_owned(),
+            logger: logger.to_owned(),
+            run_method,
+            schedule: schedule.map(|x| x.to_owned()),
+        }
+    }
 }
 
 pub type PipelineTask<ResultType, SvcDistributor> =

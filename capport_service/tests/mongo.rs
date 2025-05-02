@@ -52,8 +52,10 @@ fn valid_default_config_mongo() {
         let mut svc = DefaultSvcDistributor {
             config: DefaultSvcConfig {
                 mongo: Some(mc_config.clone()),
+                sql: None,
             },
             mongo_client: None,
+            sql_client: None,
         };
 
         svc.setup(&["mongo"]).unwrap();

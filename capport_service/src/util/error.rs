@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum CpSvcError {
     #[error("ERROR [MongoDB]: {0}")]
     MongoError(String),
+    #[error("ERROR [SqlDB]: {0}")]
+    SqlError(String),
     #[error("ERROR [serde_json]: {0}")]
     JsonError(String),
     #[error("ERROR [json_to_bson]: {0}")]
@@ -17,6 +19,12 @@ pub enum CpSvcError {
 impl From<mongodb::error::Error> for CpSvcError {
     fn from(value: mongodb::error::Error) -> Self {
         Self::MongoError(value.to_string())
+    }
+}
+
+impl From<sqlx::error::Error> for CpSvcError {
+    fn from(value: sqlx::error::Error) -> Self {
+        Self::SqlError(value.to_string())
     }
 }
 

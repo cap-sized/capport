@@ -1,15 +1,17 @@
-use std::collections::HashMap;
-
 use capport_core::{
     context::common::Configurable,
     util::error::{CpError, CpResult},
 };
+use sqlx::PgPool;
+use std::collections::HashMap;
 
 use crate::service::mongo::{HasMongoClient, MongoClient, MongoClientConfig};
+use crate::service::sql::{HasSqlClient, SqlClient, SqlClientConfig};
 
 #[derive(Default, Debug, Clone)]
 pub struct DefaultSvcConfig {
     pub mongo: Option<MongoClientConfig>,
+    pub sql: Option<SqlClientConfig>,
 }
 
 unsafe impl Send for DefaultSvcDistributor {}
@@ -19,6 +21,7 @@ unsafe impl Sync for DefaultSvcDistributor {}
 pub struct DefaultSvcDistributor {
     pub config: DefaultSvcConfig,
     pub mongo_client: Option<MongoClient>,
+    pub sql_client: Option<SqlClient>,
 }
 
 impl Configurable for DefaultSvcDistributor {
@@ -39,6 +42,9 @@ impl Configurable for DefaultSvcDistributor {
                 "mongo" => {
                     let _ = svc_config.mongo.insert(serde_yaml_ng::from_value(node)?);
                 }
+                "sql" => {
+                    let _ = svc_config.sql.insert(serde_yaml_ng::from_value(node)?);
+                }
                 _ => {
                     return Err(CpError::ComponentError(
                         "Service not recognized",
@@ -57,6 +63,7 @@ impl DefaultSvcDistributor {
         Self {
             config: DefaultSvcConfig::default(),
             mongo_client: None,
+            sql_client: None,
         }
     }
     pub fn setup(&mut self, required_svcs: &[&str]) -> CpResult<()> {
@@ -70,6 +77,21 @@ impl DefaultSvcDistributor {
                         return Err(CpError::ComponentError(
                             "Config not found: mongo",
                             "Please check for a node `mongo` under `services`".to_owned(),
+                        ));
+                    }
+                },
+                "sql" => match &self.config.sql {
+                    Some(config) => {
+                        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+                        rt_builder.enable_all();
+                        let rt = rt_builder.build()?;
+                        let client = rt.block_on(SqlClient::new(config.clone()))?;
+                        let _ = self.sql_client.insert(client);
+                    }
+                    None => {
+                        return Err(CpError::ComponentError(
+                            "Config not found: sql",
+                            "Please check for a node `sql` under `services`".to_owned(),
                         ));
                     }
                 },
@@ -105,5 +127,15 @@ impl HasMongoClient for DefaultSvcDistributor {
             })
             .unwrap_or(None);
         db.clone()
+    }
+}
+
+impl HasSqlClient for DefaultSvcDistributor {
+    fn get_sql_client(&self, _name: Option<&str>) -> Option<SqlClient> {
+        self.sql_client.clone()
+    }
+    fn get_pool(&self) -> Option<PgPool> {
+        let sql_client = self.sql_client.as_ref();
+        sql_client?.get_pool()
     }
 }

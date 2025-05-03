@@ -14,7 +14,8 @@ struct TestPerson {
     id: i32,
     desc: String,
 }
-#[tokio::test]
+
+#[tokio::test(flavor = "multi_thread")]
 async fn valid_default_config_sql() {
     let sql_config = SqlClientConfig::new(SQL_URI, 1, 1);
     let sql_client = SqlClient::new(sql_config.clone()).await.unwrap();
@@ -75,37 +76,52 @@ async fn valid_default_config_sql() {
         },
     ];
     assert_eq!(&actual, &expected);
-    // {
-    //     let mut svc = DefaultSvcDistributor {
-    //         config: DefaultSvcConfig {
-    //             mongo: None,
-    //             sql: Some(sql_config.clone()),
-    //         },
-    //         mongo_client: None,
-    //         sql_client: None,
-    //     };
-    // 
-    //     svc.setup(&["sql"]).unwrap();
-    //     let actual = sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
-    //         .fetch_all(&svc.get_pool().unwrap())
-    //         .await
-    //         .unwrap();
-    // 
-    //     assert_eq!(&actual, &expected);
-    // 
-    //     sqlx::query(
-    //         r#"
-    //         DELETE FROM persons
-    //         "#,
-    //     )
-    //     .execute(&svc.get_pool().unwrap())
-    //     .await
-    //     .unwrap();
-    //     let final_actual =
-    //         sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
-    //             .fetch_all(&svc.get_pool().unwrap())
-    //             .await
-    //             .unwrap();
-    //     assert!(&final_actual.is_empty());
-    // }
+    {
+        let mut svc = DefaultSvcDistributor {
+            config: DefaultSvcConfig {
+                mongo: None,
+                sql: Some(sql_config.clone()),
+            },
+            mongo_client: None,
+            sql_client: None,
+        };
+
+        svc.setup(&["sql"]).unwrap();
+        let actual = sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
+            .fetch_all(&svc.get_pool().unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(&actual, &expected);
+
+        sqlx::query(
+            r#"
+            DELETE FROM persons
+            "#,
+        )
+        .execute(&svc.get_pool().unwrap())
+        .await
+        .unwrap();
+        let final_actual =
+            sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
+                .fetch_all(&svc.get_pool().unwrap())
+                .await
+                .unwrap();
+        assert!(&final_actual.is_empty());
+    }
+}
+
+#[test]
+fn test_setup_svc_blocking() {
+    let sql_config = SqlClientConfig::new(SQL_URI, 1, 1);
+    let mut svc = DefaultSvcDistributor {
+        config: DefaultSvcConfig {
+            mongo: None,
+            sql: Some(sql_config.clone()),
+        },
+        mongo_client: None,
+        sql_client: None,
+    };
+
+    svc.setup(&["sql"]).unwrap();
 }

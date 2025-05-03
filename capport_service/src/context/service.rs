@@ -82,10 +82,16 @@ impl DefaultSvcDistributor {
                 },
                 "sql" => match &self.config.sql {
                     Some(config) => {
-                        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-                        rt_builder.enable_all();
-                        let rt = rt_builder.build()?;
-                        let client = rt.block_on(SqlClient::new(config.clone()))?;
+                        let client = if tokio::runtime::Handle::try_current().is_ok() {
+                            tokio::task::block_in_place(move || {
+                                tokio::runtime::Handle::current().block_on(SqlClient::new(config.clone()))
+                            })?
+                        } else {
+                            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+                            rt_builder.enable_all();
+                            let rt = rt_builder.build()?;
+                            rt.block_on(SqlClient::new(config.clone()))?
+                        };
                         let _ = self.sql_client.insert(client);
                     }
                     None => {

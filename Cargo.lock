@@ -566,7 +566,6 @@ dependencies = [
  "polars-lazy",
  "polars_bson",
  "serde",
- "serde_json",
  "serde_yaml_ng",
  "thiserror 2.0.12",
  "tokio",

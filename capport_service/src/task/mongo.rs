@@ -36,7 +36,7 @@ pub fn run_find<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, mongo_task: &Mon
 where
     S: HasMongoClient,
 {
-    let dbname = mongo_task.database.as_ref().map(|x| x.as_str());
+    let dbname = mongo_task.database.as_deref();
     let db = match ctx.svc().get_mongo_syncdb(dbname) {
         Some(x) => x,
         None => {

@@ -4,10 +4,8 @@ use thiserror::Error;
 pub enum CpSvcError {
     #[error("ERROR [MongoDB]: {0}")]
     MongoError(String),
-    #[error("ERROR [serde_json]: {0}")]
-    JsonError(String),
     #[error("ERROR [json_to_bson]: {0}")]
-    JsonToBsonError(String),
+    BsonDeserializeError(String),
     #[error("ERROR [PolarsError]: {0}")]
     PolarsError(String),
     #[error("{0}")]
@@ -20,15 +18,9 @@ impl From<mongodb::error::Error> for CpSvcError {
     }
 }
 
-impl From<serde_json::error::Error> for CpSvcError {
-    fn from(value: serde_json::error::Error) -> Self {
-        Self::JsonError(value.to_string())
-    }
-}
-
 impl From<bson::extjson::de::Error> for CpSvcError {
     fn from(value: bson::extjson::de::Error) -> Self {
-        Self::JsonToBsonError(value.to_string())
+        Self::BsonDeserializeError(value.to_string())
     }
 }
 

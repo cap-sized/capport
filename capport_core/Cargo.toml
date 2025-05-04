@@ -34,7 +34,6 @@ tokio = { version = "1.44.2", features = ['rt', 'net'] }
 httpmock = "0.7.0-rc.1"
 
 [lints.rust]
-uninlined_format_args = "allow"
 # unused_variables = "allow"
 # unused_imports = "allow"
 # dead_code = "allow"

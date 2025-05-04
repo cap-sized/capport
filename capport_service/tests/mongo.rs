@@ -1,8 +1,22 @@
+use std::{collections::HashMap, sync::Arc};
+
 use bson::doc;
+use capport_core::{
+    context::common::Configurable,
+    parser::config::pack_configurables,
+    pipeline::{
+        common::HasTask,
+        context::{DefaultContext, PipelineContext},
+    },
+    util::common::yaml_from_str,
+};
 use capport_service::{
     context::service::{DefaultSvcConfig, DefaultSvcDistributor},
-    service::mongo::{HasMongoClient, MongoClient, MongoClientConfig},
+    service::mongo::{HasMongoClient, MongoClientConfig},
+    task::mongo::MongoFindTask,
+    util::common::SvcDefault,
 };
+use polars::prelude::LazyFrame;
 use serde::{Deserialize, Serialize};
 
 const MONGO_URI: &str = "mongodb://localhost:27017";
@@ -17,10 +31,35 @@ struct TestPerson {
 
 #[test]
 fn valid_default_config_mongo() {
-    let mc_config = MongoClientConfig::new(MONGO_URI, MONGO_DEFAULT_DB);
-    let mc = MongoClient::new(mc_config.clone()).unwrap();
-    let msc = mc.sync_client.unwrap();
-    let db = msc.database(MONGO_DEFAULT_DB);
+    let mut config_pack = HashMap::new();
+    let yaml_root = yaml_from_str(
+        format!(
+            "
+service: 
+    mongo:
+        uri: {}
+        default_db: {}
+# pipeline:
+#     mongo_test:
+#         - label: basic_find_op
+#           task: mongo_find
+#           args:
+#             collection: persons
+#             df_name: PEOPLE
+#             query: 
+#                 name: foo
+    ",
+            MONGO_URI, MONGO_DEFAULT_DB
+        )
+        .as_ref(),
+    )
+    .unwrap();
+    pack_configurables(&mut config_pack, yaml_root).unwrap();
+    let mut ctx_base: DefaultContext<LazyFrame, DefaultSvcDistributor> = DefaultContext::default_with_svc();
+    ctx_base.mut_svc().extract_parse_config(&mut config_pack).unwrap();
+    ctx_base.mut_svc().setup(&["mongo"]).unwrap();
+    let ctx = Arc::new(ctx_base);
+    let db = ctx.svc().get_mongo_syncdb(Some(MONGO_DEFAULT_DB)).unwrap();
     db.collection("persons")
         .insert_many([
             doc! { "name": "foo", "id": 1, "desc": "bar" },
@@ -28,7 +67,29 @@ fn valid_default_config_mongo() {
         ])
         .run()
         .unwrap();
-    let cursor = msc
+    {
+        let find_task_cfg = yaml_from_str(
+            "
+collection: persons
+df_name: PEOPLE
+query:
+    name: foo
+        ",
+        )
+        .unwrap();
+        let t = MongoFindTask::lazy_task(&find_task_cfg).unwrap();
+        t(ctx.clone()).unwrap();
+        let actual = ctx.clone_result("PEOPLE").unwrap().collect().unwrap();
+        println!("{:?}", actual);
+    }
+    let cursor = ctx
+        .svc()
+        .get_mongo_client(None)
+        .as_ref()
+        .unwrap()
+        .sync_client
+        .as_ref()
+        .unwrap()
         .database(MONGO_DEFAULT_DB)
         .collection::<TestPerson>("persons")
         .find(doc! {})
@@ -51,14 +112,14 @@ fn valid_default_config_mongo() {
     {
         let mut svc = DefaultSvcDistributor {
             config: DefaultSvcConfig {
-                mongo: Some(mc_config.clone()),
+                mongo: Some(MongoClientConfig::new(MONGO_URI, MONGO_DEFAULT_DB)),
             },
             mongo_client: None,
         };
 
         svc.setup(&["mongo"]).unwrap();
 
-        let db = svc.get_db_sync(None).unwrap();
+        let db = svc.get_mongo_syncdb(None).unwrap();
         let cursor = db.collection::<TestPerson>("persons").find(doc! {}).run().unwrap();
         let actual = cursor.map(|x| x.unwrap()).collect::<Vec<_>>();
         assert_eq!(&actual, &expected);

@@ -102,8 +102,8 @@ pub fn csv_save<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, csv_models: &Csv
     Ok(())
 }
 
-impl HasTask for CsvModelSaveTask {
-    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for CsvModelSaveTask {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let csv_models = CsvModelLoadTask {
             models: CsvModel::build_vec(args.clone())?,
         };
@@ -111,8 +111,8 @@ impl HasTask for CsvModelSaveTask {
     }
 }
 
-impl HasTask for CsvModelLoadTask {
-    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for CsvModelLoadTask {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let csv_models = CsvModelLoadTask {
             models: CsvModel::build_vec(args.clone())?,
         };
@@ -144,11 +144,11 @@ mod tests {
         logger::common::{DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR},
         model::common::{Model, ModelField},
         pipeline::{
-            common::HasTask,
+            common::{HasTask, PipelineTask},
             context::{DefaultContext, PipelineContext},
             results::PipelineResults,
         },
-        util::{common::yaml_from_str, tmp::TempFile},
+        util::{common::yaml_from_str, error::CpResult, tmp::TempFile},
     };
 
     use super::{CsvModelLoadTask, CsvModelSaveTask};
@@ -450,7 +450,8 @@ df_name: ID_NAME_MAP
         )];
         for config in configs_templates {
             let args = yaml_from_str(&config).unwrap();
-            assert!(CsvModelSaveTask::lazy_task::<()>(&args).is_err());
+            let actual: CpResult<PipelineTask<LazyFrame, ()>> = CsvModelSaveTask::lazy_task(&args);
+            assert!(actual.is_err());
         }
         fs::remove_dir_all(mydir).unwrap();
     }

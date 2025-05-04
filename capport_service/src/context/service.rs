@@ -59,6 +59,12 @@ impl DefaultSvcDistributor {
             mongo_client: None,
         }
     }
+    pub fn with_config(config: DefaultSvcConfig) -> Self {
+        Self {
+            config,
+            mongo_client: None,
+        }
+    }
     pub fn setup(&mut self, required_svcs: &[&str]) -> CpResult<()> {
         for &svc in required_svcs {
             match svc {
@@ -89,7 +95,7 @@ impl HasMongoClient for DefaultSvcDistributor {
     fn get_mongo_client(&self, _name: Option<&str>) -> Option<MongoClient> {
         self.mongo_client.clone()
     }
-    fn get_db_sync(&self, dbname: Option<&str>) -> Option<mongodb::sync::Database> {
+    fn get_mongo_syncdb(&self, dbname: Option<&str>) -> Option<mongodb::sync::Database> {
         let default_db = &self
             .mongo_client
             .as_ref()

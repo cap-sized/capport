@@ -39,8 +39,8 @@ impl PipelineStage {
     }
 }
 
-pub trait HasTask {
-    fn lazy_task<SvcDistributor>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
+pub trait HasTask<SvcDistributor> {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, SvcDistributor>>;
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]

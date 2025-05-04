@@ -21,8 +21,8 @@ pub struct TaskDictionary<ResultType, SvcDistributor> {
     pub tasks: HashMap<String, TaskGenerator<ResultType, SvcDistributor>>,
 }
 
-pub fn generate_lazy_task<T: HasTask, S>() -> TaskGenerator<LazyFrame, S> {
-    |yaml| T::lazy_task::<S>(yaml)
+pub fn generate_lazy_task<T: HasTask<S>, S>() -> TaskGenerator<LazyFrame, S> {
+    |yaml| T::lazy_task(yaml)
 }
 
 impl Default for TaskDictionary<LazyFrame, ()> {

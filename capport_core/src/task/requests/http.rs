@@ -192,8 +192,8 @@ impl HttpBatchRequestTask {
     }
 }
 
-impl HasTask for HttpBatchRequestTask {
-    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for HttpBatchRequestTask {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let task: HttpBatchRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
         Ok(Box::new(move |ctx| run(ctx, task.clone())))
     }
@@ -293,8 +293,8 @@ impl HttpSingleRequestTask {
     }
 }
 
-impl HasTask for HttpSingleRequestTask {
-    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for HttpSingleRequestTask {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let task: HttpSingleRequestTask = serde_yaml_ng::from_value(args.to_owned())?;
         Ok(Box::new(move |ctx| task.clone().run(ctx)))
     }

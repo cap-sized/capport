@@ -468,6 +468,7 @@ dependencies = [
  "ahash",
  "base64 0.22.1",
  "bitvec",
+ "chrono",
  "getrandom 0.2.15",
  "getrandom 0.3.2",
  "hex",
@@ -563,6 +564,7 @@ dependencies = [
  "mongodb",
  "polars",
  "polars-lazy",
+ "polars_bson",
  "serde",
  "serde_json",
  "serde_yaml_ng",
@@ -599,9 +601,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.40"
+version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -640,7 +642,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2501,6 +2503,7 @@ dependencies = [
  "polars-lazy",
  "polars-ops",
  "polars-parquet",
+ "polars-plan",
  "polars-sql",
  "polars-time",
  "polars-utils",
@@ -2652,6 +2655,7 @@ dependencies = [
  "atoi_simd",
  "bytes",
  "chrono",
+ "chrono-tz",
  "fast-float2",
  "futures",
  "glob",
@@ -2688,6 +2692,7 @@ checksum = "e30603ca81e317b66b4caac683a8325a6a82ea0489685dc37e22ae03720def98"
 dependencies = [
  "ahash",
  "chrono",
+ "chrono-tz",
  "fallible-streaming-iterator",
  "hashbrown 0.15.2",
  "indexmap 2.9.0",
@@ -3001,6 +3006,20 @@ dependencies = [
  "stacker",
  "sysinfo",
  "version_check",
+]
+
+[[package]]
+name = "polars_bson"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a316f54ab4488937afd1f87baea8e79b7ee47a2c27c223ddeefdf09e5ed4bf99"
+dependencies = [
+ "bson",
+ "chrono",
+ "mongodb",
+ "polars",
+ "polars-core",
+ "polars-time",
 ]
 
 [[package]]

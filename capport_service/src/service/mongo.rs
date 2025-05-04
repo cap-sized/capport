@@ -15,7 +15,7 @@ pub struct MongoClient {
 }
 pub trait HasMongoClient {
     fn get_mongo_client(&self, name: Option<&str>) -> Option<MongoClient>;
-    fn get_db_sync(&self, dbname: Option<&str>) -> Option<mongodb::sync::Database>;
+    fn get_mongo_syncdb(&self, dbname: Option<&str>) -> Option<mongodb::sync::Database>;
 }
 
 impl MongoClientConfig {

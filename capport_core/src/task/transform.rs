@@ -36,8 +36,8 @@ pub fn run_transform<S>(ctx: Arc<dyn PipelineContext<LazyFrame, S>>, transform_t
     Ok(())
 }
 
-impl HasTask for TransformTask {
-    fn lazy_task<S>(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
+impl<S> HasTask<S> for TransformTask {
+    fn lazy_task(args: &serde_yaml_ng::Value) -> CpResult<PipelineTask<LazyFrame, S>> {
         let trf: TransformTask = serde_yaml_ng::from_value::<TransformTask>(args.to_owned())?;
         Ok(Box::new(move |ctx| run_transform::<S>(ctx, &trf)))
     }
@@ -53,7 +53,7 @@ mod tests {
         context::{
             logger::LoggerRegistry,
             model::ModelRegistry,
-            task::{generate_lazy_task, TaskDictionary},
+            task::{TaskDictionary, generate_lazy_task},
             transform::TransformRegistry,
         },
         pipeline::{
@@ -64,7 +64,7 @@ mod tests {
             common::RootTransform,
             select::{SelectField, SelectTransform},
         },
-        util::common::{yaml_from_str, DummyData},
+        util::common::{DummyData, yaml_from_str},
     };
 
     use super::TransformTask;

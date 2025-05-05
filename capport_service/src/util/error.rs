@@ -6,6 +6,8 @@ pub enum CpSvcError {
     MongoError(String),
     #[error("ERROR [SqlDB]: {0}")]
     SqlError(String),
+    #[error("ERROR [ArrowDestinationError]: {0}")]
+    ArrowDestinationError(String),
     #[error("ERROR [serde_json]: {0}")]
     JsonError(String),
     #[error("ERROR [json_to_bson]: {0}")]
@@ -25,6 +27,12 @@ impl From<mongodb::error::Error> for CpSvcError {
 impl From<sqlx::error::Error> for CpSvcError {
     fn from(value: sqlx::error::Error) -> Self {
         Self::SqlError(value.to_string())
+    }
+}
+
+impl From<connectorx::destinations::arrow::ArrowDestinationError> for CpSvcError {
+    fn from(value: connectorx::destinations::arrow::ArrowDestinationError) -> Self {
+        Self::ArrowDestinationError(value.to_string())
     }
 }
 

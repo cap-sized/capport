@@ -1,7 +1,10 @@
 use crate::util::error::CpSvcResult;
+use connectorx::prelude::*;
+use polars::frame::DataFrame;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SqlClientConfig {
@@ -18,7 +21,8 @@ pub struct SqlClient {
 
 pub trait HasSqlClient {
     fn get_sql_client(&self, name: Option<&str>) -> Option<SqlClient>;
-    fn get_pool(&self) -> Option<PgPool>;
+    fn get_pool_connection(&self) -> Option<PgPool>;
+    fn read_sql(&self, sql: &str) -> CpSvcResult<DataFrame>;
 }
 
 impl SqlClientConfig {
@@ -45,7 +49,14 @@ impl SqlClient {
         })
     }
 
-    pub fn get_pool(&self) -> Option<PgPool> {
+    pub fn get_pool_connection(&self) -> Option<PgPool> {
         self.pool.clone()
+    }
+
+    pub fn read_sql(&self, query: &str) -> CpSvcResult<DataFrame> {
+        let source_conn = SourceConn::try_from(self.config.uri.clone().as_str()).expect("parse conn str failed");
+        let destination = get_arrow(&source_conn, None, &[CXQuery::from(query)], None).expect("run failed");
+        let data = destination.polars();
+        Ok(data?)
     }
 }

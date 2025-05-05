@@ -3,10 +3,11 @@ use capport_service::{
     context::service::{DefaultSvcConfig, DefaultSvcDistributor},
     service::sql::{SqlClient, SqlClientConfig},
 };
+use dotenv::dotenv;
+use polars::df;
 use serde::{Deserialize, Serialize};
 use sqlx::Postgres;
-
-const SQL_URI: &str = "postgres://postgres:postgres@localhost/csdb";
+use std::env;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, sqlx::FromRow)]
 struct TestPerson {
@@ -17,9 +18,12 @@ struct TestPerson {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn valid_default_config_sql() {
-    let sql_config = SqlClientConfig::new(SQL_URI, 1, 1);
+    dotenv().ok();
+    let sql_uri = env::var("SQL_URI").expect("DATABASE_URL must be set");
+
+    let sql_config = SqlClientConfig::new(&sql_uri, 1, 1);
     let sql_client = SqlClient::new(sql_config.clone()).await.unwrap();
-    let pool = sql_client.get_pool().unwrap();
+    let pool = sql_client.get_pool_connection().unwrap();
 
     sqlx::query(
         r#"
@@ -76,6 +80,24 @@ async fn valid_default_config_sql() {
         },
     ];
     assert_eq!(&actual, &expected);
+
+    let actual_df = tokio::task::spawn_blocking(move || {
+        sql_client
+            .read_sql(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
+            .unwrap()
+    })
+    .await
+    .unwrap()
+    .to_owned();
+
+    let expected_df = df![
+        "name" => ["foo", "dee"],
+        "id" => [1, 2],
+        "desc" => ["bar", "bee"]
+    ]
+    .unwrap();
+    assert_eq!(&actual_df, &expected_df);
+
     {
         let mut svc = DefaultSvcDistributor {
             config: DefaultSvcConfig {
@@ -88,7 +110,7 @@ async fn valid_default_config_sql() {
 
         svc.setup(&["sql"]).unwrap();
         let actual = sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
-            .fetch_all(&svc.get_pool().unwrap())
+            .fetch_all(&svc.get_pool_connection().unwrap())
             .await
             .unwrap();
 
@@ -99,12 +121,12 @@ async fn valid_default_config_sql() {
             DELETE FROM persons
             "#,
         )
-        .execute(&svc.get_pool().unwrap())
+        .execute(&svc.get_pool_connection().unwrap())
         .await
         .unwrap();
         let final_actual =
             sqlx::query_as::<Postgres, TestPerson>(r#"SELECT name, id, "desc" FROM persons ORDER BY id"#)
-                .fetch_all(&svc.get_pool().unwrap())
+                .fetch_all(&svc.get_pool_connection().unwrap())
                 .await
                 .unwrap();
         assert!(&final_actual.is_empty());
@@ -113,7 +135,10 @@ async fn valid_default_config_sql() {
 
 #[test]
 fn test_setup_svc_blocking() {
-    let sql_config = SqlClientConfig::new(SQL_URI, 1, 1);
+    dotenv().ok();
+    let sql_uri = env::var("SQL_URI").expect("DATABASE_URL must be set");
+
+    let sql_config = SqlClientConfig::new(&sql_uri, 1, 1);
     let mut svc = DefaultSvcDistributor {
         config: DefaultSvcConfig {
             mongo: None,

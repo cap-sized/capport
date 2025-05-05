@@ -1,12 +1,13 @@
+use crate::service::mongo::{HasMongoClient, MongoClient, MongoClientConfig};
+use crate::service::sql::{HasSqlClient, SqlClient, SqlClientConfig};
+use crate::util::error::{CpSvcError, CpSvcResult};
 use capport_core::{
     context::common::Configurable,
     util::error::{CpError, CpResult},
 };
+use polars::frame::DataFrame;
 use sqlx::PgPool;
 use std::collections::HashMap;
-
-use crate::service::mongo::{HasMongoClient, MongoClient, MongoClientConfig};
-use crate::service::sql::{HasSqlClient, SqlClient, SqlClientConfig};
 
 #[derive(Default, Debug, Clone)]
 pub struct DefaultSvcConfig {
@@ -140,8 +141,16 @@ impl HasSqlClient for DefaultSvcDistributor {
     fn get_sql_client(&self, _name: Option<&str>) -> Option<SqlClient> {
         self.sql_client.clone()
     }
-    fn get_pool(&self) -> Option<PgPool> {
+    fn get_pool_connection(&self) -> Option<PgPool> {
         let sql_client = self.sql_client.as_ref();
-        sql_client?.get_pool()
+        sql_client?.get_pool_connection()
+    }
+    fn read_sql(&self, query: &str) -> CpSvcResult<DataFrame> {
+        let sql_client = self.sql_client.as_ref();
+        if sql_client.is_none() {
+            return Err(CpSvcError::SqlError("no sql client found".to_owned()));
+        }
+
+        sql_client.unwrap().read_sql(query)
     }
 }

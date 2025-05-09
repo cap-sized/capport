@@ -7,89 +7,40 @@ A Rust framework for data manipulation.
 Basically takes in a folder of configs and extracts/load/transforms/saves data through stages in 
 pipelines. 
 
-[Work in progress] Pipelines are designed to be customizable in terms of the 
-- async or sync
-- when and how it's scheduled: one-shot or on-loop
-- configurable transform stages
-- configurable pre-built request clients (e.g. HTTP, or database connections e.g. MongoDB/SQL databases)
+**UPDATE** (2025-05-08): 
+We are drastically changing the structure of capport to support
+
+- easily extensible ingestion (from external dest.)/writing (to external dest.) stages
+- templating of variables in reusable Tasks
+- async pipeline model
+- schedules on stages OR pipelines
 
 ## Links
 
-- [Capport \[latest:pre-v.0.0.1\]](#capport-latestpre-v001)
-  - [Overview](#overview)
-  - [Links](#links)
-  - [Roadmap](#roadmap)
-  - [Project structure](#project-structure)
-  - [Concepts (start here)](#concepts-start-here)
-    - [Config](#config)
-      - [Config loading](#config-loading)
-      - [Config layout](#config-layout)
-    - [Pipeline](#pipeline)
-      - [Pipeline Runner](#pipeline-runner)
-    - [Environment Variables](#environment-variables)
-    - [Dataframes](#dataframes)
-    - [Context](#context)
-    - [Stages and tasks](#stages-and-tasks)
-    - [Models](#models)
-    - [Transform](#transform)
-      - [`SelectField` (and `DropField`) syntax](#selectfield-and-dropfield-syntax)
-      - [Transform actions in `SelectField`](#transform-actions-in-selectfield)
-      - [Implementing new transforms operations](#implementing-new-transforms-operations)
-    - [Services](#services)
-  - [For Contributors](#for-contributors)
-    - [Setup](#setup)
-    - [Contribution guidelines](#contribution-guidelines)
-    - [Development](#development)
 
 ## Roadmap
 
-- High priority (by mid May)
-  - [x] (task.md) HttpRequestTask enhancements 
-    - [x] Convert existing `HttpRequestTask` to `HttpBatchRequestTask` 
-    - [x] Create`HttpSingleRequestTask`
-  - [x] (transform.md) SQL support with [polars_sql](https://docs.rs/polars-sql/0.46.0/polars_sql/index.html)
-  - [x] (logger.md) Setup global logging
-  - [x] (pipeline.md) Handle environment variables
-  - [x] (pipeline.md) Configure runner
-  - [x] (service.md) MongoDB Service
-    - [ ] `find` task
-  - [ ] (service.md) SQL connection Service
-    - [ ] `create_table` task
-    - [ ] `insert` task
-    - [ ] `insert_batched` task (from lazyframe)
-    - [ ] `select` task
-    - [ ] `execute` task (takes in a SQL string query and runs it directly on the database)
-  - [ ] (pipeline.md) Design `PipelineScheduler`
-
-- Mid priority (by end June)
-  - [ ] (context.md) Parse results config
-  - [ ] (context.md) Design connection to on-disk store for pipeline results, should be optional
-  - [ ] (task.md) Task traits
-    - [ ] rename `HasTask` to `HasSyncLazyTask`
-    - [ ] `HasAsyncLazyTask`
-    - [ ] `HasSyncEagerTask`
-    - [ ] `HasAsyncEagerTask`
-  - [ ] Implement `run_eager`
-  - [ ] (transform.md) Variable replacement
-    - e.g. keyword for TODAY, or some domain specific keys
-  - [ ] (transform.md) Column operations
-    - [ ] Select by index/first/last/range in columns of type list
-    - [ ] Join to any table, not just the one literally defined in transform config
-  - [ ] (transform.md) Row operations
-    - [ ] Filter expression parsing
-    - [ ] Order
-    - [ ] Limit
-  - [ ] (logger.md) Implement keyed logger configurations
 
 ## Project structure
 
-| crate | description | confirmed | 
-| ----- | ----------- | --------- |
-| `capport_core` | Contains implementation for transforms, models, interfaces for pipelines common pipelines, common tasks | [x] |
-| `capport_service` | Provide service interface and tasks specifically requiring services | [x] |
-| `capport_default` | Example of how to use the pipeline from `capport_core` adding your own service distributor, and switching between two different dataframe types | [x] |
-| `capport_recon` | [Unconfirmed] Recon pipeline implementation | [ ] |
-| `capport_live` | [Unconfirmed] Live loop pipeline implementation | [ ] |
+1. `cp-core` for implementations of:
+  - Pipeline
+  - Runner
+  - Model
+  - RootTransform task (and all transform subtasks)
+  - RootSource
+  - RootSink
+  - Logger
+  - EnvironmentVariablesRegistry
+  - ConnectionTemplatesRegistry
+  - LocalVariables
+2. `cp-ext` for implementations of features for:
+  - postgres
+  - mongo
+  - clickhouse
+  - http
+  - others (lower priority): mysql, sqlite, mariadb, websockets
+3. `cp-demo` for examples
 
 ## Concepts (start here)
 
@@ -98,22 +49,16 @@ pipelines.
 Configuration files fully describe the scope of what the pipeline runner should do.
 Currently the config parser only recognizes YAML (.yaml/.yml) files.
 
-There are 3 currently kinds of configurables which implement the `Configurable` trait: 
+The following are `Configurable` traits: 
 
-1. Pipeline (lists of tasks)
-2. Model
-3. Transform
-
-TODO: Eventually we should add the following as configurables too
-
-1. Different Service Distributors
-2. Logger
-3. Pipeline Run Scheduler/Executor 
-    - select pipeline runner, choice of logger, choice of service distributor
-
-The example [main.rs](https://github.com/cap-sized/capport/blob/main/capport_default/src/main.rs) 
-in capport_default shows how you can use the framework to handle any sort of pipelines fed through the
-configs in the folder `config/`.
+1. `pipeline`
+2. `model`
+3. `transform`
+4. `connection`
+5. `source`
+6. `sink`
+7. `logger`
+8. `runner`
 
 #### Config loading
 
@@ -175,8 +120,6 @@ When both configs are read via `pack_configs_from_files`, the configurables' map
 pipeline: 
     a_fetch_update: ... 
     a_daily_increment: ... 
-    a_daily_increment: ... 
-    a_daily_increment: ...
 transform: 
     player_stats_clean: ...
     increment_games_played: ...
@@ -188,49 +131,122 @@ model:
 
 Clashing names should result in error.
 
+### Program arguments (`RunPipelineArgs`)
+
+To execute a pipeline in the command line, you need:
+
+```sh
+./capport_exec \
+  -c config_dir/ \    # directory to read input configuration ymls from
+  -o output_dir/ \    # directory to put logged outputs and store local writes in
+  -p pipeline \       #
+  -r runner \         # 
+  -e execute \        # optional, when omitted runs in dryrun mode (no write to ext. dbs)
+  -d ref_date \       # optional, use is up to exec impl
+  -t ref_datetime \   # optional, using this overrides the use of the other
+```
+
+#### Environment Variables
+
+Some of these program arguments are registered as privately visible environment variables, 
+except pipeline and runner.
+`ref_datetime` creates three variables as shown below
+
+| flag | variable | 
+| ---- | -------- | 
+| `config_dir` | DEFAULT_CONFIG_DIR | 
+| `output_dir` | DEFAULT_OUTPUT_DIR | 
+| `pipeline` | - | 
+| `runner` | - | 
+| `execute` | EXECUTE_MODE | 
+| `ref_date` | DEFAULT_REF_DATE | 
+| `ref_datetime` | DEFAULT_REF_DATE, DEFAULT_REF_DATETIME, DEFAULT_REF_TIMEZONE | 
+
+See `EnvironmentVariablesRegistry` and `envvar.md` in the `docs/` folder for more information.
+
 ### Pipeline
 
-Pipelines consist of labelled **stages**. Each stage performs a **task**. Each task loads/transforms/saves 
-tabular **data**. See the annotated sample pipeline below
+Pipelines consist of labelled **stages** (either **source/sink/transform**). 
+Each stage performs a **task**. 
+Each task loads/transforms/saves tabular **data**. 
+See the annotated sample pipeline below
 
 ```yml
-pipeline:                           # CONFIGURABLE 
+pipeline:                           
   mass_load_player:                 # Named pipeline
     - label: load_state_province    # Labelled stage
+      stage: source                 # Uses the `source` stage's Root task (RootSource) 
+      every: 5m                     # [Optional] Runs this stage on loop per this schedule
       task: load_csv                # Task name in `TaskDictionary`
-      args: ...                     # Args to be parsed by task
+      args: ...                     # Args to be subbed in by task
 
     - label: fetch_player_data
-      task: mongo
+      stage: source                 
+      task: player_mongo
       args: ...
 
     - label: player_urls            # pipeline can consist of any number of tasks
+      stage: transform              # Uses the `transform` stage's Root task (RootTransform) 
       task: transform
       args: ...
 ```
 
 #### Pipeline Runner
 
-Stages are currently run linearly with `PipelineRunner`. Soon this will either be called 
-`LinearSyncPipelineRunner` or it will come to support async and not chance its name. 
+```yml
+runner:
+  one_shot_runner:
+    logger: default
+    run: sync
+    schedule:
+      timezone: UTC
+      # 1d or 1w or 10s or 2M (month) or 1Y or 10m30s
+      every: Monday at 15:00 # internally parse to .every(Monday).at("15:00")
 
-Eventually this runner should be configurable as well, with the pipeline run scheduler/executor.
+  interval_runner:
+    logger: discord
+    run: async
+    schedule:
+      timezone: UTC
+      every: Monday at 15:00 repeating every 30m times 6
+```
 
-### Environment Variables
+Launches in the scheduler an async runner for the pipeline.
 
-Not part of the pipeline context, but should be initialized in order for certain core functionalities
-like the logger csv reader/writer to read from the correct default input/output directories.
+### Scheduler
 
-See `EnvironmentVariablesRegistry` and `envvar.md` in the `docs/` folder for more information.
+There should never be more than one pipeline being run at once. i.e. when another run
+starts, the other must have ended or be terminated.
 
-### Dataframes
+As such if a schedule is found for the internal pipeline, the external pipeline schedule is
+invalid, it's presence will result in error.
 
-The whole pipeline is based on tev.has_keyhe manipulation of data with the [Polars](https://docs.rs/polars/latest/polars/) 
-library. Tasks load from and store **manipulated Dataframes** or their lazily computed version, 
-**Lazyframes**.
+### Dataframes and dataframe universe
 
-NOTE: Though `PipelineResults<T>` can be configured to store any data type `T`, support for the most 
-commonly used data manipulation tasks are for `LazyFrame` and `DataFrame` types specifically.
+The whole pipeline is based on the manipulation of data with the [Polars](https://docs.rs/polars/latest/polars/) 
+library. 
+
+Tasks write dataframes into the pool of results (dataframe universe) readable 
+by all tasks in the pipeline.
+
+We are using polars, so as an optimization technique we provide an interface for both
+the `LazyFrame` extraction and `DataFrame`. 
+In order to read from/write to a dataframe, the appropriate lock (R/W) must be acquired.
+
+In both long running (async) and one-shot (sync) pipelines, tasks are alerted of when to read from any of its dataframe dependencies via the **message broker**.
+
+### Message channels
+
+Allows stages to broadcast or selectively inform tasks of updates. When writing to a 
+dataframe, an update sugnal is either broadcasted or sent with a target from the 
+producer to the consumers (listeners).
+
+![Message broker and Dataframes](https://github.com/cap-sized/capport/raw/main/docs/img/dataframe-msg-system.png )
+
+In a looping runmode the roots of the pipeline (i.e. stages with no dependencies) 
+should always have the longest duration per cycle (loop) in order to prevent writer starvation.
+
+This is not a concern for the one-shot runmode.
 
 ### Context
 
@@ -239,45 +255,186 @@ Hence the environment of collected results, services and other configured inform
 
 Contexts are highly configurable, as they may vary greatly between different use cases. e.g. They may differ in
 
-- which set of services are required
-- result type for pipeline results
-- does it support concurrent access/is it threadsafe?
-    - NOTE: Crucially the current implementations are single threaded and have synchronous execution of tasks
-    but the plan is to introduce MT async execution recurring pipelines. This requires `PipelineContext` to be
-    threadsafe, but the current `DefaultContext<FrameType, ()>` is currently insufficient
+- source/sink/transform task 
+  - generators
+  - connection templates (for source/sink)
+  - registries (for the concrete configurations)
+- model registry
+- runner registry
+- logger registry
 
-Each context must implement the `PipelineContext<ResultType, ServiceDistributor>` trait. This allows 
-the provided `PipelineRunner`s to interact with the context 
+### Stages
 
-TODO: We need a monitor/metrics manager added to the context interface as well, with a `NoopMonitor` provided in 
-the default implementation of `DefaultContext`.
-
-### Stages and tasks
-
-A pipeline **stage** consist of its *label*, the *task* it executes and the *arguments* to be passed into 
-the task.
-
-Tasks are single actions that do something based on the context and the task parameters (configured via `args`).
+A pipeline **stage** consist of its *label*, the *task* it executes and the *arguments* to be 
+passed into the task.
+The `args` mapping provides a list of scoped local variables the task can use to replace 
+any templatable keywords (see example in Transform)
 
 Example:
 ```yml
-    - label: load_puckdata
-      task: load_csv
-      args: 
-        - filepath: "$PROJECT_ROOT/puckdata.csv"
-          df_name: PUCKDATA
-        - filepath: "$PROJECT_ROOT/team.csv"
-          df_name: TEAM
-        - filepath: "$PROJECT_ROOT/player.csv"
-          df_name: PLAYER
+rebuild_player_data:
+
+  # source stage:
+  - label: get_db_players
+    task: mongo_players
+    args:
+      fields: { id: 1, full_name: 1 }
+      output: PLAYERS
+
+  # transform stage:
+  - label: build_player_landing_urls
+    task: build_from_str_template
+    args:
+      input: PLAYERS
+      template: https://api-web.nhle.com/v1/player/{}/landing
+      input_column: id
+      output_column: player_url
+      urls: PLAYER_URLS
+
+
+  # another source stage:
+  - label: http_get_player_urls
+    task: http_get_batch_request
+    args:
+      input: PLAYER_URLS
+      columns: player_url
+      output: NHL_PLAYER_DATA
+
+  # another transform stage:
+  - label: build_player
+    task: unpack_build_player
+    args:
+      input: NHL_PLAYER_DATA
+      output: CS_PLAYER_DATA
+  
+  # sink stage
+  - label: update_players_postgres
+    task: update_postgres
+    args:
+      model: player
+      table: player
+      input: CS_PLAYER_DATA
 ```
 
-The stage `load_puckdata` passes the list of files to load into the task `load_csv`.
+### Connection templates
 
-> Q: What's the difference between `PipelineTask` and any struct implementing `HasTask`?
-> 
-> A: The struct implementing `HasTask` parses the args and selects/enriches the correct `PipelineTask` to run
-> with the provided `PipelineContext`, returning it as its own closure.
+Used by source tasks to share client connection details. 
+
+Note: unlike in the previous design, the clients should no longer be shared between stages
+
+```yml
+
+connection:
+  default_postgres:
+    user_env_var: CS_PG_USER
+    password_env_var: CS_PG_PW
+    uri_env_var: CS_PG_URI
+    default_db: csdb
+
+  prod_mongo:
+    uri_env_var: CS_MONGO_URI_PROD
+    default_db: csdb
+
+  dev_mongo:
+    uri_env_var: CS_MONGO_URI_DEV
+    default_db: csdb
+```
+
+### Source tasks
+
+Source and sink tasks both consist of 
+
+```yml
+
+source:
+  mongo_players: 
+    base: mongo           # base task, must be present in implementation TaskDictionary
+    use: prod_mongo       # optional name of connection setup
+    args:
+      db: capsized          # db override
+      collection: players
+      query: {}
+      projection: $fields   # defaults to none, but can override by subbing the
+      output: $output
+
+# http_get_batch_request: 
+#   base: http_get_batch_request
+#   args:
+#     input: $input
+#     columns: $columns
+#     output: $output
+
+# IMPT: in the above example, the base is exactly the same as the source node name,
+# and the fields have exactly the same name as the arguments to be sourced from the pipeline stage
+# in which case, the following is sufficient and transparently decodes to the above config.
+
+  http_get_batch_request: default
+```
+
+### Sink tasks
+
+```yml
+sink:
+  update_postgres: 
+    base: postgres
+    use: default_postgres
+    args:
+      model: $model
+      table: $table
+      input: $input
+```
+
+### Transform tasks
+
+Transform tasks always consist of a list of sub-transforms. They can also have substituted variables
+
+Transform tasks must always start with an `input` sub-transform and can contain one or more `output` sub-transforms.
+
+All they do is simply obtain the read/write lock respectively to read from or write to the dataframe universe.
+
+Transform tasks tend to be more verbose as they will contain a lot of business logic.
+
+```yml
+transform:
+  cs_player_to_nhl_player_url:
+    - input: $input
+    - select:
+        nhl_url: 
+          format: 
+            template: "https://api-web.nhle.com/v1/player/{}/landing"
+            cols: [ "player_ids.NHL" ]
+    - output: $output
+
+  # Get fresh NHL data
+  # example: https://api-web.nhle.com/v1/player/8476453/landing
+  nhl_player_to_person:
+    - input: NHL_PLAYER_DF # example of "hard coded" input df name value
+    - select:
+        id: csid # from the previous step
+        first_name: firstName.default # handle subpaths
+        last_name: lastName.default # handle subpaths
+        full_name: 
+          # action type "concat"
+          concat: 
+            cols: [ "firstName.default", "lastName.default" ] 
+            separator : " "
+        birthdate: birthDate
+        birth_city: birthCity.default
+        birth_state_province_name: birthStateProvince.default
+        birth_state_country_code: birthCountry.default
+        is_nhl: { lit: true } # action type "lit" aka literal
+    - join:
+        right: STATE_PROVINCE #  << named df
+        right_select: 
+          birth_state_province_code: code
+          birth_state_province_name: name
+        left_on: birth_state_province_name
+        right_on: birth_state_province_name
+        how: left
+    - drop:
+        birth_state_province_name: True
+    - output: $output
+```
 
 ### Models
 
@@ -285,7 +442,7 @@ Models describe the shape and specification of a SQL like table (relation) that 
 has to adhere to before inserting into dictionaries. 
 
 i.e. Models not only define the schema, but also the constraints of each column, what the primary/unique/foreign
-keys are etc. *However there is currently no implementation requiring or utilizing these constraints*.
+keys are etc. *These constaints are only used for validation in sink stages*.
 
 Example:
 
@@ -323,52 +480,21 @@ pipeline:
 
 The full list of dtype mappings can be found in `capport_core::parser::model::parse_dtype`.
 
-Currently only used by `load_csv` and `save_csv`.
+### Logger
 
-### Transform
+by default, writes to `"${DEFAULT_OUTPUT_DIR}/{output_path_prefix}{pipeline_name}_YYYYmmdd_HHMMSS.log"`.
 
-Transforms are basically wrappers over typical Polars/Pandas manipulation methods.
+the directory with prefix `"${DEFAULT_OUTPUT_DIR}/{output_path_prefix}` can be overwritten with the `output_path_prefix` 
+if it results in an absolute path.
 
-Currently supports the following column operations:
-
-- Select
-    - Format (action)
-    - Concat (action)
-- Join
-- Drop
-
-To support in the future
-
-- Filter
-- Sort
-- Limit
-- Full SQL operations
-
-#### `SelectField` (and `DropField`) syntax
-
-#### Transform actions in `SelectField`
-
-Sometimes support for more complicated data manipulation options e.g. concat/format are required.
-
-In `capport_core::transform::action` we have implementations for the above two expressions.
-Importantly they are created from parsing their yaml_str and producing the `expr()` they hold.
-
-#### Implementing new transforms operations
-
-Refer to `capport_core::transform::drop` as reference.
-
-### Services
-
-Every task that interacts with a service must access the `ServiceDistributor` from the context via the 
-`ctx.svc()` method from the PipelineContext. Similar to the PipelineContext this must implement the unsafe
-traits `Send` and `Sync` (see capport_core/src/pipeline/)
-
-The service-based tasks should be implemented with the specialization that the `ServiceDistributor` is  
-of the type`ServiceDistributor: HasMyService`, where `HasMyService` should be the unique interface that a
-distributor that has the ability to provide this service's client should have in order for the task to access 
-the client.
-
-Service implementations and their tasks/distributors will go into a separate crate `capport_service`. 
+```yml
+logger:
+  default:
+    level: trace
+    output_path_prefix: "capport_"
+    # alternative:
+    # output_path_prefix: "/tmp/non-default/capport_"
+```
 
 ## For Contributors
 

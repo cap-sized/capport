@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0) Gecko/20100101 Firefox/139.0" version="27.0.2">
+  <diagram name="Page-1" id="dKtjoWeogjdWuLeKXzfN">
+    <mxGraphModel dx="1501" dy="925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="DLPcGFCt-r6uQRwfAc1A-2" target="DLPcGFCt-r6uQRwfAc1A-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="133" y="450" />
+              <mxPoint x="295" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-8" value="write to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="DLPcGFCt-r6uQRwfAc1A-7">
+          <mxGeometry x="-0.0814" y="2" relative="1" as="geometry">
+            <mxPoint x="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-2" value="&lt;div&gt;label: from_players&lt;/div&gt;&lt;div&gt;stage: source&lt;/div&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="75" y="730" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="DLPcGFCt-r6uQRwfAc1A-3" target="DLPcGFCt-r6uQRwfAc1A-11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="560" />
+              <mxPoint x="465" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-19" value="write to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="DLPcGFCt-r6uQRwfAc1A-12">
+          <mxGeometry x="0.3767" y="3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-3" value="&lt;div&gt;label: get_players_url&lt;/div&gt;&lt;div&gt;stage: transform&lt;/div&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="335" y="730" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-5" value="broadcast PLAYERS" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;fillColor=#ffcc99;strokeColor=#36393d;" vertex="1" parent="1">
+          <mxGeometry x="185" y="650" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-6" value="PLAYERS" style="shape=internalStorage;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#0050ef;fontColor=#ffffff;strokeColor=#001DBC;" vertex="1" parent="1">
+          <mxGeometry x="225" y="300" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-9" value="listen PLAYERS" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;fillColor=#cdeb8b;strokeColor=#36393d;" vertex="1" parent="1">
+          <mxGeometry x="335" y="650" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-10" value="msg PLAYER_URLS to http_fetch_players" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;fillColor=#ffcccc;strokeColor=#36393d;" vertex="1" parent="1">
+          <mxGeometry x="475" y="650" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-11" value="PLAYER_URLS" style="shape=internalStorage;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#0050ef;fontColor=#ffffff;strokeColor=#001DBC;" vertex="1" parent="1">
+          <mxGeometry x="395" y="300" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-13" value="&lt;div&gt;label: http_fetch_players&lt;/div&gt;&lt;div&gt;stage: source&lt;/div&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="585" y="730" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-14" value="listen PLAYER_URLS" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;fillColor=#cdeb8b;strokeColor=#36393d;" vertex="1" parent="1">
+          <mxGeometry x="615" y="650" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="DLPcGFCt-r6uQRwfAc1A-6" target="DLPcGFCt-r6uQRwfAc1A-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-17" value="read upon" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="DLPcGFCt-r6uQRwfAc1A-15">
+          <mxGeometry x="-0.1027" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="DLPcGFCt-r6uQRwfAc1A-11" target="DLPcGFCt-r6uQRwfAc1A-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-18" value="read upon" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="DLPcGFCt-r6uQRwfAc1A-16">
+          <mxGeometry x="-0.2746" y="2" relative="1" as="geometry">
+            <mxPoint x="39" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-20" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;Dataframe universe&lt;/h1&gt;&lt;p&gt;collection of RwLocked dataframes&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="35" y="260" width="180" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-21" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;Message broker&lt;/h1&gt;&lt;p&gt;broadcast/msg/listen to dataframe updates&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="595" y="380" width="180" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-23" value="" style="html=1;shadow=0;dashed=0;align=center;verticalAlign=middle;shape=mxgraph.arrows2.arrow;dy=0.67;dx=20;notch=0;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="295" y="730" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="DLPcGFCt-r6uQRwfAc1A-24" value="" style="html=1;shadow=0;dashed=0;align=center;verticalAlign=middle;shape=mxgraph.arrows2.arrow;dy=0.67;dx=20;notch=0;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="545" y="730" width="60" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

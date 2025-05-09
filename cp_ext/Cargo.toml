@@ -1,5 +1,5 @@
 [package]
-name = "cp-core"
+name = "cp_ext"
 version = "0.1.0"
 edition = "2024"
 

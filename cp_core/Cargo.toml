@@ -1,0 +1,15 @@
+[package]
+name = "cp_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+argh = "0.1.13"
+chrono = { version = "0.4", features = ['serde'] }
+fern = { version = "0.7.1", features = ['date-based', 'colored'] }
+log = "0.4.27"
+rand = "0.9.0"
+regex = "1.11.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml_ng = "0.10.0"
+thiserror = "2.0.12"

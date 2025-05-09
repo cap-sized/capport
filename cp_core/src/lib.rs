@@ -3,6 +3,7 @@ pub mod logger;
 pub mod model;
 pub mod parser;
 pub mod pipeline;
+pub mod result;
 pub mod runner;
 pub mod task;
 pub mod util;

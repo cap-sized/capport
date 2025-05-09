@@ -316,6 +316,10 @@ rebuild_player_data:
       input: CS_PLAYER_DATA
 ```
 
+
+**WARNING**: A task MAY deadlock if input/output are the same df. 
+Eventually we want to have a validator that checks for this.
+
 ### Connection templates
 
 Used by source tasks to share client connection details. 

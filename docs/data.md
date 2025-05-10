@@ -77,6 +77,7 @@ fn main() {
 }
 ```
 
-## `PipelineResults` and `PipelineContext`
+## `PipelineResults`
 
-
+`PipelineResults` is built at the config parsing stage.
+The entres in `PipelineResults` should not be modified after its insertion into `PipelineContext`.

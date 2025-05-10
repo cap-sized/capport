@@ -20,6 +20,56 @@ We are drastically changing the structure of capport to support
 
 ## Roadmap
 
+- [x] LoggerRegistry
+- [x] EnvironmentVariablesRegistry
+- [x] PipelineFrame
+    - [x] PolarsPipelineFrame
+- [x] PipelineResults
+- [x] PipelineContext
+    - [x] Results
+    - [ ] ConnectionRegistry
+    - [ ] TransformTaskDictionary
+    - [ ] ModelRegistry
+    - [ ] SourceTaskDictionary
+    - [ ] SinkTaskDictionary
+    - [ ] Runner
+    - [ ] Pipeline
+- [ ] TaskConfig
+    - [ ] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
+    - [ ] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+    - [ ] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
+    - [ ] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
+- [ ] RootTransform and sub-transforms (config and impl)
+    - [ ] SelectStatement
+        - [ ] deserialize field `SelectStmt` { string: col_keyword OR action_def } which produces a PolarsExpr
+        - [ ] ConcatColAction
+        - [ ] FormatColAction
+    - [ ] SelectTransform
+    - [ ] JoinTransform
+    - [ ] DropTransform
+    - [ ] FilterTransform
+        - [ ] deserialize field `FilterStmt` { col_keyword_a: { OP : col_keyword_b } } which produces a PolarsStmt ("a OP b", or "OP a")
+    - [ ] OrderTransform
+    - [ ] SortTransform
+    - [ ] SqlTransform (for all other operations)
+- [ ] RootSource, method of pulling data, and types
+    - [ ] JsonSource
+    - [ ] CsvSource
+    - [ ] BsonSource (cp_ext)
+    - [ ] PostgresSource (cp_ext)
+    - [ ] ClickhouseSource (cp_ext)
+    - [ ] ToArrowAdapter
+- [ ] RootSink, method of writing data, and types
+    - [ ] JsonSink
+    - [ ] CsvSink
+    - [ ] BsonSink (cp_ext)
+    - [ ] PostgresSink (cp_ext)
+    - [ ] ClickhouseSink (cp_ext)
+    - [ ] FromArrowAdapter
+- [ ] PipelineRegistry
+- [ ] RunnerRegistry
+- [ ] Synchronous schedule (per-pipeline)
+- [ ] Asynchronous schedule (per-stage)
 
 ## Project structure
 

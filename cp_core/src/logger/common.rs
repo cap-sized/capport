@@ -79,7 +79,6 @@ impl Logger {
         ))
     }
 
-    // TODO: use pipeline_name and env var for logging directory
     pub fn start(&mut self, pipeline_name: &str, to_stdout: bool) -> CpResult<()> {
         let colors = ColoredLevelConfig::new()
             .debug(COLOR_DEBUG)

@@ -1,11 +1,11 @@
-use crossbeam::channel::bounded;
 use polars::prelude::*;
 use std::sync::{RwLock, atomic::AtomicBool};
 
 use crate::util::error::{CpError, CpResult};
 
 use super::common::{
-    FrameBroadcastHandle, FrameListenHandle, FrameUpdate, FrameUpdateInfo, NamedSizedResult, PipelineFrame,
+    FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdate,
+    FrameUpdateInfo, NamedSizedResult, PipelineFrame,
 };
 
 pub struct PolarsPipelineFrame {
@@ -15,6 +15,8 @@ pub struct PolarsPipelineFrame {
     df_dirty: Arc<AtomicBool>,
     sender: crossbeam::channel::Sender<FrameUpdateInfo>,
     receiver: crossbeam::channel::Receiver<FrameUpdateInfo>,
+    asender: async_channel::Sender<FrameUpdateInfo>,
+    areceiver: async_channel::Receiver<FrameUpdateInfo>,
 }
 
 #[derive(Clone)]
@@ -34,6 +36,23 @@ pub struct PolarsListenHandle<'a> {
     lf: Arc<RwLock<LazyFrame>>,
 }
 
+#[derive(Clone)]
+pub struct PolarsAsyncBroadcastHandle<'a> {
+    handle_name: String,
+    result_label: &'a str,
+    sender: async_channel::Sender<FrameUpdateInfo>,
+    lf: Arc<RwLock<LazyFrame>>,
+    df_dirty: Arc<AtomicBool>,
+}
+
+#[derive(Clone)]
+pub struct PolarsAsyncListenHandle<'a> {
+    handle_name: String,
+    result_label: &'a str,
+    receiver: async_channel::Receiver<FrameUpdateInfo>,
+    lf: Arc<RwLock<LazyFrame>>,
+}
+
 impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
     fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
         // blocks until all other readers/writers are done
@@ -46,6 +65,49 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
         log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
         let _ = self.sender.send(update);
         Ok(())
+    }
+}
+
+impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle<'a> {
+    async fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
+        // blocks until all other readers/writers are done
+        let mut lf = self.lf.write()?;
+        *lf = frame;
+        // TODO: Relax when confirmed to be working
+        self.df_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+        // informs all readers
+        let update = FrameUpdateInfo::new(self.handle_name.as_str());
+        log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
+        let _ = self.sender.send(update).await;
+        Ok(())
+    }
+
+    async fn kill(&mut self) -> CpResult<() >{
+        let update = FrameUpdateInfo::kill(self.handle_name.as_str());
+        let _ = self.sender.send(update).await;
+        Ok(())
+    }
+}
+
+impl<'a> FrameAsyncListenHandle<'a, LazyFrame> for PolarsAsyncListenHandle<'a> {
+    async fn listen(&'a mut self) -> CpResult<FrameUpdate<LazyFrame>> {
+        let info = match self.receiver.recv().await {
+            Ok(x) => x,
+            Err(e) => {
+                return Err(CpError::PipelineError(
+                    "Bad frame receiver:",
+                    format!("{} could not receive {}: {:?}", &self.handle_name, self.result_label, e),
+                ));
+            }
+        };
+        log::debug!(
+            "Frame `{}` read by {} after update from: {:?}",
+            self.result_label,
+            self.handle_name,
+            &info
+        );
+        let update = FrameUpdate::new(info, self.lf.clone());
+        Ok(update)
     }
 }
 
@@ -76,7 +138,8 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
 
 impl PolarsPipelineFrame {
     pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
-        let (sender, receiver) = bounded(bufsize);
+        let (sender, receiver) = crossbeam::channel::bounded(bufsize);
+        let (asender, areceiver) = async_channel::bounded(bufsize);
         Self {
             label: label.to_owned(),
             lf: Arc::new(RwLock::new(lf.clone())),
@@ -84,6 +147,8 @@ impl PolarsPipelineFrame {
             df_dirty: Arc::new(AtomicBool::new(false)),
             sender,
             receiver,
+            asender,
+            areceiver,
         }
     }
 
@@ -101,8 +166,16 @@ impl NamedSizedResult for PolarsPipelineFrame {
     }
 }
 
-impl<'a> PipelineFrame<'a, LazyFrame, DataFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>>
-    for PolarsPipelineFrame
+impl<'a>
+    PipelineFrame<
+        'a,
+        LazyFrame,
+        DataFrame,
+        PolarsBroadcastHandle<'a>,
+        PolarsListenHandle<'a>,
+        PolarsAsyncBroadcastHandle<'a>,
+        PolarsAsyncListenHandle<'a>,
+    > for PolarsPipelineFrame
 {
     fn get_listen_handle(&'a self, handle_name: &str) -> PolarsListenHandle<'a> {
         PolarsListenHandle {
@@ -117,6 +190,25 @@ impl<'a> PipelineFrame<'a, LazyFrame, DataFrame, PolarsBroadcastHandle<'a>, Pola
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
             sender: self.sender.clone(),
+            df_dirty: self.df_dirty.clone(),
+            lf: self.lf.clone(),
+        }
+    }
+
+    fn get_async_listen_handle(&'a self, handle_name: &str) -> PolarsAsyncListenHandle<'a> {
+        PolarsAsyncListenHandle {
+            handle_name: handle_name.to_owned(),
+            result_label: self.label(),
+            receiver: self.areceiver.clone(),
+            lf: self.lf.clone(),
+        }
+    }
+
+    fn get_async_broadcast_handle(&'a self, handle_name: &str) -> PolarsAsyncBroadcastHandle<'a> {
+        PolarsAsyncBroadcastHandle {
+            handle_name: handle_name.to_owned(),
+            result_label: self.label(),
+            sender: self.asender.clone(),
             df_dirty: self.df_dirty.clone(),
             lf: self.lf.clone(),
         }

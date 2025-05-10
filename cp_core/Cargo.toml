@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 argh = "0.1.13"
+async-channel = "2.3.1"
 chrono = { version = "0.4", features = ['serde'] }
 crossbeam = "0.8.4"
 fern = { version = "0.7.1", features = ['date-based', 'colored'] }
@@ -15,4 +16,8 @@ regex = "1.11.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_ng = "0.10.0"
 thiserror = "2.0.12"
-tokio = { version = "1.44.2", features = ['rt', 'net', 'rt-multi-thread', 'macros'] }
+tokio = { version = "1.44.2", features = ['rt', 'net', 'rt-multi-thread'] }
+
+[dev-dependencies]
+tokio = { version = "1.44.2", features = ['rt', 'net', 'rt-multi-thread', "macros"] }
+

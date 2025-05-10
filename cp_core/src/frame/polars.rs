@@ -59,22 +59,27 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
             }
         };
         let update = FrameUpdate::new(info, self.lf.clone());
-        return Ok(update);
+        Ok(update)
     }
 }
 
-impl NamedSizedResult for PolarsPipelineFrame {
-    fn new(label: &str, bufsize: usize) -> Self {
-        let df = DataFrame::empty();
+impl PolarsPipelineFrame {
+    pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
         let (sender, receiver) = bounded(bufsize);
         Self {
             label: label.to_owned(),
-            lf: Arc::new(RwLock::new(df.clone().lazy())),
+            lf: Arc::new(RwLock::new(lf)),
             // df: Arc::new(RwLock::new(df)),
             df_dirty: Arc::new(AtomicBool::new(false)),
             sender,
             receiver,
         }
+    }
+}
+
+impl NamedSizedResult for PolarsPipelineFrame {
+    fn new(label: &str, bufsize: usize) -> Self {
+        Self::from(label, bufsize, DataFrame::empty().lazy())
     }
     fn label(&self) -> &str {
         self.label.as_str()
@@ -98,6 +103,9 @@ impl<'a> PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHan
             df_dirty: self.df_dirty.clone(),
             lf: self.lf.clone(),
         }
+    }
+    fn extract_clone(&self) -> CpResult<LazyFrame> {
+        Ok(self.lf.read()?.clone())
     }
 }
 

@@ -1,12 +1,20 @@
 use std::collections::HashMap;
 
-use crate::{frame::common::NamedSizedResult, util::error::CpResult};
+use crate::frame::common::NamedSizedResult;
 
 
 /// A simple results holder. Should never be actively passed around during execution. 
 /// Only holds the results that have their listeners/broadcasters distributed at startup
 pub struct PipelineResults<T> {
     results: HashMap<String, T>,
+}
+
+impl<'a, T> Default for PipelineResults<T>
+where T: NamedSizedResult
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'a, T> PipelineResults<T> where T: NamedSizedResult {
@@ -28,7 +36,6 @@ impl<'a, T> PipelineResults<T> where T: NamedSizedResult {
         self.results.get(label)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

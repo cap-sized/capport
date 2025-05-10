@@ -48,6 +48,7 @@ where
 {
     fn get_broadcast_handle(&'a self, handle_name: &str) -> BroadcastHandle;
     fn get_listen_handle(&'a self, handle_name: &str) -> ListenHandle;
+    fn extract_clone(&self) -> CpResult<FrameType>;
 }
 
 pub trait NamedSizedResult {

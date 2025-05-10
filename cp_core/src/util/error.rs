@@ -1,4 +1,5 @@
 extern crate proc_macro;
+use polars::error::PolarsError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,12 +12,20 @@ pub enum CpError {
     PipelineError(&'static str, String),
     #[error("ERROR [TASK >> {0}]: {1}")]
     TaskError(&'static str, String),
+    #[error("ERROR [POLARS]: {0}")]
+    PolarsError(PolarsError),
     #[error("ERROR [POISON]: {0}")]
     PoisonError(String),
     #[error("ERROR [CONNECTION]: {0}")]
     ConnectionError(String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
+}
+
+impl From<polars::error::PolarsError> for CpError {
+    fn from(value: polars::error::PolarsError) -> Self {
+        Self::PolarsError(value)
+    }
 }
 
 impl From<serde_yaml_ng::Error> for CpError {

@@ -64,8 +64,8 @@ mod tests {
         }
         let mut res = PipelineResults::<Noop>::new();
         assert_eq!(res.get("a"), None);
-        let exp1 = Noop::new("a", 10);
-        assert_eq!(res.insert("a", 10), Some(exp1.clone()).as_ref());
-        assert_eq!(res.get("a"), Some(exp1.clone()).as_ref());
+        let exp = Noop::new("a", 10);
+        assert_eq!(res.insert("a", 10), Some(exp.clone()).as_ref());
+        assert_eq!(res.get("a"), Some(exp.clone()).as_ref());
     }
 }

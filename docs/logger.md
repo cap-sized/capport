@@ -1,25 +1,8 @@
 # Logger
 
-### Todo summary
-
-- [ ] Implement keyed logger configurations
-- [ ] Setup global logging
-
 ## Local log files
 
-Currently requires the following configuration
-
-```yml
-logger:
-    default: # name of the logger
-        # stuff in brackets to be replaced by the actual printed string value.
-        level: debug # allowed values: debug/info/warn/error/trace/off
-        output: /tmp/  # output root folder
-        file_prefix: my_file_prefix_ # file output prefix
-        file_timestamp: "%Y-%m-%d"
-```
-
-### Goal state
+Configurable log filter and output path prefix.
 
 ```yml
 logger:

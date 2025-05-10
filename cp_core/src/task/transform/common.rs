@@ -1,25 +1,26 @@
-use std::fmt;
-
 use polars::prelude::*;
 
 use crate::{
     frame::common::{FrameBroadcastHandle, FrameListenHandle},
-    pipeline::context::PipelineContext,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
     util::error::CpResult,
 };
 
+/// Base transform trait. Takes 
 pub trait Transform {
-    fn run(&self, main: LazyFrame, ctx: Arc<dyn PipelineContext>) -> CpResult<LazyFrame>;
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
+    fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }
 
+/// All transforms should come with a config that is serializable/deserializable. 
 pub struct RootTransformConfig {
     pub label: String,
     pub input: String,
     pub output: String,
+    pub stages: Vec<serde_yaml_ng::Value>,
 }
 
+/// The root transform node that runs all its substages
 pub struct RootTransform {
     label: String,
     input: String,
@@ -39,7 +40,9 @@ impl RootTransform {
 }
 
 impl Stage for RootTransform {
-    fn exec(&self, ctx: Arc<dyn PipelineContext>) -> CpResult<()> {
+    /// The synchronous, run-once `exec` listens to input for the initial frame, and broadcasts to output
+    /// the produced frame
+    fn exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let lctx = ctx.clone();
         let bctx = ctx.clone();
         let mut input_listener = lctx.get_listener(&self.input, &self.label)?;
@@ -52,20 +55,14 @@ impl Stage for RootTransform {
 }
 
 impl Transform for RootTransform {
-    fn run(&self, main: LazyFrame, ctx: Arc<dyn PipelineContext>) -> CpResult<LazyFrame> {
+    /// Runs execution in order. ctx is passed to children stages
+    /// which can also extract changes on frames
+    fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let mut next = main;
         for stage in &self.stages {
             next = stage.as_ref().run(next, ctx.clone())?
         }
         Ok(next)
-    }
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let _ = write!(f, "{} [ ", &self.label);
-        self.stages.iter().for_each(|transform| {
-            transform.as_ref().fmt(f).unwrap();
-            let _ = write!(f, ", ");
-        });
-        write!(f, " ]")
     }
 }
 
@@ -93,15 +90,12 @@ mod tests {
         df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap()
     }
 
-    fn build_context() -> Arc<DefaultPipelineContext> {
-        let frame = PolarsPipelineFrame::from("orig", 1, expected().lazy());
-        let results = PipelineResults::<PolarsPipelineFrame>::from(HashMap::from([(frame.label().to_owned(), frame)]));
-        Arc::new(DefaultPipelineContext::from(results))
-    }
 
     #[test]
     fn success_run_no_stages() {
-        let ctx = build_context();
+        let frame = PolarsPipelineFrame::from("orig", 1, expected().lazy());
+        let results = PipelineResults::<PolarsPipelineFrame>::from(HashMap::from([(frame.label().to_owned(), frame)]));
+        let ctx = Arc::new(DefaultPipelineContext::from(results));
         let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
         let expected = trf.run(DataFrame::empty().lazy(), ctx.clone());
         assert_eq!(expected.unwrap().collect().unwrap(), DataFrame::empty());

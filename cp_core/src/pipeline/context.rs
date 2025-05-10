@@ -1,4 +1,4 @@
-use polars::prelude::LazyFrame;
+use polars::frame::DataFrame;
 
 use crate::{
     frame::{
@@ -10,10 +10,12 @@ use crate::{
 
 use super::results::PipelineResults;
 
-pub trait PipelineContext {
-    fn get_listener(&self, label: &str, handler: &str) -> CpResult<PolarsListenHandle>;
-    fn get_broadcast(&self, label: &str, handler: &str) -> CpResult<PolarsBroadcastHandle>;
-    fn extract_clone_result(&self, label: &str) -> CpResult<LazyFrame>;
+/// Trait for all PipelineContext methods, which expose listeners, broadcasters and a means to
+/// extract and clone cached results. 
+pub trait PipelineContext<'a, MaterializedType, ListenHandle: 'a, BroadcastHandle: 'a> {
+    fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<ListenHandle>;
+    fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<BroadcastHandle>;
+    fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
 }
 
 /// The pipeline context contains the universe of results.
@@ -21,6 +23,8 @@ pub struct DefaultPipelineContext {
     results: PipelineResults<PolarsPipelineFrame>,
 }
 
+/// We NEVER modify the actual entries in PipelineResults or any other registries
+/// after initialization. Hence the underlying HashMap is safe to access in parallel.
 unsafe impl Send for DefaultPipelineContext {}
 unsafe impl Sync for DefaultPipelineContext {}
 
@@ -30,6 +34,7 @@ impl Default for DefaultPipelineContext {
     }
 }
 
+/// Implements the PipelineContext for Polars suite of PipelineFrame tools 
 impl DefaultPipelineContext {
     pub fn from(results: PipelineResults<PolarsPipelineFrame>) -> Self {
         Self { results }
@@ -39,8 +44,9 @@ impl DefaultPipelineContext {
     }
 }
 
-impl PipelineContext for DefaultPipelineContext {
-    fn get_listener(&self, label: &str, handler: &str) -> CpResult<PolarsListenHandle> {
+impl <'a>PipelineContext<'a, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>> for DefaultPipelineContext {
+    fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<PolarsListenHandle<'a>> {
+        log::debug!("Initialized frame listener handle for {}", handler);
         match self.results.get(label) {
             Some(x) => Ok(x.get_listen_handle(handler)),
             None => Err(CpError::PipelineError(
@@ -52,7 +58,8 @@ impl PipelineContext for DefaultPipelineContext {
             )),
         }
     }
-    fn get_broadcast(&self, label: &str, handler: &str) -> CpResult<PolarsBroadcastHandle> {
+    fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<PolarsBroadcastHandle<'a>> {
+        log::debug!("Initialized frame broadcast handle for {}", handler);
         match self.results.get(label) {
             Some(x) => Ok(x.get_broadcast_handle(handler)),
             None => Err(CpError::PipelineError(
@@ -64,7 +71,7 @@ impl PipelineContext for DefaultPipelineContext {
             )),
         }
     }
-    fn extract_clone_result(&self, label: &str) -> CpResult<LazyFrame> {
+    fn extract_clone_result(&self, label: &str) -> CpResult<DataFrame> {
         match self.results.get(label) {
             Some(x) => x.extract_clone(),
             None => Err(CpError::PipelineError(

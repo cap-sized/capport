@@ -2,22 +2,25 @@ use std::collections::HashMap;
 
 use crate::frame::common::NamedSizedResult;
 
-
-/// A simple results holder. Should never be actively passed around during execution. 
+/// A simple results holder. Should never be actively passed around during execution.
 /// Only holds the results that have their listeners/broadcasters distributed at startup
 pub struct PipelineResults<T> {
     results: HashMap<String, T>,
 }
 
-impl<'a, T> Default for PipelineResults<T>
-where T: NamedSizedResult
- {
+impl<T> Default for PipelineResults<T>
+where
+    T: NamedSizedResult,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, T> PipelineResults<T> where T: NamedSizedResult {
+impl<'a, T> PipelineResults<T>
+where
+    T: NamedSizedResult,
+{
     pub fn from(results: HashMap<String, T>) -> PipelineResults<T> {
         PipelineResults { results }
     }
@@ -44,13 +47,19 @@ mod tests {
     #[test]
     fn get_insert_basic_noop_result() {
         #[derive(Debug, Clone, PartialEq, Eq)]
-        struct Noop { label: String, bufsize: usize }
+        struct Noop {
+            label: String,
+            bufsize: usize,
+        }
         impl NamedSizedResult for Noop {
             fn label(&self) -> &str {
                 self.label.as_str()
             }
             fn new(label: &str, bufsize: usize) -> Self {
-                Self { label: label.to_owned(), bufsize }
+                Self {
+                    label: label.to_owned(),
+                    bufsize,
+                }
             }
         }
         let mut res = PipelineResults::<Noop>::new();
@@ -59,5 +68,4 @@ mod tests {
         assert_eq!(res.insert("a", 10), Some(exp1.clone()).as_ref());
         assert_eq!(res.get("a"), Some(exp1.clone()).as_ref());
     }
-
 }

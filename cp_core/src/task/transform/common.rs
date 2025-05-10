@@ -2,7 +2,12 @@ use std::fmt;
 
 use polars::prelude::*;
 
-use crate::{frame::common::{FrameBroadcastHandle, FrameListenHandle}, pipeline::context::PipelineContext, task::stage::Stage, util::error::CpResult};
+use crate::{
+    frame::common::{FrameBroadcastHandle, FrameListenHandle},
+    pipeline::context::PipelineContext,
+    task::stage::Stage,
+    util::error::CpResult,
+};
 
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<dyn PipelineContext>) -> CpResult<LazyFrame>;
@@ -70,7 +75,17 @@ mod tests {
 
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
-    use crate::{frame::{common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult}, polars::PolarsPipelineFrame}, pipeline::{context::{DefaultPipelineContext, PipelineContext}, results::PipelineResults}, task::stage::Stage};
+    use crate::{
+        frame::{
+            common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult},
+            polars::PolarsPipelineFrame,
+        },
+        pipeline::{
+            context::{DefaultPipelineContext, PipelineContext},
+            results::PipelineResults,
+        },
+        task::stage::Stage,
+    };
 
     use super::{RootTransform, Transform};
 
@@ -98,15 +113,15 @@ mod tests {
         let lctx = ctx.clone();
         let bctx = ctx.clone();
         let fctx = ctx.clone();
-        thread::spawn (move || {
+        thread::spawn(move || {
             let mut broadcast = bctx.get_broadcast("orig", "source").unwrap();
             broadcast.broadcast(expected().lazy()).unwrap();
         });
-        thread::spawn (move || {
+        thread::spawn(move || {
             let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
             trf.exec(lctx).unwrap();
         });
-        thread::spawn (move || {
+        thread::spawn(move || {
             let mut listener = fctx.get_listener("actual", "dest").unwrap();
             let update = listener.listen().unwrap();
             let lf = update.frame.read().unwrap();
@@ -114,5 +129,4 @@ mod tests {
             assert_eq!(actual, expected());
         });
     }
-
 }

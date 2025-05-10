@@ -4,7 +4,9 @@ use std::sync::{RwLock, atomic::AtomicBool};
 
 use crate::util::error::{CpError, CpResult};
 
-use super::common::{FrameBroadcastHandle, FrameListenHandle, FrameUpdate, FrameUpdateInfo, NamedSizedResult, PipelineFrame};
+use super::common::{
+    FrameBroadcastHandle, FrameListenHandle, FrameUpdate, FrameUpdateInfo, NamedSizedResult, PipelineFrame,
+};
 
 pub struct PolarsPipelineFrame {
     label: String,

@@ -1,6 +1,6 @@
 use crossbeam::channel::bounded;
 use polars::prelude::*;
-use std::sync::{atomic::AtomicBool, RwLock};
+use std::sync::{RwLock, atomic::AtomicBool};
 
 use crate::util::error::{CpError, CpResult};
 
@@ -15,6 +15,7 @@ pub struct PolarsPipelineFrame {
     receiver: crossbeam::channel::Receiver<FrameUpdateInfo>,
 }
 
+#[derive(Clone)]
 pub struct PolarsBroadcastHandle<'a> {
     handle_name: String,
     result_label: &'a str,
@@ -23,6 +24,7 @@ pub struct PolarsBroadcastHandle<'a> {
     df_dirty: Arc<AtomicBool>,
 }
 
+#[derive(Clone)]
 pub struct PolarsListenHandle<'a> {
     handle_name: String,
     result_label: &'a str,
@@ -30,8 +32,7 @@ pub struct PolarsListenHandle<'a> {
     lf: Arc<RwLock<LazyFrame>>,
 }
 
-
-impl <'a>FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
+impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
     fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
         // blocks until all other readers/writers are done
         let mut lf = self.lf.write()?;
@@ -46,7 +47,7 @@ impl <'a>FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
     }
 }
 
-impl <'a>FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
+impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
     fn listen(&'a mut self) -> CpResult<FrameUpdate<LazyFrame>> {
         let info = match self.receiver.recv() {
             Ok(x) => x,
@@ -62,7 +63,7 @@ impl <'a>FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
     }
 }
 
-impl <'a>PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>> for PolarsPipelineFrame {
+impl<'a> PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>> for PolarsPipelineFrame {
     fn new(label: &str, bufsize: usize) -> Self {
         let df = DataFrame::empty();
         let (sender, receiver) = bounded(bufsize);
@@ -97,7 +98,6 @@ impl <'a>PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHan
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crossbeam::thread;
@@ -108,17 +108,16 @@ mod tests {
 
     use super::PolarsPipelineFrame;
 
-    
     #[test]
     fn valid_message_passing() {
         const SENDER: &str = "A";
         const RECEIVER: &str = "B";
-        let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 0);
+        let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 1);
         let mut listener = result.get_listen_handle(SENDER);
         let mut broadcast = result.get_broadcast_handle(RECEIVER);
         let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
         let _ = thread::scope(|s| {
-            let _bhandle = s.spawn(|_|{
+            let _bhandle = s.spawn(|_| {
                 broadcast.broadcast(expected().lazy()).unwrap();
             });
             let _lhandle = s.spawn(|_| {
@@ -128,5 +127,33 @@ mod tests {
                 assert_eq!(actual, expected().clone());
             });
         });
+    }
+
+    #[test]
+    fn valid_async_message_passing() {
+        const SENDER: &str = "A";
+        const RECEIVER: &str = "B";
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 1);
+            let listener = result.get_listen_handle(SENDER);
+            let mut broadcast = result.get_broadcast_handle(RECEIVER);
+            let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
+            let mut bhandle = async move || {
+                println!("Broadcast");
+                broadcast.broadcast(expected().lazy()).unwrap();
+            };
+            let lhandle = async move || {
+                println!("Listen");
+                let update = listener.clone().listen().unwrap();
+                let lf = update.frame.read().unwrap().clone();
+                let actual = lf.collect().unwrap();
+                assert_eq!(actual, expected().clone());
+            };
+            tokio::join!(bhandle(), lhandle());
+        };
+        rt.block_on(event());
     }
 }

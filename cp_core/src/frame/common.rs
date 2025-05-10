@@ -23,12 +23,9 @@ impl FrameUpdateInfo {
     }
 }
 
-impl <FrameType>FrameUpdate<FrameType> {
+impl<FrameType> FrameUpdate<FrameType> {
     pub fn new(info: FrameUpdateInfo, frame: Arc<RwLock<FrameType>>) -> Self {
-        Self {
-            info,
-            frame
-        }
+        Self { info, frame }
     }
 }
 

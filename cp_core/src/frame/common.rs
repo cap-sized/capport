@@ -32,7 +32,7 @@ impl<FrameType> FrameUpdate<FrameType> {
     }
 }
 
-/// Trait for all sinks which want to collect Frames into the exportable type 
+/// Trait for all sinks which want to collect Frames into the exportable type
 pub trait FrameCollector<FrameType> {
     fn collect_into(&mut self, frame: &FrameType) -> CpResult<()>;
 }
@@ -48,7 +48,7 @@ pub trait FrameListenHandle<'a, FrameType> {
 }
 
 /// Trait for the implementation of the synchronized Frame holder.
-/// Provides ability to produce broadcast handles, listening handles, 
+/// Provides ability to produce broadcast handles, listening handles,
 /// and adhoc extraction (without listening)
 pub trait PipelineFrame<'a, FrameType, MaterializedFrameType, BroadcastHandle, ListenHandle>
 where

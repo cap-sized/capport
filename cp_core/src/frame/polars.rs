@@ -51,7 +51,7 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
 
 impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
     fn listen(&'a mut self) -> CpResult<FrameUpdate<LazyFrame>> {
-        // listens for first change. 
+        // listens for first change.
         // NOTE: if the channel size is NOT 1, the change read from the frame now may NOT be
         // the one corresponding to the message received.
         let info = match self.receiver.recv() {
@@ -63,7 +63,12 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
                 ));
             }
         };
-        log::debug!("Frame `{}` read by {} after update from: {:?}", self.result_label, self.handle_name, &info);
+        log::debug!(
+            "Frame `{}` read by {} after update from: {:?}",
+            self.result_label,
+            self.handle_name,
+            &info
+        );
         let update = FrameUpdate::new(info, self.lf.clone());
         Ok(update)
     }
@@ -96,7 +101,9 @@ impl NamedSizedResult for PolarsPipelineFrame {
     }
 }
 
-impl<'a> PipelineFrame<'a, LazyFrame, DataFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>> for PolarsPipelineFrame {
+impl<'a> PipelineFrame<'a, LazyFrame, DataFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>>
+    for PolarsPipelineFrame
+{
     fn get_listen_handle(&'a self, handle_name: &str) -> PolarsListenHandle<'a> {
         PolarsListenHandle {
             handle_name: handle_name.to_owned(),
@@ -233,5 +240,5 @@ mod tests {
         assert!(!result.is_cache_dirty());
         let empty = result.extract_clone().unwrap();
         assert_eq!(empty, DataFrame::empty());
-}
+    }
 }

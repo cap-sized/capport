@@ -11,7 +11,7 @@ use crate::{
 use super::results::PipelineResults;
 
 /// Trait for all PipelineContext methods, which expose listeners, broadcasters and a means to
-/// extract and clone cached results. 
+/// extract and clone cached results.
 pub trait PipelineContext<'a, MaterializedType, ListenHandle: 'a, BroadcastHandle: 'a> {
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<ListenHandle>;
     fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<BroadcastHandle>;
@@ -34,7 +34,7 @@ impl Default for DefaultPipelineContext {
     }
 }
 
-/// Implements the PipelineContext for Polars suite of PipelineFrame tools 
+/// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
     pub fn from(results: PipelineResults<PolarsPipelineFrame>) -> Self {
         Self { results }
@@ -44,7 +44,7 @@ impl DefaultPipelineContext {
     }
 }
 
-impl <'a>PipelineContext<'a, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>> for DefaultPipelineContext {
+impl<'a> PipelineContext<'a, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>> for DefaultPipelineContext {
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<PolarsListenHandle<'a>> {
         log::debug!("Initialized frame listener handle for {}", handler);
         match self.results.get(label) {

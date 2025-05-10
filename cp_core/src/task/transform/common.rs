@@ -7,12 +7,12 @@ use crate::{
     util::error::CpResult,
 };
 
-/// Base transform trait. Takes 
+/// Base transform trait. Takes
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }
 
-/// All transforms should come with a config that is serializable/deserializable. 
+/// All transforms should come with a config that is serializable/deserializable.
 pub struct RootTransformConfig {
     pub label: String,
     pub input: String,
@@ -89,7 +89,6 @@ mod tests {
     fn expected() -> DataFrame {
         df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap()
     }
-
 
     #[test]
     fn success_run_no_stages() {

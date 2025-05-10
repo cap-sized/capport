@@ -46,8 +46,11 @@ where
     BroadcastHandle: FrameBroadcastHandle<'a, FrameType>,
     ListenHandle: FrameListenHandle<'a, FrameType>,
 {
-    fn new(label: &str, bufsize: usize) -> Self;
-    fn label(&self) -> &str;
     fn get_broadcast_handle(&'a self, handle_name: &str) -> BroadcastHandle;
     fn get_listen_handle(&'a self, handle_name: &str) -> ListenHandle;
+}
+
+pub trait NamedSizedResult {
+    fn new(label: &str, bufsize: usize) -> Self;
+    fn label(&self) -> &str;
 }

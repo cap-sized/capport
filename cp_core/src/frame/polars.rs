@@ -4,7 +4,7 @@ use std::sync::{RwLock, atomic::AtomicBool};
 
 use crate::util::error::{CpError, CpResult};
 
-use super::common::{FrameBroadcastHandle, FrameListenHandle, FrameUpdate, FrameUpdateInfo, PipelineFrame};
+use super::common::{FrameBroadcastHandle, FrameListenHandle, FrameUpdate, FrameUpdateInfo, NamedSizedResult, PipelineFrame};
 
 pub struct PolarsPipelineFrame {
     label: String,
@@ -63,7 +63,7 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
     }
 }
 
-impl<'a> PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>> for PolarsPipelineFrame {
+impl NamedSizedResult for PolarsPipelineFrame {
     fn new(label: &str, bufsize: usize) -> Self {
         let df = DataFrame::empty();
         let (sender, receiver) = bounded(bufsize);
@@ -79,6 +79,9 @@ impl<'a> PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHan
     fn label(&self) -> &str {
         self.label.as_str()
     }
+}
+
+impl<'a> PipelineFrame<'a, LazyFrame, PolarsBroadcastHandle<'a>, PolarsListenHandle<'a>> for PolarsPipelineFrame {
     fn get_listen_handle(&'a self, handle_name: &str) -> PolarsListenHandle<'a> {
         PolarsListenHandle {
             handle_name: handle_name.to_owned(),
@@ -104,7 +107,7 @@ mod tests {
 
     use polars::{df, prelude::IntoLazy};
 
-    use crate::frame::common::{FrameBroadcastHandle, FrameListenHandle, PipelineFrame};
+    use crate::frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame};
 
     use super::PolarsPipelineFrame;
 
@@ -142,11 +145,9 @@ mod tests {
             let mut broadcast = result.get_broadcast_handle(RECEIVER);
             let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
             let mut bhandle = async move || {
-                println!("Broadcast");
                 broadcast.broadcast(expected().lazy()).unwrap();
             };
             let lhandle = async move || {
-                println!("Listen");
                 let update = listener.clone().listen().unwrap();
                 let lf = update.frame.read().unwrap().clone();
                 let actual = lf.collect().unwrap();

@@ -95,7 +95,7 @@ mod tests {
             DataType::Date,
             DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))),
             DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC)))
-        ].map(|x| DType(x)).into_iter().collect::<Vec<_>>()
+        ].map(DType).into_iter().collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<String> {

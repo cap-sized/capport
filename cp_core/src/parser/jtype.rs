@@ -15,12 +15,9 @@ impl Serialize for JType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer {
-        match &self.0 {
-            enum_type => {
-                let repr = format!("{:?}", enum_type).trim().to_lowercase().to_owned();
-                serializer.serialize_str(&repr)
-            }
-        }
+        let enum_type = &self.0;
+        let repr = format!("{:?}", enum_type).trim().to_lowercase().to_owned();
+        serializer.serialize_str(&repr)
     }
 }
 
@@ -54,7 +51,7 @@ mod tests {
             JoinType::Full,
             JoinType::Cross,
             JoinType::Inner,
-        ].map(|x| JType(x)).into_iter().collect::<Vec<_>>()
+        ].map(JType).into_iter().collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<String> {

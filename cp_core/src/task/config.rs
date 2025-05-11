@@ -33,7 +33,7 @@ impl Keyword<'_, String> for StrKeyword {
         self.value.as_ref()
     }
     fn symbol(&'_ self) -> Option<&str> {
-        self.symbol.as_ref().map(|x| x.as_str())
+        self.symbol.as_deref()
     }
 }
 
@@ -48,7 +48,7 @@ impl Keyword<'_, Expr> for PolarsExprKeyword  {
         self.value.as_ref()
     }
     fn symbol(&'_ self) -> Option<&str> {
-        self.symbol.as_ref().map(|x| x.as_str())
+        self.symbol.as_deref()
     }
 }
 
@@ -64,7 +64,7 @@ impl Serialize for StrKeyword {
         if let Some(value) = self.value() {
             return serializer.serialize_str(value);
         }
-        return Err(ser::Error::custom(format!("Invalid empty canonical StrKeyword")))
+        Err(ser::Error::custom("Invalid empty canonical StrKeyword".to_string()))
     }
 }
 
@@ -75,7 +75,7 @@ impl <'de>Deserialize<'de> for StrKeyword {
         let full = String::deserialize(deserializer)?;
         let chars = full.chars().collect::<Vec<_>>();
         match chars.first() {
-            Some('$') => Ok(StrKeyword::with_symbol(full[1..].trim().as_ref())),
+            Some('$') => Ok(StrKeyword::with_symbol(full[1..].trim())),
             Some(_) => Ok(StrKeyword::with_value(full.trim().to_string())),
             None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full)))
         }
@@ -89,8 +89,8 @@ impl <'de>Deserialize<'de> for PolarsExprKeyword {
         let full = String::deserialize(deserializer)?;
         let chars = full.chars().collect::<Vec<_>>();
         match chars.first() {
-            Some('$') => Ok(PolarsExprKeyword::with_symbol(full[1..].trim().as_ref())),
-            Some(_) => match parse_str_to_col_expr(full.trim().as_ref()) {
+            Some('$') => Ok(PolarsExprKeyword::with_symbol(full[1..].trim())),
+            Some(_) => match parse_str_to_col_expr(full.trim()) {
                 Some(x) => Ok(PolarsExprKeyword::with_value(x)),
                 None => Err(de::Error::custom(format!("Failed to parse as PolarsExprKeyword: {}", full)))
             }

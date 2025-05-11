@@ -71,8 +71,10 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
 impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle<'a> {
     async fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
         // blocks until all other readers/writers are done
-        let mut lf = self.lf.write()?;
-        *lf = frame;
+        {
+            let mut lf = self.lf.write()?;
+            *lf = frame;
+        }
         // TODO: Relax when confirmed to be working
         self.df_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
         // informs all readers

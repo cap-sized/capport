@@ -12,14 +12,6 @@ pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }
 
-/// All transforms should come with a config that is serializable/deserializable.
-pub struct RootTransformConfig {
-    pub label: String,
-    pub input: String,
-    pub output: String,
-    pub stages: Vec<serde_yaml_ng::Value>,
-}
-
 /// The root transform node that runs all its substages
 pub struct RootTransform {
     label: String,

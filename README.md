@@ -38,11 +38,11 @@ We are drastically changing the structure of capport to support
     - [x] Linear execution
     - [x] Sync concurrent execution
     - [x] Async concurrent execution
-- [ ] TaskConfig
-    - [ ] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
-    - [ ] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
-    - [ ] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
-    - [ ] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
+- [x] Config utils and parsing
+    - [x] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
+    - [x] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+    - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
+    - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
 - [ ] RootTransform and sub-transforms (config and impl)
     - [ ] SelectStatement
         - [ ] deserialize field `SelectStmt` { string: col_keyword OR action_def } which produces a PolarsExpr

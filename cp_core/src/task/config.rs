@@ -1,5 +1,5 @@
 use polars::prelude::Expr;
-use serde::{ser, de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de, ser};
 
 use crate::parser::expr::parse_str_to_col_expr;
 
@@ -24,10 +24,16 @@ pub struct PolarsExprKeyword {
 
 impl Keyword<'_, String> for StrKeyword {
     fn with_value(value: String) -> Self {
-        Self { symbol: None, value: Some(value) }
+        Self {
+            symbol: None,
+            value: Some(value),
+        }
     }
     fn with_symbol(symbol: &str) -> Self {
-        Self { symbol: Some(symbol.to_owned()), value: None }
+        Self {
+            symbol: Some(symbol.to_owned()),
+            value: None,
+        }
     }
     fn value(&'_ self) -> Option<&'_ String> {
         self.value.as_ref()
@@ -37,12 +43,18 @@ impl Keyword<'_, String> for StrKeyword {
     }
 }
 
-impl Keyword<'_, Expr> for PolarsExprKeyword  {
+impl Keyword<'_, Expr> for PolarsExprKeyword {
     fn with_value(value: Expr) -> Self {
-        Self { symbol: None, value: Some(value) }
+        Self {
+            symbol: None,
+            value: Some(value),
+        }
     }
     fn with_symbol(symbol: &str) -> Self {
-        Self { symbol: Some(symbol.to_owned()), value: None }
+        Self {
+            symbol: Some(symbol.to_owned()),
+            value: None,
+        }
     }
     fn value(&'_ self) -> Option<&'_ Expr> {
         self.value.as_ref()
@@ -54,9 +66,9 @@ impl Keyword<'_, Expr> for PolarsExprKeyword  {
 
 impl Serialize for StrKeyword {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
-        
+    where
+        S: serde::Serializer,
+    {
         if let Some(symbol) = self.symbol() {
             let full_sym = format!("${}", symbol);
             return serializer.serialize_str(full_sym.as_str());
@@ -68,33 +80,38 @@ impl Serialize for StrKeyword {
     }
 }
 
-impl <'de>Deserialize<'de> for StrKeyword {
+impl<'de> Deserialize<'de> for StrKeyword {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         let full = String::deserialize(deserializer)?;
         let chars = full.chars().collect::<Vec<_>>();
         match chars.first() {
             Some('$') => Ok(StrKeyword::with_symbol(full[1..].trim())),
             Some(_) => Ok(StrKeyword::with_value(full.trim().to_string())),
-            None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full)))
+            None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full))),
         }
     }
 }
 
-impl <'de>Deserialize<'de> for PolarsExprKeyword {
+impl<'de> Deserialize<'de> for PolarsExprKeyword {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         let full = String::deserialize(deserializer)?;
         let chars = full.chars().collect::<Vec<_>>();
         match chars.first() {
             Some('$') => Ok(PolarsExprKeyword::with_symbol(full[1..].trim())),
             Some(_) => match parse_str_to_col_expr(full.trim()) {
                 Some(x) => Ok(PolarsExprKeyword::with_value(x)),
-                None => Err(de::Error::custom(format!("Failed to parse as PolarsExprKeyword: {}", full)))
-            }
-            None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full)))
+                None => Err(de::Error::custom(format!(
+                    "Failed to parse as PolarsExprKeyword: {}",
+                    full
+                ))),
+            },
+            None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full))),
         }
     }
 }
@@ -144,14 +161,14 @@ mod tests {
     #[test]
     fn str_keyword_de() {
         let myconfig = "{symbol: $mysymb, value: val}";
-        let actual : StrKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
+        let actual: StrKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
         assert_eq!(actual, default_str_keyword());
     }
 
     #[test]
     fn pl_expr_keyword_de() {
         let myconfig = "{symbol: $mysymb, simple: test, complex: test.another}";
-        let actual : PolarsExprKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
+        let actual: PolarsExprKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
         assert_eq!(actual, default_polars_expr_keyword());
     }
 }

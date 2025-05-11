@@ -32,8 +32,7 @@ where
 #[cfg(test)]
 mod tests {
 
-
-    use polars::prelude::{col, Expr};
+    use polars::prelude::{Expr, col};
 
     use crate::parser::expr::{COL_EXPR_DELIMITERS, parse_col_expr};
 

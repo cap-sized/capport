@@ -3,7 +3,10 @@ use polars::{frame::DataFrame, prelude::LazyFrame};
 use crate::{
     frame::{
         common::PipelineFrame,
-        polars::{PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle, PolarsPipelineFrame},
+        polars::{
+            PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
+            PolarsPipelineFrame,
+        },
     },
     util::error::{CpError, CpResult},
 };
@@ -12,7 +15,16 @@ use super::results::PipelineResults;
 
 /// Trait for all PipelineContext methods, which expose listeners, broadcasters and a means to
 /// extract and clone cached results.
-pub trait PipelineContext<'a, FrameType, MaterializedType, ListenHandle: 'a, BroadcastHandle: 'a, AsyncListenHandle: 'a, AsyncBroadcastHandle: 'a> {
+pub trait PipelineContext<
+    'a,
+    FrameType,
+    MaterializedType,
+    ListenHandle: 'a,
+    BroadcastHandle: 'a,
+    AsyncListenHandle: 'a,
+    AsyncBroadcastHandle: 'a,
+>
+{
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<ListenHandle>;
     fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<BroadcastHandle>;
     fn get_async_listener(&'a self, label: &str, handler: &str) -> CpResult<AsyncListenHandle>;
@@ -55,7 +67,17 @@ impl DefaultPipelineContext {
     }
 }
 
-impl<'a> PipelineContext<'a, LazyFrame, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>, PolarsAsyncListenHandle<'a>, PolarsAsyncBroadcastHandle<'a>> for DefaultPipelineContext {
+impl<'a>
+    PipelineContext<
+        'a,
+        LazyFrame,
+        DataFrame,
+        PolarsListenHandle<'a>,
+        PolarsBroadcastHandle<'a>,
+        PolarsAsyncListenHandle<'a>,
+        PolarsAsyncBroadcastHandle<'a>,
+    > for DefaultPipelineContext
+{
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<PolarsListenHandle<'a>> {
         log::debug!("Initialized frame listener handle for {}", handler);
         match self.results.get(label) {

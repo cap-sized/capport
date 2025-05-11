@@ -1,5 +1,5 @@
 use polars::prelude::{DataType, TimeUnit, TimeZone};
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::util::common::{NYT, UTC};
 
@@ -14,17 +14,18 @@ impl From<DType> for DataType {
 
 impl Serialize for DType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         match &self.0 {
             DataType::String => serializer.serialize_str("str"),
             DataType::Float32 => serializer.serialize_str("float"),
             DataType::Float64 => serializer.serialize_str("double"),
             enum_type => {
-                if enum_type == DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))).as_ref() { 
+                if enum_type == DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))).as_ref() {
                     return serializer.serialize_str("datetime_nyt");
                 }
-                if enum_type == DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC))).as_ref() { 
+                if enum_type == DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC))).as_ref() {
                     return serializer.serialize_str("datetime_utc");
                 }
                 let repr = format!("{:?}", enum_type).trim().to_lowercase().to_owned();
@@ -77,8 +78,7 @@ mod tests {
 
     use super::DType;
 
-
-    fn example_dtype() -> Vec<DType>{
+    fn example_dtype() -> Vec<DType> {
         [
             DataType::Int8,
             DataType::Int16,
@@ -94,8 +94,11 @@ mod tests {
             DataType::Time,
             DataType::Date,
             DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(NYT))),
-            DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC)))
-        ].map(DType).into_iter().collect::<Vec<_>>()
+            DataType::Datetime(TimeUnit::Milliseconds, Some(TimeZone::from_str(UTC))),
+        ]
+        .map(DType)
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<String> {
@@ -115,31 +118,41 @@ mod tests {
             "date",
             "datetime_nyt",
             "datetime_utc",
-        ].map(|x| x.to_owned()).into_iter().collect::<Vec<_>>()
+        ]
+        .map(|x| x.to_owned())
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     #[test]
     fn valid_dtype_ser() {
-        let actual_str = example_dtype().iter().map(|x| serde_yaml_ng::to_string(x).unwrap().trim().to_owned()).collect::<Vec<_>>();
+        let actual_str = example_dtype()
+            .iter()
+            .map(|x| serde_yaml_ng::to_string(x).unwrap().trim().to_owned())
+            .collect::<Vec<_>>();
         assert_eq!(actual_str, example_str());
     }
 
     #[test]
     fn valid_dtype_de() {
-        let actual_dtype = example_str().iter().map(|x| serde_yaml_ng::from_str::<DType>(x).unwrap()).collect::<Vec<_>>();
+        let actual_dtype = example_str()
+            .iter()
+            .map(|x| serde_yaml_ng::from_str::<DType>(x).unwrap())
+            .collect::<Vec<_>>();
         assert_eq!(actual_dtype, example_dtype());
         assert_eq!(DType(DataType::Int64), serde_yaml_ng::from_str::<DType>("int").unwrap());
     }
 
     #[test]
     fn other_dtype_ser() {
-        assert_eq!(serde_yaml_ng::to_string(&DType(DataType::Binary)).unwrap().trim(), "binary");
+        assert_eq!(
+            serde_yaml_ng::to_string(&DType(DataType::Binary)).unwrap().trim(),
+            "binary"
+        );
     }
 
     #[test]
     fn invalid_dtype_de() {
         assert!(serde_yaml_ng::from_str::<DType>("bad").is_err());
     }
-
-
 }

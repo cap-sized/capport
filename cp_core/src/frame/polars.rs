@@ -84,7 +84,7 @@ impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle
         Ok(())
     }
 
-    async fn kill(&mut self) -> CpResult<() >{
+    async fn kill(&mut self) -> CpResult<()> {
         let update = FrameUpdateInfo::kill(self.handle_name.as_str());
         let _ = self.sender.send(update).await;
         Ok(())

@@ -1,6 +1,5 @@
 use polars::prelude::JoinType;
-use serde::{de, Deserialize, Deserializer, Serialize};
-
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JType(pub polars::prelude::JoinType);
@@ -13,8 +12,9 @@ impl From<JType> for JoinType {
 
 impl Serialize for JType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let enum_type = &self.0;
         let repr = format!("{:?}", enum_type).trim().to_lowercase().to_owned();
         serializer.serialize_str(&repr)
@@ -51,28 +51,34 @@ mod tests {
             JoinType::Full,
             JoinType::Cross,
             JoinType::Inner,
-        ].map(JType).into_iter().collect::<Vec<_>>()
+        ]
+        .map(JType)
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<String> {
-        [
-            "left",
-            "right",
-            "full",
-            "cross",
-            "inner",
-        ].map(|x| x.to_owned()).into_iter().collect::<Vec<_>>()
+        ["left", "right", "full", "cross", "inner"]
+            .map(|x| x.to_owned())
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     #[test]
     fn valid_dtype_ser() {
-        let actual_str = example_jtype().iter().map(|x| serde_yaml_ng::to_string(x).unwrap().trim().to_owned()).collect::<Vec<_>>();
+        let actual_str = example_jtype()
+            .iter()
+            .map(|x| serde_yaml_ng::to_string(x).unwrap().trim().to_owned())
+            .collect::<Vec<_>>();
         assert_eq!(actual_str, example_str());
     }
 
     #[test]
     fn valid_jtype_de() {
-        let actual_jtype = example_str().iter().map(|x| serde_yaml_ng::from_str::<JType>(x).unwrap()).collect::<Vec<_>>();
+        let actual_jtype = example_str()
+            .iter()
+            .map(|x| serde_yaml_ng::from_str::<JType>(x).unwrap())
+            .collect::<Vec<_>>();
         assert_eq!(actual_jtype, example_jtype());
     }
 

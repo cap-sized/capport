@@ -1,7 +1,9 @@
 use polars::prelude::*;
 
 use crate::{
-    frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType},
+    frame::common::{
+        FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
+    },
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
     util::error::CpResult,
@@ -32,7 +34,7 @@ impl RootTransform {
 }
 
 impl Stage for RootTransform {
-    /// The synchronous, linear execution doesn't use the broadcast/listen channels at all 
+    /// The synchronous, linear execution doesn't use the broadcast/listen channels at all
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized: {}", &self.label);
         let input = ctx.extract_result(&self.input)?;
@@ -52,7 +54,7 @@ impl Stage for RootTransform {
         let output = self.run(input, ctx)?;
         output_broadcast.broadcast(output)
     }
-    /// The asynchronous, concurrent execution executes until it receives a Kill message. 
+    /// The asynchronous, concurrent execution executes until it receives a Kill message.
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         let mut loops = 0;
         let lctx = ctx.clone();
@@ -70,7 +72,7 @@ impl Stage for RootTransform {
                     log::trace!("BCAST RootTransform handle {} to: {:?}", &self.label, &self.output);
                     output_broadcast.broadcast(output).await?;
                     loops += 1;
-                },
+                }
                 FrameUpdateType::Kill => {
                     log::info!("Stage killed after {} iterations: {}", loops, &self.label);
                     return Ok(loops);
@@ -100,7 +102,8 @@ mod tests {
 
     use crate::{
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
-        pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage,
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::stage::Stage,
     };
 
     use super::{RootTransform, Transform};

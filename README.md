@@ -34,6 +34,10 @@ We are drastically changing the structure of capport to support
     - [ ] SinkTaskDictionary
     - [ ] Runner
     - [ ] Pipeline
+- [x] Trait with execution modes
+    - [x] Linear execution
+    - [x] Sync concurrent execution
+    - [x] Async concurrent execution
 - [ ] TaskConfig
     - [ ] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
     - [ ] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")

@@ -1,4 +1,4 @@
-use polars::frame::DataFrame;
+use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     frame::{
@@ -12,12 +12,14 @@ use super::results::PipelineResults;
 
 /// Trait for all PipelineContext methods, which expose listeners, broadcasters and a means to
 /// extract and clone cached results.
-pub trait PipelineContext<'a, MaterializedType, ListenHandle: 'a, BroadcastHandle: 'a, AsyncListenHandle: 'a, AsyncBroadcastHandle: 'a> {
+pub trait PipelineContext<'a, FrameType, MaterializedType, ListenHandle: 'a, BroadcastHandle: 'a, AsyncListenHandle: 'a, AsyncBroadcastHandle: 'a> {
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<ListenHandle>;
     fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<BroadcastHandle>;
     fn get_async_listener(&'a self, label: &str, handler: &str) -> CpResult<AsyncListenHandle>;
     fn get_async_broadcast(&'a self, label: &str, handler: &str) -> CpResult<AsyncBroadcastHandle>;
     fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
+    fn extract_result(&self, label: &str) -> CpResult<FrameType>;
+    fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
 }
 
 /// The pipeline context contains the universe of results.
@@ -53,7 +55,7 @@ impl DefaultPipelineContext {
     }
 }
 
-impl<'a> PipelineContext<'a, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>, PolarsAsyncListenHandle<'a>, PolarsAsyncBroadcastHandle<'a>> for DefaultPipelineContext {
+impl<'a> PipelineContext<'a, LazyFrame, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastHandle<'a>, PolarsAsyncListenHandle<'a>, PolarsAsyncBroadcastHandle<'a>> for DefaultPipelineContext {
     fn get_listener(&'a self, label: &str, handler: &str) -> CpResult<PolarsListenHandle<'a>> {
         log::debug!("Initialized frame listener handle for {}", handler);
         match self.results.get(label) {
@@ -113,6 +115,30 @@ impl<'a> PipelineContext<'a, DataFrame, PolarsListenHandle<'a>, PolarsBroadcastH
                 "Result not found",
                 format!(
                     "Cannot clone result `{}`, which was not created before execution",
+                    label
+                ),
+            )),
+        }
+    }
+    fn extract_result(&self, label: &str) -> CpResult<LazyFrame> {
+        match self.results.get(label) {
+            Some(x) => x.extract(),
+            None => Err(CpError::PipelineError(
+                "Result not found",
+                format!(
+                    "Cannot extract result `{}`, which was not created before execution",
+                    label
+                ),
+            )),
+        }
+    }
+    fn insert_result(&self, label: &str, frame: LazyFrame) -> CpResult<()> {
+        match self.results.get(label) {
+            Some(x) => x.insert(frame),
+            None => Err(CpError::PipelineError(
+                "Result not found",
+                format!(
+                    "Cannot extract result `{}`, which was not created before execution",
                     label
                 ),
             )),

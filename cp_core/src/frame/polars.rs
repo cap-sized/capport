@@ -194,7 +194,6 @@ impl<'a>
             lf: self.lf.clone(),
         }
     }
-
     fn get_async_listen_handle(&'a self, handle_name: &str) -> PolarsAsyncListenHandle<'a> {
         PolarsAsyncListenHandle {
             handle_name: handle_name.to_owned(),
@@ -203,7 +202,6 @@ impl<'a>
             lf: self.lf.clone(),
         }
     }
-
     fn get_async_broadcast_handle(&'a self, handle_name: &str) -> PolarsAsyncBroadcastHandle<'a> {
         PolarsAsyncBroadcastHandle {
             handle_name: handle_name.to_owned(),
@@ -220,10 +218,23 @@ impl<'a>
             let mut df = self.df.write()?;
             *df = lf.collect()?;
             reset_dirty.store(false, std::sync::atomic::Ordering::SeqCst);
+            log::debug!("Cloning lazyframe `{}` as dataframe", self.label());
             Ok(df.clone())
         } else {
             Ok(self.df.read()?.clone())
         }
+    }
+    fn extract(&self) -> CpResult<LazyFrame> {
+        let lf = self.lf.read()?.clone();
+        log::debug!("Extracting lazyframe `{}`", self.label());
+        Ok(lf.clone())
+    }
+    fn insert(&self, frame: LazyFrame) -> CpResult<()> {
+        let mut lf = self.lf.write()?;
+        *lf = frame;
+        log::debug!("Inserted lazyframe `{}`", self.label());
+        self.df_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
     }
 }
 
@@ -300,6 +311,9 @@ mod tests {
             broadcast1.broadcast(expected().lazy()).unwrap();
         }
 
+        let lf = result.extract().unwrap();
+        assert_eq!(lf.clone().collect().unwrap(), expected());
+
         {
             // Intercepting extract_clone
             assert!(result.is_cache_dirty());
@@ -310,6 +324,8 @@ mod tests {
         {
             broadcast2.broadcast(DataFrame::empty().lazy()).unwrap();
         }
+
+        assert_eq!(lf.collect().unwrap(), expected());
 
         {
             // Another intercepting extract_clone

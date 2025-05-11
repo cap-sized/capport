@@ -40,9 +40,16 @@ impl RootTransform {
 }
 
 impl Stage for RootTransform {
-    /// The synchronous, run-once `exec` listens to input for the initial frame, and broadcasts to output
+    /// The synchronous, linear execution doesn't use the broadcast/listen channels at all 
+    fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+        log::info!("Stage initialized: {}", &self.label);
+        let input = ctx.extract_result(&self.input)?;
+        let output = self.run(input, ctx.clone())?;
+        ctx.insert_result(&self.output, output)
+    }
+    /// The synchronous, concurrent execution listens to input for the initial frame, and broadcasts to output
     /// the produced frame
-    fn exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+    fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let lctx = ctx.clone();
         let bctx = ctx.clone();
         log::info!("Stage initialized: {}", &self.label);
@@ -53,7 +60,8 @@ impl Stage for RootTransform {
         let output = self.run(input, ctx)?;
         output_broadcast.broadcast(output)
     }
-    async fn aloop(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
+    /// The asynchronous, concurrent execution executes until it receives a Kill message. 
+    async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         let mut loops = 0;
         let lctx = ctx.clone();
         let bctx = ctx.clone();
@@ -100,8 +108,7 @@ mod tests {
 
     use crate::{
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::stage::Stage,
+        pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage,
     };
 
     use super::{RootTransform, Transform};
@@ -119,19 +126,29 @@ mod tests {
     }
 
     #[test]
-    fn success_exec_no_stages() {
+    fn success_linear_exec_no_stages() {
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
+        ctx.insert_result("orig", expected().lazy()).unwrap();
+        let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
+        trf.linear(ctx.clone()).unwrap();
+        let actual = ctx.extract_clone_result("actual").unwrap();
+        assert_eq!(actual, expected());
+    }
+
+    #[test]
+    fn success_sync_exec_no_stages() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
         let lctx = ctx.clone();
         let bctx = ctx.clone();
         let fctx = ctx.clone();
-        let _ = thread::scope(|s| {
+        thread::scope(|s| {
             let _b = s.spawn(move || {
                 let mut broadcast = bctx.get_broadcast("orig", "source").unwrap();
                 broadcast.broadcast(expected().lazy()).unwrap();
             });
             let _t = s.spawn(move || {
                 let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
-                trf.exec(lctx).unwrap();
+                trf.sync_exec(lctx).unwrap();
             });
             let _s = s.spawn(move || {
                 let mut listener = fctx.get_listener("actual", "dest").unwrap();
@@ -144,8 +161,8 @@ mod tests {
     }
 
     #[test]
-    fn success_aloop_no_stages() {
-        fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+    fn success_async_exec_no_stages() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let mut rt_builder = tokio::runtime::Builder::new_current_thread();
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
@@ -161,24 +178,20 @@ mod tests {
             };
             let lhandle = async move || {
                 let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
-                assert_eq!(trf.aloop(lctx).await.unwrap(), 1);
+                assert_eq!(trf.async_exec(lctx).await.unwrap(), 1);
             };
             let thandle = async move || {
                 let mut listener = fctx.get_async_listener("actual", "killer").unwrap();
                 let mut killer = fctx.get_async_broadcast("orig", "killer").unwrap();
-                log::debug!("AWAIT handle killer");
+                // log::debug!("AWAIT handle killer");
                 let update = listener.listen().await.unwrap();
                 let lf = update.frame.read().unwrap();
                 let actual = lf.clone().collect().unwrap();
                 assert_eq!(actual, expected());
-                println!("actual {:?}", actual);
                 killer.kill().await.unwrap();
-                println!("killed");
             };
             tokio::join!(bhandle(), lhandle(), thandle());
         };
         rt.block_on(event());
     }
-    /*
-    */
 }

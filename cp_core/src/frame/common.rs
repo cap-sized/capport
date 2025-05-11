@@ -100,6 +100,8 @@ pub trait PipelineFrame<
     /// This method is used when the requestor is not waiting for an update but
     /// needs a snapshot of the materialized frame immediately.
     fn extract_clone(&self) -> CpResult<MaterializedFrameType>;
+    fn extract(&self) -> CpResult<FrameType>;
+    fn insert(&self, frame: FrameType) -> CpResult<()>;
 }
 
 /// Trait for sized results with name (aka label)

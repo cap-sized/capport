@@ -180,9 +180,11 @@ mod tests {
                 let mut killer = fctx.get_async_broadcast("orig", "killer").unwrap();
                 // log::debug!("AWAIT handle killer");
                 let update = listener.listen().await.unwrap();
-                let lf = update.frame.read().unwrap();
-                let actual = lf.clone().collect().unwrap();
-                assert_eq!(actual, expected());
+                {
+                    let lf = update.frame.read().unwrap();
+                    let actual = lf.clone().collect().unwrap();
+                    assert_eq!(actual, expected());
+                }
                 killer.kill().await.unwrap();
             };
             tokio::join!(bhandle(), lhandle(), thandle());

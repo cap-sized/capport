@@ -1,0 +1,9 @@
+logger:
+  default:
+    level: trace
+    output_path_prefix: ""
+
+runner:
+  demo-run-once:
+    logger: default
+    mode: once

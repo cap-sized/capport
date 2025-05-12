@@ -21,5 +21,5 @@ pub trait Stage {
 pub struct StageConfig {
     pub label: String,
     pub task: String,
-    pub emplace: HashMap<String, serde_yaml_ng::Value>
+    pub emplace: HashMap<String, serde_yaml_ng::Value>,
 }

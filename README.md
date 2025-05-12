@@ -40,14 +40,14 @@ We are drastically changing the structure of capport to support
     - [x] Async concurrent execution
 - [x] Config utils and parsing
     - [x] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
-    - [x] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+    - [x] deserialize field `PolarsExprKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+        - [x] Concat
+        - [x] Format
+        - [x] Literals (u64, i64, str)
     - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
     - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
 - [ ] RootTransform and sub-transforms (config and impl)
     - [x] SelectStatement
-        - [ ] deserialize field `SelectStmt` { string: col_keyword OR action_def } which produces a PolarsExpr
-        - [ ] ConcatColAction
-        - [ ] FormatColAction
     - [x] SelectTransform
     - [x] JoinTransform
     - [x] DropTransform

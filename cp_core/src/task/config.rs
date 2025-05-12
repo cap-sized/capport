@@ -1,14 +1,12 @@
-use std::str::FromStr;
 use std::{collections::HashMap, hash::Hash};
 
-use polars::prelude::Expr;
-use serde::{de, ser, Deserialize, Deserializer, Serialize};
+use polars::prelude::{Expr, lit};
+use serde::{Deserialize, Deserializer, Serialize, de, ser};
 
 use crate::parser::expr::parse_str_to_col_expr;
 use crate::util::error::CpResult;
 
-use super::transform::action::TransformAction;
-use super::transform::config::{ConcatActionConfig, FormatActionConfig};
+use super::action::{ConcatAction, FormatAction, TransformAction};
 
 pub trait Keyword<'a, T> {
     fn value(&'a self) -> Option<&'a T>;
@@ -40,55 +38,62 @@ pub struct PolarsExprKeyword {
     value: Option<Expr>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum ExprKeyword {
-    #[serde(deserialize_with = "deserialize_polars_expr_str")]
-    FromStr(PolarsExprKeyword),
-    #[serde(deserialize_with = "deserialize_polars_expr_action")]
-    FromDict(PolarsExprKeyword),
-}
+impl<'de> Deserialize<'de> for PolarsExprKeyword {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            Short(String),
+            Full(HashMap<String, serde_yaml_ng::Value>),
+        }
+        match Helper::deserialize(deserializer)? {
+            Helper::Short(full) => {
+                let chars = full.chars().collect::<Vec<_>>();
+                match chars.first() {
+                    Some('$') => Ok(PolarsExprKeyword::with_symbol(full[1..].trim())),
+                    Some(_) => match parse_str_to_col_expr(full.trim()) {
+                        Some(x) => Ok(PolarsExprKeyword::with_value(x)),
+                        None => Err(de::Error::custom(format!(
+                            "Failed to parse as PolarsExprKeyword: {}",
+                            full
+                        ))),
+                    },
+                    None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full))),
+                }
+            }
+            Helper::Full(full) => {
+                if full.len() != 1 {
+                    return Err(de::Error::custom(format!(
+                        "To parse PolarsExprKeyword as an action, it must be a map with exactly one pair. Found: {:?}",
+                        full
+                    )));
+                }
 
-fn deserialize_polars_expr_str<'de, D>(deserializer: D) -> Result<PolarsExprKeyword, D::Error> where D: Deserializer<'de>,
-{
-    let full = String::deserialize(deserializer)?;
-    let chars = full.chars().collect::<Vec<_>>();
-    match chars.first() {
-        Some('$') => Ok(PolarsExprKeyword::with_symbol(full[1..].trim())),
-        Some(_) => match parse_str_to_col_expr(full.trim()) {
-            Some(x) => Ok(PolarsExprKeyword::with_value(x)),
-            None => Err(de::Error::custom(format!(
-                "Failed to parse as PolarsExprKeyword: {}",
-                full
-            ))),
-        },
-        None => Err(de::Error::custom(format!("Invalid empty StrKeyword: {}", full))),
-    }
-}
-
-fn deserialize_polars_expr_action<'de, D>(deserializer: D) -> Result<PolarsExprKeyword, D::Error> where D: Deserializer<'de>,
-{
-    let full = HashMap::<String, serde_yaml_ng::Value>::deserialize(deserializer)?;
-    if full.len() != 1 {
-        return Err(de::Error::custom(format!("To parse PolarsExprKeyword as an action, it must be a map with exactly one pair. Found: {:?}", full)));
-    }
-
-    let kvpair = full.iter().collect::<Vec<_>>();
-    let (action_name, action_args) = kvpair.first().unwrap();
-    let action: Result<CpResult<Expr>, serde_yaml_ng::Error> = match action_name.as_str() {
-        "format" => serde_yaml_ng::from_value::<FormatActionConfig>(action_args).map(|x| x.expr()),
-        // "concat" => ConcatActionConfig::deserialize(deserializer)?.expr(),
-        x => { 
-            return Err(de::Error::custom(format!("Unrecognized action: {}", x)));
-        },
-    };
-    let expr: CpResult<Expr> = match action {
-        Ok(x) => x,
-        Err(e) => return Err(de::Error::custom(format!("Bad action: {:?}", e)))
-    };
-    match expr {
-        Ok(x) => Ok(PolarsExprKeyword::with_value(x)),
-        Err(e) => Err(de::Error::custom(format!("Bad action: {:?}", e)))
+                let mut kvpair = full.into_iter().collect::<Vec<_>>();
+                let (action_name, action_args) = kvpair.pop().unwrap();
+                let action: Result<CpResult<Expr>, serde_yaml_ng::Error> = match action_name.as_str() {
+                    "format" => serde_yaml_ng::from_value::<FormatAction>(action_args).map(|x| x.expr()),
+                    "concat" => serde_yaml_ng::from_value::<ConcatAction>(action_args).map(|x| x.expr()),
+                    "uint64" => serde_yaml_ng::from_value::<u64>(action_args).map(|x|Ok(lit(x))),
+                    "int64" => serde_yaml_ng::from_value::<i64>(action_args).map(|x|Ok(lit(x))),
+                    "str" => serde_yaml_ng::from_value::<String>(action_args).map(|x|Ok(lit(x))),
+                    x => {
+                        return Err(de::Error::custom(format!("Unrecognized action: {}", x)));
+                    }
+                };
+                let expr: CpResult<Expr> = match action {
+                    Ok(x) => x,
+                    Err(e) => return Err(de::Error::custom(format!("Bad action: {:?}", e))),
+                };
+                match expr {
+                    Ok(x) => Ok(PolarsExprKeyword::with_value(x)),
+                    Err(e) => Err(de::Error::custom(format!("Bad action: {:?}", e))),
+                }
+            }
+        }
     }
 }
 
@@ -171,12 +176,11 @@ impl<'de> Deserialize<'de> for StrKeyword {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
-    use polars::prelude::col;
+    use polars::prelude::{col, concat_str, format_str, lit};
     use serde::{Deserialize, Serialize};
 
     use super::{Keyword, PolarsExprKeyword, StrKeyword};
@@ -224,10 +228,47 @@ mod tests {
     }
 
     #[test]
-    fn pl_expr_keyword_de() {
+    fn pl_expr_keyword_str_de() {
         let myconfig = "{symbol: $mysymb, simple: test, complex: test.another}";
         let actual: PolarsExprKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
         assert_eq!(actual, default_polars_expr_keyword());
+    }
+
+    #[test]
+    fn pl_expr_keyword_format_action_de() {
+        let action_config = "
+format:
+    template: \"Hi {} {} {}\"
+    columns: [one, two, three.not.nested]
+";
+        let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
+        let expected_expr = format_str("Hi {} {} {}", ["one", "two", "three.not.nested"].map(|x| col(x))).unwrap();
+        assert_eq!(action.value().unwrap(), &expected_expr);
+    }
+
+    #[test]
+    fn pl_expr_keyword_concat_action_de() {
+        let action_config = "
+concat:
+    separator: \",\"
+    columns: [one, two, three.not.nested]
+";
+        let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
+        let expected_expr = concat_str(["one", "two", "three.not.nested"].map(|x| col(x)), ",", false);
+        assert_eq!(action.value().unwrap(), &expected_expr);
+    }
+
+    #[test]
+    fn pl_expr_keyword_literal_action_de() {
+        let action_config = "
+- uint64: 34
+- int64: 16
+- str: test
+";
+        let actions: Vec<PolarsExprKeyword> = serde_yaml_ng::from_str(action_config).unwrap();
+        assert_eq!(actions[0].value().unwrap(), &lit(34u64));
+        assert_eq!(actions[1].value().unwrap(), &lit(16i64));
+        assert_eq!(actions[2].value().unwrap(), &lit("test"));
     }
 
     #[test]
@@ -238,6 +279,9 @@ mod tests {
         assert_eq!(map.len(), 2);
         map.insert(StrKeyword::with_value("bro".to_string()), 2);
         assert_eq!(map.len(), 2);
-        assert_eq!(map.get(&StrKeyword::with_value("bro".to_string())).unwrap().to_owned(), 2usize);
+        assert_eq!(
+            map.get(&StrKeyword::with_value("bro".to_string())).unwrap().to_owned(),
+            2usize
+        );
     }
 }

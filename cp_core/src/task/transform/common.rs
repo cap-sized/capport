@@ -9,6 +9,8 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
+use super::config::RootTransformConfig;
+
 /// Base transform trait. Takes
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
@@ -96,6 +98,17 @@ impl Transform for RootTransform {
             next = stage.as_ref().run(next, ctx.clone())?
         }
         Ok(next)
+    }
+}
+
+impl SubTransformConfig for RootTransformConfig {
+    fn transform(self) -> Box<dyn Transform> {
+        // YX TODO
+        todo!()
+    }
+    fn validate(&self) -> Vec<CpError> {
+        // YX TODO
+        todo!()
     }
 }
 

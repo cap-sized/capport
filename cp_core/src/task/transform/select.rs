@@ -29,16 +29,14 @@ impl SubTransformConfig for SelectTransformConfig {
         for (alias_kw, expr_kw) in &self.select {
             match alias_kw.value() {
                 Some(_) => {}
-                None => errors.push(CpError::TaskError(
-                    "Missing value of alias symbol",
-                    format!("`{:?}` is missing value", alias_kw.symbol()),
+                None => errors.push(CpError::SymbolMissingValueError(
+                    "alias", alias_kw.symbol().unwrap_or("?").to_owned(),
                 )),
             }
             match expr_kw.value() {
                 Some(_) => {}
-                None => errors.push(CpError::TaskError(
-                    "Missing value of expr symbol",
-                    format!("`{:?}` is missing value", expr_kw.symbol()),
+                None => errors.push(CpError::SymbolMissingValueError(
+                    "expr", expr_kw.symbol().unwrap_or("?").to_owned(),
                 )),
             };
         }
@@ -47,8 +45,8 @@ impl SubTransformConfig for SelectTransformConfig {
     fn transform(self) -> Box<dyn Transform> {
         let mut select = vec![];
         for (alias_kw, expr_kw) in self.select {
-            let alias = alias_kw.value().expect("empty alias val; validation not run").clone();
-            let expr = expr_kw.value().expect("empty expr val; validation not run").clone();
+            let alias = alias_kw.value().expect("alias").clone();
+            let expr = expr_kw.value().expect("expr").clone();
             select.push(expr.alias(alias));
         }
         Box::new(SelectTransform { select })

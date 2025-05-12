@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::parser::keyword::{PolarsExprKeyword, StrKeyword};
+use crate::parser::{jtype::JType, keyword::{PolarsExprKeyword, StrKeyword}};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct TransformTaskConfig {
+pub struct RootTransformConfig {
     pub label: String,
     pub input: StrKeyword,
     pub output: StrKeyword,
@@ -31,6 +31,7 @@ pub struct _JoinTransformConfig {
     pub right_select: Option<HashMap<StrKeyword, PolarsExprKeyword>>,
     pub right_prefix: Option<StrKeyword>,
     pub right_on: Vec<StrKeyword>,
+    pub how: JType
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -42,10 +43,10 @@ pub struct DropTransformConfig {
 mod tests {
     use std::collections::HashMap;
 
-    use polars::prelude::col;
+    use polars::prelude::{col, JoinType};
 
     use crate::{
-        parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword},
+        parser::{jtype::JType, keyword::{Keyword, PolarsExprKeyword, StrKeyword}},
         task::transform::config::_JoinTransformConfig,
     };
 
@@ -103,6 +104,7 @@ join:
     right: BASIC
     left_on: [col]
     right_on: [my_col]
+    how: left
 ";
         let actual: JoinTransformConfig = serde_yaml_ng::from_str(config).unwrap();
         assert_eq!(
@@ -115,6 +117,7 @@ join:
                     left_prefix: None,
                     right_prefix: None,
                     right_select: None,
+                    how: JType(JoinType::Left)
                 }
             }
         );
@@ -127,6 +130,7 @@ join:
     right: $BASIC
     left_on: [col, another]
     right_on: [$my_col, another]
+    how: right
 ";
         let actual: JoinTransformConfig = serde_yaml_ng::from_str(config).unwrap();
         assert_eq!(
@@ -145,6 +149,7 @@ join:
                     left_prefix: None,
                     right_prefix: None,
                     right_select: None,
+                    how: JType(JoinType::Right)
                 }
             }
         );
@@ -159,6 +164,7 @@ join:
     right_on: [$my_col]
     left_prefix: orig
     right_prefix: $orig
+    how: inner
 ";
         let actual: JoinTransformConfig = serde_yaml_ng::from_str(config).unwrap();
         assert_eq!(
@@ -171,6 +177,7 @@ join:
                     left_prefix: Some(StrKeyword::with_value("orig".to_owned())),
                     right_prefix: Some(StrKeyword::with_symbol("orig")),
                     right_select: None,
+                    how: JType(JoinType::Inner)
                 }
             }
         );
@@ -186,6 +193,7 @@ join:
     right_select:
         test: $one
         $another: two
+    how: full
 ";
         let actual: JoinTransformConfig = serde_yaml_ng::from_str(config).unwrap();
         assert_eq!(
@@ -207,6 +215,7 @@ join:
                             PolarsExprKeyword::with_value(col("two"))
                         ),
                     ])),
+                    how: JType(JoinType::Full)
                 }
             }
         );

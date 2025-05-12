@@ -77,9 +77,9 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                 let action: Result<CpResult<Expr>, serde_yaml_ng::Error> = match action_name.as_str() {
                     "format" => serde_yaml_ng::from_value::<FormatAction>(action_args).map(|x| x.expr()),
                     "concat" => serde_yaml_ng::from_value::<ConcatAction>(action_args).map(|x| x.expr()),
-                    "uint64" => serde_yaml_ng::from_value::<u64>(action_args).map(|x|Ok(lit(x))),
-                    "int64" => serde_yaml_ng::from_value::<i64>(action_args).map(|x|Ok(lit(x))),
-                    "str" => serde_yaml_ng::from_value::<String>(action_args).map(|x|Ok(lit(x))),
+                    "uint64" => serde_yaml_ng::from_value::<u64>(action_args).map(|x| Ok(lit(x))),
+                    "int64" => serde_yaml_ng::from_value::<i64>(action_args).map(|x| Ok(lit(x))),
+                    "str" => serde_yaml_ng::from_value::<String>(action_args).map(|x| Ok(lit(x))),
                     x => {
                         return Err(de::Error::custom(format!("Unrecognized action: {}", x)));
                     }
@@ -242,7 +242,7 @@ format:
     columns: [one, two, three.not.nested]
 ";
         let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
-        let expected_expr = format_str("Hi {} {} {}", ["one", "two", "three.not.nested"].map(|x| col(x))).unwrap();
+        let expected_expr = format_str("Hi {} {} {}", ["one", "two", "three.not.nested"].map(col)).unwrap();
         assert_eq!(action.value().unwrap(), &expected_expr);
     }
 
@@ -254,7 +254,7 @@ concat:
     columns: [one, two, three.not.nested]
 ";
         let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
-        let expected_expr = concat_str(["one", "two", "three.not.nested"].map(|x| col(x)), ",", false);
+        let expected_expr = concat_str(["one", "two", "three.not.nested"].map(col), ",", false);
         assert_eq!(action.value().unwrap(), &expected_expr);
     }
 

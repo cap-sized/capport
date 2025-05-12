@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::{
-    parser::dtype::DType,
-    task::config::{PolarsExprKeyword, StrKeyword},
-};
+use crate::task::config::{PolarsExprKeyword, StrKeyword};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TransformTaskConfig {
@@ -30,7 +27,7 @@ pub struct _JoinTransformConfig {
     pub left_prefix: Option<StrKeyword>,
     pub left_on: StrKeyword,
     /// the frame on the right to join on
-    pub right: StrKeyword, 
+    pub right: StrKeyword,
     pub right_select: Option<HashMap<StrKeyword, PolarsExprKeyword>>,
     pub right_prefix: Option<StrKeyword>,
     pub right_on: StrKeyword,

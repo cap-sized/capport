@@ -1,12 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use polars::prelude::{all, col, Expr, IntoLazy, JoinArgs, LazyFrame};
+use polars::prelude::{Expr, IntoLazy, JoinArgs, LazyFrame, all, col};
 
 use crate::{
-    parser::keyword::Keyword, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::error::{CpError, CpResult}
+    parser::keyword::Keyword,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    util::error::{CpError, CpResult},
 };
 
-use super::{common::{SubTransformConfig, Transform}, config::{JoinTransformConfig, _JoinTransformConfig}};
+use super::{
+    common::{SubTransformConfig, Transform},
+    config::JoinTransformConfig,
+};
 
 pub struct JoinTransform {
     right_label: String,
@@ -51,16 +56,18 @@ impl SubTransformConfig for JoinTransformConfig {
             match rp.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "right_prefix", rp.symbol().unwrap_or("?").to_owned(),
+                    "right_prefix",
+                    rp.symbol().unwrap_or("?").to_owned(),
                 )),
             }
         }
-        
+
         if let Some(lp) = self.join.left_prefix.as_ref() {
             match lp.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "left_prefix", lp.symbol().unwrap_or("?").to_owned(),
+                    "left_prefix",
+                    lp.symbol().unwrap_or("?").to_owned(),
                 )),
             }
         }
@@ -69,7 +76,8 @@ impl SubTransformConfig for JoinTransformConfig {
             match on.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "left_on", on.symbol().unwrap_or("?").to_owned(),
+                    "left_on",
+                    on.symbol().unwrap_or("?").to_owned(),
                 )),
             }
         }
@@ -78,7 +86,8 @@ impl SubTransformConfig for JoinTransformConfig {
             match on.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "right_on", on.symbol().unwrap_or("?").to_owned(),
+                    "right_on",
+                    on.symbol().unwrap_or("?").to_owned(),
                 )),
             }
         }
@@ -86,10 +95,11 @@ impl SubTransformConfig for JoinTransformConfig {
         match self.join.right.value() {
             Some(_) => {}
             None => errors.push(CpError::SymbolMissingValueError(
-                "right", self.join.right.symbol().unwrap_or("?").to_owned(),
+                "right",
+                self.join.right.symbol().unwrap_or("?").to_owned(),
             )),
         }
-        
+
         errors
     }
 
@@ -107,27 +117,39 @@ impl SubTransformConfig for JoinTransformConfig {
         };
 
         let right_label = self.join.right.value().expect("right").to_owned();
-        let left_prefix = self.join.left_prefix.map_or_else(|| None, |x| Some(vec![all().name().prefix(x.value().expect("left_prefix"))]));
-        let right_prefix = self.join.right_prefix.map_or_else(|| None, |x| Some(vec![all().name().prefix(x.value().expect("right_prefix"))]));
+        let left_prefix = self.join.left_prefix.map_or_else(
+            || None,
+            |x| Some(vec![all().name().prefix(x.value().expect("left_prefix"))]),
+        );
+        let right_prefix = self.join.right_prefix.map_or_else(
+            || None,
+            |x| Some(vec![all().name().prefix(x.value().expect("right_prefix"))]),
+        );
 
-        let left_on = self.join.left_on.iter().map(|x| {
-            col(x.value().expect("left_on"))
-        }).collect::<Vec<_>>();
+        let left_on = self
+            .join
+            .left_on
+            .iter()
+            .map(|x| col(x.value().expect("left_on")))
+            .collect::<Vec<_>>();
 
-        let right_on = self.join.right_on.iter().map(|x| {
-            col(x.value().expect("right_on"))
-        }).collect::<Vec<_>>();
+        let right_on = self
+            .join
+            .right_on
+            .iter()
+            .map(|x| col(x.value().expect("right_on")))
+            .collect::<Vec<_>>();
 
         let join_args = JoinArgs::new(self.join.how.into());
 
         let join = JoinTransform {
-            right_on, 
-            left_on, 
-            left_prefix, 
-            right_prefix, 
-            right_label, 
-            right_select, 
-            join_args
+            right_on,
+            left_on,
+            left_prefix,
+            right_prefix,
+            right_label,
+            right_select,
+            join_args,
         };
         Box::new(join)
     }

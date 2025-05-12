@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::parser::{jtype::JType, keyword::{PolarsExprKeyword, StrKeyword}};
+use crate::parser::{
+    jtype::JType,
+    keyword::{PolarsExprKeyword, StrKeyword},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct RootTransformConfig {
@@ -31,7 +34,7 @@ pub struct _JoinTransformConfig {
     pub right_select: Option<HashMap<StrKeyword, PolarsExprKeyword>>,
     pub right_prefix: Option<StrKeyword>,
     pub right_on: Vec<StrKeyword>,
-    pub how: JType
+    pub how: JType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -43,10 +46,13 @@ pub struct DropTransformConfig {
 mod tests {
     use std::collections::HashMap;
 
-    use polars::prelude::{col, JoinType};
+    use polars::prelude::{JoinType, col};
 
     use crate::{
-        parser::{jtype::JType, keyword::{Keyword, PolarsExprKeyword, StrKeyword}},
+        parser::{
+            jtype::JType,
+            keyword::{Keyword, PolarsExprKeyword, StrKeyword},
+        },
         task::transform::config::_JoinTransformConfig,
     };
 

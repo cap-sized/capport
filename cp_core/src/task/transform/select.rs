@@ -30,13 +30,15 @@ impl SubTransformConfig for SelectTransformConfig {
             match alias_kw.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "alias", alias_kw.symbol().unwrap_or("?").to_owned(),
+                    "alias",
+                    alias_kw.symbol().unwrap_or("?").to_owned(),
                 )),
             }
             match expr_kw.value() {
                 Some(_) => {}
                 None => errors.push(CpError::SymbolMissingValueError(
-                    "expr", expr_kw.symbol().unwrap_or("?").to_owned(),
+                    "expr",
+                    expr_kw.symbol().unwrap_or("?").to_owned(),
                 )),
             };
         }

@@ -2,13 +2,13 @@ use polars::prelude::{Expr, col, concat_str, format_str};
 use serde::Deserialize;
 
 use crate::{
-    task::config::Keyword,
+    parser::keyword::Keyword,
     util::error::{CpError, CpResult},
 };
 
-use super::config::StrKeyword;
+use super::keyword::StrKeyword;
 
-pub trait TransformAction {
+pub trait ExprAction {
     fn expr(&self) -> CpResult<polars::prelude::Expr>;
     fn validate(&self) -> CpResult<()>;
 }
@@ -26,7 +26,7 @@ pub struct ConcatAction {
     pub ignore_nulls: Option<bool>,
 }
 
-impl TransformAction for ConcatAction {
+impl ExprAction for ConcatAction {
     fn validate(&self) -> CpResult<()> {
         if self.separator.value().is_none() {
             return Err(CpError::TaskError(
@@ -66,7 +66,7 @@ impl TransformAction for ConcatAction {
     }
 }
 
-impl TransformAction for FormatAction {
+impl ExprAction for FormatAction {
     fn validate(&self) -> CpResult<()> {
         if self.template.value().is_none() {
             return Err(CpError::TaskError(

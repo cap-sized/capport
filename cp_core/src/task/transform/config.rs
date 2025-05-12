@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::task::config::{PolarsExprKeyword, StrKeyword};
+use crate::parser::keyword::{PolarsExprKeyword, StrKeyword};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TransformTaskConfig {
@@ -44,10 +44,7 @@ mod tests {
 
     use polars::prelude::col;
 
-    use crate::task::{
-        config::{Keyword, PolarsExprKeyword, StrKeyword},
-        transform::config::_JoinTransformConfig,
-    };
+    use crate::{parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword}, task::transform::config::_JoinTransformConfig};
 
     use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig};
 

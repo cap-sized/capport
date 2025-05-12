@@ -44,7 +44,10 @@ mod tests {
 
     use polars::prelude::col;
 
-    use crate::{parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword}, task::transform::config::_JoinTransformConfig};
+    use crate::{
+        parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword},
+        task::transform::config::_JoinTransformConfig,
+    };
 
     use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig};
 

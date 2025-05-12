@@ -155,4 +155,10 @@ mod tests {
     fn invalid_dtype_de() {
         assert!(serde_yaml_ng::from_str::<DType>("bad").is_err());
     }
+
+    #[test]
+    fn valid_dtype_from() {
+        let dtype: DType = DType(DataType::Int8);
+        assert_eq!(DataType::from(dtype), DataType::Int8)
+    }
 }

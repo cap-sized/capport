@@ -8,6 +8,9 @@ use crate::util::error::CpResult;
 
 use super::action::{ConcatAction, ExprAction, FormatAction};
 
+/// The keyword trait is shared by task configuration "keywords" which contain either a value or a
+/// symbol to be replaced by a value in the stage config (which invoke the task, which invokes the
+/// underlying method the task configures).
 pub trait Keyword<'a, T> {
     fn value(&'a self) -> Option<&'a T>;
     fn symbol(&'a self) -> Option<&'a str>;
@@ -16,6 +19,7 @@ pub trait Keyword<'a, T> {
     fn insert_value(&mut self, value: T);
 }
 
+/// Keyword that a string value
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StrKeyword {
     symbol: Option<String>,
@@ -26,12 +30,13 @@ impl Hash for StrKeyword {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         if let Some(sym) = self.symbol.as_ref() {
             sym.hash(state);
-        } else if let Some(val) = self.symbol.as_ref() {
+        } else if let Some(val) = self.value.as_ref() {
             val.hash(state);
         }
     }
 }
 
+/// Keyword that yields a polars expression. Valid expressions are strings or actions (parsed from map).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolarsExprKeyword {
     symbol: Option<String>,
@@ -94,6 +99,12 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                 }
             }
         }
+    }
+}
+
+impl Default for StrKeyword {
+    fn default() -> Self {
+        Self { symbol: None, value: None }
     }
 }
 
@@ -218,6 +229,7 @@ mod tests {
         let field = default_str_keyword();
         assert_eq!(serde_yaml_ng::to_string(&field.value).unwrap().trim(), "val");
         assert_eq!(serde_yaml_ng::to_string(&field.symbol).unwrap().trim(), "$mysymb");
+        assert!(serde_yaml_ng::to_string(&StrKeyword::default()).is_err());
     }
 
     #[test]
@@ -225,6 +237,10 @@ mod tests {
         let myconfig = "{symbol: $mysymb, value: val}";
         let actual: StrKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
         assert_eq!(actual, default_str_keyword());
+        // value is empty str
+        assert!(serde_yaml_ng::from_str::<StrKeywordExample>("symbol: $mysymb, value: \"\"").is_err());
+        // symbol is whitespace
+        assert!(serde_yaml_ng::from_str::<StrKeywordExample>("symbol: \"\n\", value: value").is_err());
     }
 
     #[test]
@@ -272,10 +288,35 @@ concat:
     }
 
     #[test]
+    fn pl_expr_keyword_invalid_action_de() {
+        [
+        "NotALiteral: test",
+        "
+not_another_action: 
+    myargs: dontmatter
+",
+        "
+format: 
+    template: \"test {} {} {}\"
+    columns: [too, many, actions]
+concat:
+    separator: \",\"
+    columns: [too, many, actions]
+",
+        "
+format: 
+    template: \"test {} {} {}\"
+    columns: [format, is, invalid, here, too, few, brackets]
+",
+        "[not, a, struct, or, str]"
+        ].iter().for_each(|x| assert!(serde_yaml_ng::from_str::<PolarsExprKeyword>(x).is_err()));
+    }
+
+    #[test]
     fn valid_hash_str_keyword() {
         let mut map = HashMap::<StrKeyword, usize>::new();
         map.insert(StrKeyword::with_value("bro".to_string()), 1);
-        map.insert(StrKeyword::with_symbol("$bro"), 1);
+        map.insert(StrKeyword::with_symbol("bro"), 1);
         assert_eq!(map.len(), 2);
         map.insert(StrKeyword::with_value("bro".to_string()), 2);
         assert_eq!(map.len(), 2);
@@ -283,5 +324,23 @@ concat:
             map.get(&StrKeyword::with_value("bro".to_string())).unwrap().to_owned(),
             2usize
         );
+        assert_eq!(
+            map.get(&StrKeyword::with_symbol("bro")).unwrap().to_owned(),
+            1usize
+        );
+    }
+
+    #[test]
+    fn valid_str_keyword_insert() {
+        let mut strk = StrKeyword::with_symbol("test");
+        strk.insert_value("actual_value".to_string());
+        assert_eq!(strk.value().unwrap(), "actual_value");
+    }
+
+    #[test]
+    fn valid_pl_expr_keyword_insert() {
+        let mut strk = PolarsExprKeyword::with_symbol("test");
+        strk.insert_value(col("actual_value"));
+        assert_eq!(strk.value().unwrap(), &col("actual_value"));
     }
 }

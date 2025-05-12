@@ -6,12 +6,17 @@ use crate::{
     },
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
-    util::error::CpResult,
+    util::error::{CpError, CpResult},
 };
 
 /// Base transform trait. Takes
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
+}
+
+pub trait SubTransformConfig {
+    fn validate(&self) -> Vec<CpError>;
+    fn transform(self) -> Box<dyn Transform>;
 }
 
 /// The root transform node that runs all its substages

@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    common::{SubTransformConfig, Transform},
+    common::{TransformConfig, Transform},
     config::JoinTransformConfig,
 };
 
@@ -49,7 +49,7 @@ impl Transform for JoinTransform {
     }
 }
 
-impl SubTransformConfig for JoinTransformConfig {
+impl TransformConfig for JoinTransformConfig {
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         if let Some(rp) = self.join.right_prefix.as_ref() {

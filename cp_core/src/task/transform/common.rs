@@ -16,7 +16,7 @@ pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }
 
-pub trait SubTransformConfig {
+pub trait TransformConfig {
     fn validate(&self) -> Vec<CpError>;
     fn transform(self) -> Box<dyn Transform>;
 }
@@ -101,7 +101,7 @@ impl Transform for RootTransform {
     }
 }
 
-impl SubTransformConfig for RootTransformConfig {
+impl TransformConfig for RootTransformConfig {
     fn transform(self) -> Box<dyn Transform> {
         // YX TODO
         todo!()

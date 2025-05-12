@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    common::{SubTransformConfig, Transform},
+    common::{TransformConfig, Transform},
     config::SelectTransformConfig,
 };
 
@@ -23,7 +23,7 @@ impl Transform for SelectTransform {
     }
 }
 
-impl SubTransformConfig for SelectTransformConfig {
+impl TransformConfig for SelectTransformConfig {
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         for (alias_kw, expr_kw) in &self.select {
@@ -67,7 +67,7 @@ mod tests {
     use crate::{
         parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword},
         pipeline::context::DefaultPipelineContext,
-        task::transform::{common::SubTransformConfig, config::SelectTransformConfig},
+        task::transform::{common::TransformConfig, config::SelectTransformConfig},
     };
 
     fn create_select_good_config(map: HashMap<&'static str, Expr>) -> HashMap<StrKeyword, PolarsExprKeyword> {

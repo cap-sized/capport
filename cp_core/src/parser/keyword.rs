@@ -20,7 +20,7 @@ pub trait Keyword<'a, T> {
 }
 
 /// Keyword that a string value
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct StrKeyword {
     symbol: Option<String>,
     value: Option<String>,
@@ -99,12 +99,6 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                 }
             }
         }
-    }
-}
-
-impl Default for StrKeyword {
-    fn default() -> Self {
-        Self { symbol: None, value: None }
     }
 }
 
@@ -290,12 +284,12 @@ concat:
     #[test]
     fn pl_expr_keyword_invalid_action_de() {
         [
-        "NotALiteral: test",
-        "
+            "NotALiteral: test",
+            "
 not_another_action: 
     myargs: dontmatter
 ",
-        "
+            "
 format: 
     template: \"test {} {} {}\"
     columns: [too, many, actions]
@@ -303,13 +297,15 @@ concat:
     separator: \",\"
     columns: [too, many, actions]
 ",
-        "
+            "
 format: 
     template: \"test {} {} {}\"
     columns: [format, is, invalid, here, too, few, brackets]
 ",
-        "[not, a, struct, or, str]"
-        ].iter().for_each(|x| assert!(serde_yaml_ng::from_str::<PolarsExprKeyword>(x).is_err()));
+            "[not, a, struct, or, str]",
+        ]
+        .iter()
+        .for_each(|x| assert!(serde_yaml_ng::from_str::<PolarsExprKeyword>(x).is_err()));
     }
 
     #[test]
@@ -324,10 +320,7 @@ format:
             map.get(&StrKeyword::with_value("bro".to_string())).unwrap().to_owned(),
             2usize
         );
-        assert_eq!(
-            map.get(&StrKeyword::with_symbol("bro")).unwrap().to_owned(),
-            1usize
-        );
+        assert_eq!(map.get(&StrKeyword::with_symbol("bro")).unwrap().to_owned(), 1usize);
     }
 
     #[test]

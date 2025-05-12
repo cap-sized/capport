@@ -86,4 +86,10 @@ mod tests {
     fn invalid_jtype_de() {
         assert!(serde_yaml_ng::from_str::<JType>("bad").is_err());
     }
+
+    #[test]
+    fn valid_jtype_from() {
+        let dtype: JType = JType(JoinType::Inner);
+        assert_eq!(JoinType::from(dtype), JoinType::Inner)
+    }
 }

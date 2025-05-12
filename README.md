@@ -40,17 +40,17 @@ We are drastically changing the structure of capport to support
     - [x] Async concurrent execution
 - [x] Config utils and parsing
     - [x] deserialize field `StrKeyword` (provides `.symbol()` from "$varname" and `.value(): String` from "litname")
-    - [x] deserialize field `ColKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+    - [x] deserialize field `PolarsExprKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsExpr` from "litname.selector.1")
+        - [x] Concat
+        - [x] Format
+        - [x] Literals (u64, i64, str)
     - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
     - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
 - [ ] RootTransform and sub-transforms (config and impl)
-    - [ ] SelectStatement
-        - [ ] deserialize field `SelectStmt` { string: col_keyword OR action_def } which produces a PolarsExpr
-        - [ ] ConcatColAction
-        - [ ] FormatColAction
-    - [ ] SelectTransform
-    - [ ] JoinTransform
-    - [ ] DropTransform
+    - [x] SelectStatement
+    - [x] SelectTransform
+    - [x] JoinTransform
+    - [x] DropTransform
     - [ ] FilterTransform
         - [ ] deserialize field `FilterStmt` { col_keyword_a: { OP : col_keyword_b } } which produces a PolarsStmt ("a OP b", or "OP a")
     - [ ] OrderTransform
@@ -62,14 +62,14 @@ We are drastically changing the structure of capport to support
     - [ ] BsonSource (cp_ext)
     - [ ] PostgresSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
-    - [ ] ToArrowAdapter
+    - [ ] FromArrowAdapter
 - [ ] RootSink, method of writing data, and types
     - [ ] JsonSink
     - [ ] CsvSink
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)
-    - [ ] FromArrowAdapter
+    - [ ] ToArrowAdapter
 - [ ] PipelineRegistry
 - [ ] RunnerRegistry
 - [ ] Synchronous schedule (per-pipeline)

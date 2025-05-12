@@ -21,21 +21,21 @@ pub trait TransformConfig {
     fn transform(self) -> Box<dyn Transform>;
 }
 
-/// The root transform node that runs all its substages
+/// The root transform node that runs all its subtransforms
 pub struct RootTransform {
     label: String,
     input: String,
     output: String,
-    stages: Vec<Box<dyn Transform>>,
+    subtransforms: Vec<Box<dyn Transform>>,
 }
 
 impl RootTransform {
-    pub fn new(label: &str, input: &str, output: &str, stages: Vec<Box<dyn Transform>>) -> RootTransform {
+    pub fn new(label: &str, input: &str, output: &str, subtransforms: Vec<Box<dyn Transform>>) -> RootTransform {
         RootTransform {
             label: label.to_string(),
             input: input.to_string(),
             output: output.to_string(),
-            stages,
+            subtransforms,
         }
     }
 }
@@ -90,11 +90,11 @@ impl Stage for RootTransform {
 }
 
 impl Transform for RootTransform {
-    /// Runs execution in order. ctx is passed to children stages
+    /// Runs execution in order. ctx is passed to children subtransforms
     /// which can also extract changes on frames
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let mut next = main;
-        for stage in &self.stages {
+        for stage in &self.subtransforms {
             next = stage.as_ref().run(next, ctx.clone())?
         }
         Ok(next)
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn success_run_no_stages() {
+    fn success_run_no_subtransforms() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig"], 1));
         let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
         let expected = trf.run(DataFrame::empty().lazy(), ctx.clone());
@@ -139,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    fn success_linear_exec_no_stages() {
+    fn success_linear_exec_no_subtransforms() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
         ctx.insert_result("orig", expected().lazy()).unwrap();
         let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
@@ -149,7 +149,7 @@ mod tests {
     }
 
     #[test]
-    fn success_sync_exec_no_stages() {
+    fn success_sync_exec_no_subtransforms() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
         let lctx = ctx.clone();
         let bctx = ctx.clone();
@@ -174,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn success_async_exec_no_stages() {
+    fn success_async_exec_no_subtransforms() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let mut rt_builder = tokio::runtime::Builder::new_current_thread();
         rt_builder.enable_all();

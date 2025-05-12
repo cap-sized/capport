@@ -4,16 +4,16 @@
 
 A Rust framework for data manipulation.
 
-Basically takes in a folder of configs and extracts/load/transforms/saves data through stages in 
+Basically takes in a folder of configs and extracts/load/transforms/saves data through subtransforms in 
 pipelines. 
 
 **UPDATE** (2025-05-08): 
 We are drastically changing the structure of capport to support
 
-- easily extensible ingestion (from external dest.)/writing (to external dest.) stages
+- easily extensible ingestion (from external dest.)/writing (to external dest.) subtransforms
 - templating of variables in reusable Tasks
 - async pipeline model
-- schedules on stages OR pipelines
+- schedules on subtransforms OR pipelines
 
 ## Links
 
@@ -220,7 +220,7 @@ See `EnvironmentVariablesRegistry` and `envvar.md` in the `docs/` folder for mor
 
 ### Pipeline
 
-Pipelines consist of labelled **stages** (either **source/sink/transform**). 
+Pipelines consist of labelled **subtransforms** (either **source/sink/transform**). 
 Each stage performs a **task**. 
 Each task loads/transforms/saves tabular **data**. 
 See the annotated sample pipeline below
@@ -291,20 +291,20 @@ In both long running (async) and one-shot (sync) pipelines, tasks are alerted of
 
 ### Message channels
 
-Allows stages to broadcast or selectively inform tasks of updates. When writing to a 
+Allows subtransforms to broadcast or selectively inform tasks of updates. When writing to a 
 dataframe, an update sugnal is either broadcasted or sent with a target from the 
 producer to the consumers (listeners).
 
 ![Message broker and Dataframes](https://github.com/cap-sized/capport/raw/main/docs/img/dataframe-msg-system.png )
 
-In a looping runmode the roots of the pipeline (i.e. stages with no dependencies) 
+In a looping runmode the roots of the pipeline (i.e. subtransforms with no dependencies) 
 should always have the longest duration per cycle (loop) in order to prevent writer starvation.
 
 This is not a concern for the one-shot runmode.
 
 ### Context
 
-Many tasks (for load/save stages) depend on configured clients for services or previous results. 
+Many tasks (for load/save subtransforms) depend on configured clients for services or previous results. 
 Hence the environment of collected results, services and other configured information forms the **context**.
 
 Contexts are highly configurable, as they may vary greatly between different use cases. e.g. They may differ in
@@ -317,7 +317,7 @@ Contexts are highly configurable, as they may vary greatly between different use
 - runner registry
 - logger registry
 
-### Stages
+### subtransforms
 
 A pipeline **stage** consist of its *label*, the *task* it executes and the *arguments* to be 
 passed into the task.
@@ -378,7 +378,7 @@ Eventually we want to have a validator that checks for this.
 
 Used by source tasks to share client connection details. 
 
-Note: unlike in the previous design, the clients should no longer be shared between stages
+Note: unlike in the previous design, the clients should no longer be shared between subtransforms
 
 ```yml
 
@@ -500,7 +500,7 @@ Models describe the shape and specification of a SQL like table (relation) that 
 has to adhere to before inserting into dictionaries. 
 
 i.e. Models not only define the schema, but also the constraints of each column, what the primary/unique/foreign
-keys are etc. *These constaints are only used for validation in sink stages*.
+keys are etc. *These constaints are only used for validation in sink subtransforms*.
 
 Example:
 

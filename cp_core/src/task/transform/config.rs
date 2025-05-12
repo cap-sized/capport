@@ -12,7 +12,7 @@ pub struct RootTransformConfig {
     pub label: String,
     pub input: StrKeyword,
     pub output: StrKeyword,
-    pub stages: Vec<serde_yaml_ng::Value>,
+    pub subtransforms: Vec<serde_yaml_ng::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

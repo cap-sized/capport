@@ -134,8 +134,14 @@ join:
             JoinTransformConfig {
                 join: _JoinTransformConfig {
                     right: StrKeyword::with_symbol("BASIC"),
-                    left_on: vec![StrKeyword::with_value("col".to_owned()), StrKeyword::with_value("another".to_owned())],
-                    right_on: vec![StrKeyword::with_symbol("my_col"), StrKeyword::with_value("another".to_owned())],
+                    left_on: vec![
+                        StrKeyword::with_value("col".to_owned()),
+                        StrKeyword::with_value("another".to_owned())
+                    ],
+                    right_on: vec![
+                        StrKeyword::with_symbol("my_col"),
+                        StrKeyword::with_value("another".to_owned())
+                    ],
                     left_prefix: None,
                     right_prefix: None,
                     right_select: None,

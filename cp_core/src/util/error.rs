@@ -18,6 +18,8 @@ pub enum CpError {
     PoisonError(String),
     #[error("ERROR [CONNECTION]: {0}")]
     ConnectionError(String),
+    #[error("ERROR [SYMBOL NOT REPLACED]: {0}(${1})")]
+    SymbolMissingValueError(&'static str, String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
 }

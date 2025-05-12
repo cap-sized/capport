@@ -6,12 +6,19 @@ use crate::{
     },
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
-    util::error::CpResult,
+    util::error::{CpError, CpResult},
 };
+
+use super::config::RootTransformConfig;
 
 /// Base transform trait. Takes
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
+}
+
+pub trait SubTransformConfig {
+    fn validate(&self) -> Vec<CpError>;
+    fn transform(self) -> Box<dyn Transform>;
 }
 
 /// The root transform node that runs all its substages
@@ -91,6 +98,17 @@ impl Transform for RootTransform {
             next = stage.as_ref().run(next, ctx.clone())?
         }
         Ok(next)
+    }
+}
+
+impl SubTransformConfig for RootTransformConfig {
+    fn transform(self) -> Box<dyn Transform> {
+        // YX TODO
+        todo!()
+    }
+    fn validate(&self) -> Vec<CpError> {
+        // YX TODO
+        todo!()
     }
 }
 

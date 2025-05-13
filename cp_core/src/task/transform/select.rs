@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    common::{TransformConfig, Transform},
+    common::{Transform, TransformConfig},
     config::SelectTransformConfig,
 };
 
@@ -44,9 +44,9 @@ impl TransformConfig for SelectTransformConfig {
         }
         errors
     }
-    fn transform(self) -> Box<dyn Transform> {
+    fn transform(&self) -> Box<dyn Transform> {
         let mut select = vec![];
-        for (alias_kw, expr_kw) in self.select {
+        for (alias_kw, expr_kw) in &self.select {
             let alias = alias_kw.value().expect("alias").clone();
             let expr = expr_kw.value().expect("expr").clone();
             select.push(expr.alias(alias));

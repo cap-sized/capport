@@ -1,7 +1,7 @@
 # Data and communication
 
-Each task reads from/writes to a `LazyFrame` (lazily computed dataframe) which is consumed by the sink subtransforms.
-Nothing else is communicated between subtransforms.
+Each task reads from/writes to a `LazyFrame` (lazily computed dataframe) which is consumed by the sink stages.
+Nothing else is communicated between stages.
 
 To reduce the amount of dependency on the actual implementation of LazyFrame wherever possible
 in the pipeline, the result type `LazyFrame` is encapsulated behind the `PipelineFrame`
@@ -16,8 +16,8 @@ framework, though we will probably still have to rewrite every task.)
 `PipelineFrame`s of any type of frame `FrameType` can: 
 
 1. hold a lazyframe with a reader/writer lock (using `RwLock`) on it
-2. produce broadcast (sender) channels allowing subtransforms to *publish* changes
-3. produce listener (receiver) channels allowing subtransforms to *receive* changes
+2. produce broadcast (sender) channels allowing stages to *publish* changes
+3. produce listener (receiver) channels allowing stages to *receive* changes
 
 Internally, the `broadcast` method waits for the listeners to release the reader lock 
 on the internal lazyframe before writing and publishing/broadcasting the update. 

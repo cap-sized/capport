@@ -317,7 +317,7 @@ Contexts are highly configurable, as they may vary greatly between different use
 - runner registry
 - logger registry
 
-### subtransforms
+### Stages
 
 A pipeline **stage** consist of its *label*, the *task* it executes and the *arguments* to be 
 passed into the task.
@@ -378,7 +378,7 @@ Eventually we want to have a validator that checks for this.
 
 Used by source tasks to share client connection details. 
 
-Note: unlike in the previous design, the clients should no longer be shared between subtransforms
+Note: unlike in the previous design, the clients should no longer be shared between stages
 
 ```yml
 
@@ -500,7 +500,7 @@ Models describe the shape and specification of a SQL like table (relation) that 
 has to adhere to before inserting into dictionaries. 
 
 i.e. Models not only define the schema, but also the constraints of each column, what the primary/unique/foreign
-keys are etc. *These constaints are only used for validation in sink subtransforms*.
+keys are etc. *These constaints are only used for validation in sink stages*.
 
 Example:
 

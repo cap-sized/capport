@@ -114,7 +114,7 @@ macro_rules! try_deserialize {
 
 impl RootTransformConfig {
     fn parse_subtransforms(&self) -> Vec<Result<Box<dyn TransformConfig>, CpError>> {
-        self.subtransforms
+        self.steps
             .iter()
             .map(|transform| {
                 let config = try_deserialize!(transform, SelectTransformConfig, JoinTransformConfig);
@@ -283,7 +283,7 @@ join:
             label: "test_label".to_string(),
             input: StrKeyword::with_value("test_input".to_owned()),
             output: StrKeyword::with_value("test_output".to_owned()),
-            subtransforms: vec![select_value, join_value],
+            steps: vec![select_value, join_value],
         };
 
         assert!(config.validate().is_empty());
@@ -307,7 +307,7 @@ purr_transform:
             label: "test_label".to_string(),
             input: StrKeyword::with_value("test_input".to_owned()),
             output: StrKeyword::with_value("test_output".to_owned()),
-            subtransforms: vec![select_value, invalid_value],
+            steps: vec![select_value, invalid_value],
         };
 
         assert_eq!(config.validate().len(), 1);
@@ -333,7 +333,7 @@ select:
             label: "test_label".to_string(),
             input: StrKeyword::with_value("test_input".to_owned()),
             output: StrKeyword::with_value("test_output".to_owned()),
-            subtransforms: vec![select_value_1, select_value_2],
+            steps: vec![select_value_1, select_value_2],
         };
 
         assert!(config.validate().is_empty());

@@ -9,7 +9,7 @@ transforms:
     my_transform:
         input: $input # (or some actual name)
         output: $output # (or some actual name)
-        subtransforms: 
+        steps: 
             - select:
                 ...
             - join:

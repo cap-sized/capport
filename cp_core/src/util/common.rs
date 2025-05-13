@@ -99,3 +99,30 @@ pub fn rng_str(len: usize) -> String {
         .map(char::from)
         .collect()
 }
+
+#[macro_export]
+macro_rules! ctx_run_n_threads {
+    ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {
+        let slice = ($slice);
+        let len = slice.len();
+        let n = std::cmp::min(($num_threads) as usize, len);
+        log::trace!("Started {} threads", n);
+        let (quo, rem) = (len / n, len % n);
+        let split = (quo + 1) * rem;
+        match thread::scope(|scope| {
+            let ctx = ($ctx).clone();
+            let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
+            for chunk in chunks {
+                let ictx = ctx.clone();
+                scope.spawn(move |_| ($action)(chunk, ictx));
+            }
+        }) {
+            Ok(_) => {
+                log::trace!("Joined {} threads", n);
+            }
+            Err(e) => {
+                log::error!("Thread err:\n{:?}", e);
+            }
+        };
+    };
+}

@@ -351,6 +351,7 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "async-channel",
+ "async-trait",
  "chrono",
  "crossbeam",
  "fern",

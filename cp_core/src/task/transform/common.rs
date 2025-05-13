@@ -11,7 +11,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-/// Base transform trait. Takes
+/// Base transform trait.
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }

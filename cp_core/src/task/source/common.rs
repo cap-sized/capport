@@ -5,7 +5,11 @@ use crossbeam::thread;
 use polars::prelude::LazyFrame;
 
 use crate::{
-    ctx_run_n_threads, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage, util::error::{CpError, CpResult}
+    ctx_run_n_threads,
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    task::stage::Stage,
+    util::error::{CpError, CpResult},
 };
 
 #[async_trait]
@@ -18,7 +22,7 @@ pub trait Source {
 
 pub struct BoxedSource(Box<dyn Source>);
 
-/// We NEVER modify the individual Source instantiations after initialization. 
+/// We NEVER modify the individual Source instantiations after initialization.
 /// Hence the Box<dyn Source> is safe to access in parallel
 unsafe impl Send for BoxedSource {}
 unsafe impl Sync for BoxedSource {}
@@ -34,15 +38,12 @@ impl RootSource {
         RootSource {
             label: label.to_owned(),
             max_threads,
-            sources: sources
-                .into_iter()
-                .map(BoxedSource)
-                .collect::<Vec<BoxedSource>>(),
+            sources: sources.into_iter().map(BoxedSource).collect::<Vec<BoxedSource>>(),
         }
     }
 }
 
-fn run_source(label:&str, bsource: &BoxedSource, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+fn run_source(label: &str, bsource: &BoxedSource, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
     let source = &bsource.0;
     let mut bcast = ctx.get_broadcast(source.name(), label)?;
     log::info!("Fetching frame from {}: {}", source.connection_type(), source.name());
@@ -110,15 +111,13 @@ impl Stage for RootSource {
                     let ictx = ctx.clone();
                     let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
                         Ok(x) => x,
-                        Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()))
+                        Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
                     };
                     match source.0.fetch(ctx.clone()).await {
-                        Ok(lf) => { 
+                        Ok(lf) => {
                             return Ok(bcast.broadcast(lf).await);
-                        },
-                        Err(e) => { 
-                            return Err(CpError::PipelineError("Fetch source failed", e.to_string()))
-                        },
+                        }
+                        Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
                     }
                 });
             }
@@ -129,7 +128,6 @@ impl Stage for RootSource {
             loops += 1;
             // TODO: Intercept the termination signal
         }
-        
     }
 }
 
@@ -138,23 +136,39 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use polars::{df, frame::DataFrame, functions::concat_df_horizontal, prelude::{concat_lf_horizontal, IntoLazy, LazyFrame, UnionArgs}};
+    use polars::{
+        df,
+        frame::DataFrame,
+        functions::concat_df_horizontal,
+        prelude::{IntoLazy, LazyFrame, UnionArgs, concat_lf_horizontal},
+    };
 
-    use crate::{frame::common::{FrameBroadcastHandle, FrameListenHandle}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{source::common::RootSource, stage::Stage}, util::error::CpResult};
+    use crate::{
+        frame::common::{FrameBroadcastHandle, FrameListenHandle},
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{source::common::RootSource, stage::Stage},
+        util::error::CpResult,
+    };
 
     use super::Source;
 
     struct MockSource {
         out: String,
-        dep: Vec<String>
+        dep: Vec<String>,
     }
 
     impl MockSource {
         fn new(out: &str) -> Self {
-            Self { out: out.to_string(), dep: vec![] }
+            Self {
+                out: out.to_string(),
+                dep: vec![],
+            }
         }
         fn from(out: &str, dep: &[&str]) -> Self {
-            Self { out: out.to_string(), dep: dep.iter().map(|x| x.to_string()).collect() }
+            Self {
+                out: out.to_string(),
+                dep: dep.iter().map(|x| x.to_string()).collect(),
+            }
         }
     }
 
@@ -165,13 +179,13 @@ mod tests {
     fn default_next() -> DataFrame {
         df!( "c" => ["a", "b", "c"], "d" => [4, 5, 6] ).unwrap()
     }
-    
+
     #[async_trait]
     impl Source for MockSource {
-        fn connection_type(&self) ->  &str {
+        fn connection_type(&self) -> &str {
             "mock"
         }
-        fn name(&self) ->  &str {
+        fn name(&self) -> &str {
             &self.out
         }
         fn run(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
@@ -185,10 +199,14 @@ mod tests {
                     let frame = update.frame.read()?;
                     collected.push(frame.clone());
                 }
-                let result = concat_lf_horizontal(collected, UnionArgs {
-                    parallel: false,
-                    ..Default::default()
-                }).unwrap();
+                let result = concat_lf_horizontal(
+                    collected,
+                    UnionArgs {
+                        parallel: false,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
                 Ok(result)
             }
         }
@@ -216,45 +234,34 @@ mod tests {
         let mock_src = MockSource::from("mock_source", &["df", "next"]);
         let src = RootSource::new("root", 1, vec![Box::new(mock_src)]);
         src.linear(ctx.clone()).unwrap();
-        let actual = concat_df_horizontal(&[ default_df(), default_next() ], true).unwrap();
-        assert_eq!(
-            ctx.extract_clone_result("mock_source").unwrap(),
-            actual
-        );
+        let actual = concat_df_horizontal(&[default_df(), default_next()], true).unwrap();
+        assert_eq!(ctx.extract_clone_result("mock_source").unwrap(), actual);
     }
 
     #[test]
     fn success_mock_source_sync_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 1));
+        let ctx = Arc::new(DefaultPipelineContext::with_results(
+            &["df", "next", "test_df", "test_next"],
+            1,
+        ));
         let mut next_handle = ctx.get_broadcast("next", "orig").unwrap();
         next_handle.broadcast(default_next().lazy()).unwrap();
         let mock_src_df = MockSource::from("test_df", &["df"]);
-        let mock_src_next = MockSource::from("test_next",&["next"]);
+        let mock_src_next = MockSource::from("test_next", &["next"]);
         let mock_src = MockSource::new("df");
-        let src = RootSource::new("root", 3, vec![
-            Box::new(mock_src_df),
-            Box::new(mock_src_next),
-            Box::new(mock_src),
-        ]);
+        let src = RootSource::new(
+            "root",
+            3,
+            vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
+        );
         // This will NOT work with linear! mock_src depends on mock_src_df
         src.sync_exec(ctx.clone()).unwrap();
-        assert_eq!(
-            ctx.extract_clone_result("df").unwrap(),
-            default_df()
-        );
-        assert_eq!(
-            ctx.extract_clone_result("test_next").unwrap(),
-            default_next()
-        );
-        assert_eq!(
-            ctx.extract_clone_result("test_df").unwrap(),
-            default_df()
-        );
+        assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
+        assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
+        assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
     }
 
     #[test]
-    fn success_mock_source_async_exec() {
-    }
-
+    fn success_mock_source_async_exec() {}
 }

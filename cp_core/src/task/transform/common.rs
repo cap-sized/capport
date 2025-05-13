@@ -101,7 +101,7 @@ impl Transform for RootTransform {
     }
 }
 
-macro_rules! try_deserialize {
+macro_rules! try_deserialize_transform {
     ($value:expr, $($type:ty),+) => {
         $(if let Ok(config) = serde_yaml_ng::from_value::<$type>($value.clone()) {
             Some(Box::new(config) as Box<dyn TransformConfig>)
@@ -117,7 +117,7 @@ impl RootTransformConfig {
         self.steps
             .iter()
             .map(|transform| {
-                let config = try_deserialize!(transform, SelectTransformConfig, JoinTransformConfig);
+                let config = try_deserialize_transform!(transform, SelectTransformConfig, JoinTransformConfig);
 
                 config.ok_or_else(|| {
                     CpError::ConfigError(
@@ -137,9 +137,7 @@ impl TransformConfig for RootTransformConfig {
         for result in self.parse_subtransforms() {
             match result {
                 Ok(config) => {
-                    errors.extend(config.validate().into_iter().map(|e| {
-                        CpError::ConfigError("Transform config validation error", format!("Subtransform: {}", e))
-                    }));
+                    errors.extend(config.validate());
                 }
                 Err(e) => errors.push(e),
             }

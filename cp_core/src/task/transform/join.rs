@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    common::{SubTransformConfig, Transform},
+    common::{Transform, TransformConfig},
     config::JoinTransformConfig,
 };
 
@@ -49,7 +49,7 @@ impl Transform for JoinTransform {
     }
 }
 
-impl SubTransformConfig for JoinTransformConfig {
+impl TransformConfig for JoinTransformConfig {
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         if let Some(rp) = self.join.right_prefix.as_ref() {
@@ -103,25 +103,26 @@ impl SubTransformConfig for JoinTransformConfig {
         errors
     }
 
-    fn transform(self) -> Box<dyn Transform> {
-        let right_select = if let Some(selects) = self.join.right_select {
-            let mut rselect = vec![];
-            for (alias_kw, expr_kw) in selects {
-                let alias = alias_kw.value().expect("alias").clone();
-                let expr = expr_kw.value().expect("expr").clone();
-                rselect.push(expr.alias(alias));
-            }
-            rselect
+    fn transform(&self) -> Box<dyn Transform> {
+        let right_select = if let Some(selects) = &self.join.right_select {
+            selects
+                .iter()
+                .map(|(alias_kw, expr_kw)| {
+                    let alias = alias_kw.value().expect("alias").clone();
+                    let expr = expr_kw.value().expect("expr").clone();
+                    expr.alias(alias)
+                })
+                .collect()
         } else {
             vec![]
         };
 
-        let right_label = self.join.right.value().expect("right").to_owned();
-        let left_prefix = self.join.left_prefix.map_or_else(
+        let right_label = self.join.right.value().expect("right").clone();
+        let left_prefix = self.join.left_prefix.as_ref().map_or_else(
             || None,
             |x| Some(vec![all().name().prefix(x.value().expect("left_prefix"))]),
         );
-        let right_prefix = self.join.right_prefix.map_or_else(
+        let right_prefix = self.join.right_prefix.as_ref().map_or_else(
             || None,
             |x| Some(vec![all().name().prefix(x.value().expect("right_prefix"))]),
         );
@@ -140,7 +141,7 @@ impl SubTransformConfig for JoinTransformConfig {
             .map(|x| col(x.value().expect("right_on")))
             .collect::<Vec<_>>();
 
-        let join_args = JoinArgs::new(self.join.how.into());
+        let join_args = JoinArgs::new(self.join.how.clone().into());
 
         let join = JoinTransform {
             right_on,

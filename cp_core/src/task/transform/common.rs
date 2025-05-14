@@ -11,7 +11,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-/// Base transform trait. Takes
+/// Base transform trait.
 pub trait Transform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
 }
@@ -82,6 +82,7 @@ impl Stage for RootTransform {
                 }
                 FrameUpdateType::Kill => {
                     log::info!("Stage killed after {} iterations: {}", loops, &self.label);
+                    output_broadcast.kill().await.unwrap();
                     return Ok(loops);
                 }
             }

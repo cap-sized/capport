@@ -1,8 +1,10 @@
+use async_channel::Receiver;
+use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     frame::{
-        common::PipelineFrame,
+        common::{FrameUpdateInfo, PipelineFrame},
         polars::{
             PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
             PolarsPipelineFrame,
@@ -11,10 +13,11 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::results::PipelineResults;
+use super::{results::PipelineResults, signal::SignalState};
 
 /// Trait for all PipelineContext methods, which expose listeners, broadcasters and a means to
 /// extract and clone cached results.
+#[async_trait]
 pub trait PipelineContext<
     'a,
     FrameType,
@@ -32,11 +35,18 @@ pub trait PipelineContext<
     fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
     fn extract_result(&self, label: &str) -> CpResult<FrameType>;
     fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
+
+    /// The set of context signalling tools are meant to be used in async mode only.
+    /// The signalling channels are unusable without calling `with_signal()` previously.
+    fn signal_propagator(&self) -> Receiver<FrameUpdateInfo>;
+    async fn signal_replace(&self) -> CpResult<()>;
+    async fn signal_terminate(&self) -> CpResult<()>;
 }
 
 /// The pipeline context contains the universe of results.
 pub struct DefaultPipelineContext {
     results: PipelineResults<PolarsPipelineFrame>,
+    signal_state: Option<SignalState>,
 }
 
 /// We NEVER modify the actual entries in PipelineResults or any other registries
@@ -53,7 +63,16 @@ impl Default for DefaultPipelineContext {
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
     pub fn from(results: PipelineResults<PolarsPipelineFrame>) -> Self {
-        Self { results }
+        Self {
+            results,
+            signal_state: None,
+        }
+    }
+    pub fn with_signal(mut self) -> Self {
+        if self.signal_state.is_none() {
+            let _ = self.signal_state.insert(SignalState::new());
+        }
+        self
     }
     pub fn new() -> Self {
         Self::from(PipelineResults::<PolarsPipelineFrame>::new())
@@ -65,8 +84,14 @@ impl DefaultPipelineContext {
         });
         Self::from(results)
     }
+    pub fn signal(&self) -> &SignalState {
+        self.signal_state
+            .as_ref()
+            .expect("No signal state initialized, try calling `ctx.with_signal()`")
+    }
 }
 
+#[async_trait]
 impl<'a>
     PipelineContext<
         'a,
@@ -165,5 +190,14 @@ impl<'a>
                 ),
             )),
         }
+    }
+    fn signal_propagator(&self) -> Receiver<FrameUpdateInfo> {
+        self.signal().sig_recver.clone()
+    }
+    async fn signal_replace(&self) -> CpResult<()> {
+        self.signal().send_replace_signal().await
+    }
+    async fn signal_terminate(&self) -> CpResult<()> {
+        self.signal().send_terminate_signal().await
     }
 }

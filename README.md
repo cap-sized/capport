@@ -33,6 +33,7 @@ We are drastically changing the structure of capport to support
     - [ ] SourceTaskDictionary
     - [ ] SinkTaskDictionary
     - [ ] Runner
+    - [x] SignalState
     - [ ] Pipeline
 - [x] Trait with execution modes
     - [x] Linear execution
@@ -56,7 +57,7 @@ We are drastically changing the structure of capport to support
     - [ ] OrderTransform
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
-- [ ] RootSource, method of pulling data, and types
+- [x] RootSource, method of pulling data, and types
     - [ ] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
@@ -274,6 +275,9 @@ starts, the other must have ended or be terminated.
 
 As such if a schedule is found for the internal pipeline, the external pipeline schedule is
 invalid, it's presence will result in error.
+
+**NOTE**: Source tasks only trigger their own re-execution upon receiving a `replace` signal 
+from the scheduler, and gets killed upon a termination signal.
 
 ### Dataframes and dataframe universe
 

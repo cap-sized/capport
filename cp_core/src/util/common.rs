@@ -99,3 +99,52 @@ pub fn rng_str(len: usize) -> String {
         .map(char::from)
         .collect()
 }
+
+/// This macro allows us to run n async tasks and gather the results
+#[macro_export]
+macro_rules! ctx_run_n_async {
+    ($label:expr, $tasks:expr, $ctx:expr, $action:expr) => {
+        let tasks = ($tasks);
+        let ctx = ($ctx).clone();
+        let mut handles = Vec::with_capacity(tasks.len());
+        for task in tasks {
+            handles.push(async || ($action)(task, ctx.clone()).await);
+        }
+
+        let results = futures::future::join_all(handles.into_iter().map(|h| h())).await;
+        for result in results {
+            match result {
+                Ok(_) => {}
+                Err(e) => log::error!("{}: {:?}", ($label), e),
+            }
+        }
+    };
+}
+
+/// This macro allows us to split evenly (best effort) the tasks into n_threads to be handled
+#[macro_export]
+macro_rules! ctx_run_n_threads {
+    ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {
+        let slice = ($slice);
+        let len = slice.len();
+        let n = std::cmp::min(($num_threads) as usize, len);
+        log::trace!("Started {} threads", n);
+        let (quo, rem) = (len / n, len % n);
+        let split = (quo + 1) * rem;
+        match thread::scope(|scope| {
+            let ctx = ($ctx).clone();
+            let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
+            for chunk in chunks {
+                let ictx = ctx.clone();
+                scope.spawn(move |_| ($action)(chunk, ictx));
+            }
+        }) {
+            Ok(_) => {
+                log::trace!("Joined {} threads", n);
+            }
+            Err(e) => {
+                log::error!("Thread err:\n{:?}", e);
+            }
+        };
+    };
+}

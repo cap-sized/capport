@@ -35,6 +35,9 @@ pub trait PipelineContext<
     fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
     fn extract_result(&self, label: &str) -> CpResult<FrameType>;
     fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
+
+    /// The set of context signalling tools are meant to be used in async mode only.
+    /// The signalling channels are unusable without calling `with_signal()` previously.
     fn signal_propagator(&self) -> Receiver<FrameUpdateInfo>;
     async fn signal_replace(&self) -> CpResult<()>;
     async fn force_terminate(&self) -> CpResult<()>;

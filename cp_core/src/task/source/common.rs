@@ -12,6 +12,9 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
+/// Base source trait. Importantly, certain sources may have dependencies as well. 
+/// If it receives a termination signal, it is the source type's responsibility to clean up and
+/// kill its dependents as well.
 #[async_trait]
 pub trait Source {
     fn connection_type(&self) -> &str;
@@ -106,6 +109,8 @@ impl Stage for RootSource {
         let mut loops: u64 = 0;
         let signal = ctx.signal_propagator();
         loop {
+            // Source tasks do not fetch until an explicit "Replace" signal has been received.
+            // i.e. the scheduler has to send the signal
             match signal.recv().await {
                 Ok(x) => match x.msg_type {
                     FrameUpdateType::Kill => {
@@ -128,7 +133,6 @@ impl Stage for RootSource {
                         loops += 1;
                         break;
                     }
-                    // i.e. the fetch only runs again everytime the replace signal is received
                     FrameUpdateType::Replace => {
                         ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource,
                                                                                    ctx: Arc<

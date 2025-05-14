@@ -100,6 +100,7 @@ pub fn rng_str(len: usize) -> String {
         .collect()
 }
 
+/// This macro allows us to run n async tasks and gather the results
 #[macro_export]
 macro_rules! ctx_run_n_async {
     ($label:expr, $tasks:expr, $ctx:expr, $action:expr) => {
@@ -120,6 +121,7 @@ macro_rules! ctx_run_n_async {
     };
 }
 
+/// This macro allows us to split evenly (best effort) the tasks into n_threads to be handled
 #[macro_export]
 macro_rules! ctx_run_n_threads {
     ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {

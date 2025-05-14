@@ -1,15 +1,12 @@
-use std::sync::Arc;
+use std::{process::exit, sync::{atomic::{AtomicU64, AtomicUsize}, Arc}};
 
 use async_trait::async_trait;
 use crossbeam::thread;
 use polars::prelude::LazyFrame;
+use tokio::signal::{ctrl_c, unix::{signal, SignalKind}};
 
 use crate::{
-    ctx_run_n_threads,
-    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
-    task::stage::Stage,
-    util::error::{CpError, CpResult},
+    ctx_run_n_async, ctx_run_n_threads, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateInfo, FrameUpdateType}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage, util::error::{CpError, CpResult}
 };
 
 #[async_trait]
@@ -101,33 +98,55 @@ impl Stage for RootSource {
     }
     /// async exec should NOT fail if a connection fails. it should just log the error and poll again.
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
-        let mut loops = 0;
         log::info!("Stage initialized [async fetch]: {}", &self.label);
         let label = self.label.as_str();
+        let mut loops: u64 = 0;
+        let signal = ctx.signal_propagator();
         loop {
-            let mut handles = Vec::with_capacity(self.sources.len());
-            for source in &self.sources {
-                handles.push(async || {
-                    let ictx = ctx.clone();
-                    let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
-                        Ok(x) => x,
-                        Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
-                    };
-                    match source.0.fetch(ctx.clone()).await {
-                        Ok(lf) => {
-                            return Ok(bcast.broadcast(lf).await);
-                        }
-                        Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
+            match signal.recv().await {
+                Ok(x) => match x.msg_type {
+                    FrameUpdateType::Kill => { 
+                        log::info!("Terminating source stage `{}`...", self.label); 
+                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                            let ictx = ctx.clone();
+                            let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
+                                Ok(x) => x,
+                                Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
+                            };
+                            bcast.kill().await?;
+                            log::info!("Sent termination signal for frame {}", source.0.name());
+                            Ok(())
+                        });
+                        loops += 1;
+                        break;
                     }
-                });
+                    // i.e. the fetch only runs again everytime the replace signal is received
+                    FrameUpdateType::Replace => {
+                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                            let ictx = ctx.clone();
+                            let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
+                                Ok(x) => x,
+                                Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
+                            };
+                            match source.0.fetch(ctx.clone()).await {
+                                Ok(lf) => {
+                                    bcast.broadcast(lf).await?;
+                                    log::info!("Sent update for frame {}", source.0.name());
+                                    Ok(())
+                                }
+                                Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
+                            }
+                        });
+                        loops += 1;
+                    }
+                }, 
+                Err(e) => {
+                    log::warn!("Error while receiving signal: {:?}", e)
+                }
             }
-            let mut results = Vec::with_capacity(handles.len());
-            for handle in handles {
-                results.push(handle().await.unwrap());
-            }
-            loops += 1;
-            // TODO: Intercept the termination signal
         }
+
+        Ok(loops)
     }
 }
 
@@ -144,7 +163,7 @@ mod tests {
     };
 
     use crate::{
-        frame::common::{FrameBroadcastHandle, FrameListenHandle},
+        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
         task::{source::common::RootSource, stage::Stage},
         util::error::CpResult,
@@ -194,7 +213,7 @@ mod tests {
             } else {
                 let mut collected: Vec<LazyFrame> = vec![];
                 for x in &self.dep {
-                    let mut x = ctx.get_listener(x, self.connection_type()).unwrap();
+                    let mut x = ctx.get_listener(x, self.name()).unwrap();
                     let update = x.listen().unwrap();
                     let frame = update.frame.read()?;
                     collected.push(frame.clone());
@@ -210,8 +229,27 @@ mod tests {
                 Ok(result)
             }
         }
-        async fn fetch(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-            Ok(default_df().lazy())
+        async fn fetch(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+            if self.dep.is_empty() {
+                Ok(default_df().lazy())
+            } else {
+                let mut collected: Vec<LazyFrame> = vec![];
+                for x in &self.dep {
+                    let mut x = ctx.get_async_listener(x, self.name()).unwrap();
+                    let update = x.listen().await.unwrap();
+                    let frame = update.frame.read()?;
+                    collected.push(frame.clone());
+                }
+                let result = concat_lf_horizontal(
+                    collected,
+                    UnionArgs {
+                        parallel: false,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+                Ok(result)
+            }
         }
     }
 
@@ -263,5 +301,46 @@ mod tests {
     }
 
     #[test]
-    fn success_mock_source_async_exec() {}
+    fn success_mock_source_async_exec() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let ctx = Arc::new(DefaultPipelineContext::with_results(
+                &["df", "next", "test_df", "test_next"],
+                2,
+            ).with_signal());
+            let ictx = ctx.clone();
+            let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
+            next_handle.broadcast(default_next().lazy()).await.unwrap();
+            let mock_src_df = MockSource::from("test_df", &["df"]);
+            let mock_src_next = MockSource::from("test_next", &["next"]);
+            let mock_src = MockSource::new("df");
+            let src = RootSource::new(
+                "root",
+                3,
+                vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
+            );
+            let action_path = async move || {
+                // This will NOT work with linear! mock_src depends on mock_src_df
+                src.async_exec(ctx.clone()).await.unwrap();
+                assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
+                assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
+                assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
+            };
+            let terminator = async move || {
+                match ictx.signal_replace().await {
+                    Ok(_) => log::info!("Replace signal successfully sent"),
+                    Err(e) => log::error!("Error signalling replace: {}", e),
+                };
+                match ictx.force_terminate().await {
+                    Ok(_) => log::info!("Termination successfully sent"),
+                    Err(e) => log::error!("Error terminating: {}", e),
+                };
+            };
+            tokio::join!(action_path(), terminator());
+        };
+        rt.block_on(event());
+    }
 }

@@ -82,6 +82,7 @@ impl Stage for RootTransform {
                 }
                 FrameUpdateType::Kill => {
                     log::info!("Stage killed after {} iterations: {}", loops, &self.label);
+                    output_broadcast.kill().await.unwrap();
                     return Ok(loops);
                 }
             }

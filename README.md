@@ -56,7 +56,7 @@ We are drastically changing the structure of capport to support
     - [ ] OrderTransform
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
-- [ ] RootSource, method of pulling data, and types
+- [x] RootSource, method of pulling data, and types
     - [ ] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)

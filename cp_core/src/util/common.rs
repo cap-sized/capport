@@ -101,6 +101,28 @@ pub fn rng_str(len: usize) -> String {
 }
 
 #[macro_export]
+macro_rules! ctx_run_n_async {
+    ($label:expr, $tasks:expr, $ctx:expr, $action:expr) => {
+        let tasks = ($tasks);
+        let ctx = ($ctx).clone();
+        let mut handles = Vec::with_capacity(tasks.len());
+        for task in tasks {
+            handles.push(async || {
+                ($action)(task, ctx.clone()).await
+            });
+        }
+
+        let results = futures::future::join_all(handles.into_iter().map(|h| h())).await;
+        for result in results {
+            match result {
+                Ok(_) => {}
+                Err(e) => log::error!("{}: {:?}", ($label), e)
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! ctx_run_n_threads {
     ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {
         let slice = ($slice);

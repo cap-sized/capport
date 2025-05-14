@@ -20,6 +20,12 @@ pub struct SignalState {
     state_type: SignalStateType,
 }
 
+impl Default for SignalState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SignalState {
     pub fn new() -> Self {
         let (sig_sender, sig_recver) = unbounded();

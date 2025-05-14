@@ -12,7 +12,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-/// Base source trait. Importantly, certain sources may have dependencies as well. 
+/// Base source trait. Importantly, certain sources may have dependencies as well.
 /// If it receives a termination signal, it is the source type's responsibility to clean up and
 /// kill its dependents as well.
 #[async_trait]

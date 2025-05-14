@@ -107,16 +107,14 @@ macro_rules! ctx_run_n_async {
         let ctx = ($ctx).clone();
         let mut handles = Vec::with_capacity(tasks.len());
         for task in tasks {
-            handles.push(async || {
-                ($action)(task, ctx.clone()).await
-            });
+            handles.push(async || ($action)(task, ctx.clone()).await);
         }
 
         let results = futures::future::join_all(handles.into_iter().map(|h| h())).await;
         for result in results {
             match result {
                 Ok(_) => {}
-                Err(e) => log::error!("{}: {:?}", ($label), e)
+                Err(e) => log::error!("{}: {:?}", ($label), e),
             }
         }
     };

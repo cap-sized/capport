@@ -1,15 +1,16 @@
-use async_channel::{Receiver, Sender};
+use async_channel::Receiver;
 use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     frame::{
-        common::{FrameUpdateInfo, FrameUpdateType, PipelineFrame},
+        common::{FrameUpdateInfo, PipelineFrame},
         polars::{
             PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
             PolarsPipelineFrame,
         },
-    }, util::error::{CpError, CpResult}
+    },
+    util::error::{CpError, CpResult},
 };
 
 use super::{results::PipelineResults, signal::SignalState};
@@ -42,7 +43,7 @@ pub trait PipelineContext<
 /// The pipeline context contains the universe of results.
 pub struct DefaultPipelineContext {
     results: PipelineResults<PolarsPipelineFrame>,
-    signal_state: Option<SignalState>
+    signal_state: Option<SignalState>,
 }
 
 /// We NEVER modify the actual entries in PipelineResults or any other registries
@@ -59,7 +60,10 @@ impl Default for DefaultPipelineContext {
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
     pub fn from(results: PipelineResults<PolarsPipelineFrame>) -> Self {
-        Self { results, signal_state: None, }
+        Self {
+            results,
+            signal_state: None,
+        }
     }
     pub fn with_signal(mut self) -> Self {
         if self.signal_state.is_none() {
@@ -78,7 +82,9 @@ impl DefaultPipelineContext {
         Self::from(results)
     }
     pub fn signal(&self) -> &SignalState {
-        self.signal_state.as_ref().expect("No signal state initialized, try calling `ctx.with_signal()`") 
+        self.signal_state
+            .as_ref()
+            .expect("No signal state initialized, try calling `ctx.with_signal()`")
     }
 }
 

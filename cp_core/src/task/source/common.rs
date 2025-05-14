@@ -1,12 +1,15 @@
-use std::{process::exit, sync::{atomic::{AtomicU64, AtomicUsize}, Arc}};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use crossbeam::thread;
 use polars::prelude::LazyFrame;
-use tokio::signal::{ctrl_c, unix::{signal, SignalKind}};
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateInfo, FrameUpdateType}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage, util::error::{CpError, CpResult}
+    ctx_run_n_async, ctx_run_n_threads,
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType},
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    task::stage::Stage,
+    util::error::{CpError, CpResult},
 };
 
 #[async_trait]
@@ -105,13 +108,18 @@ impl Stage for RootSource {
         loop {
             match signal.recv().await {
                 Ok(x) => match x.msg_type {
-                    FrameUpdateType::Kill => { 
-                        log::info!("Terminating source stage `{}`...", self.label); 
-                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                    FrameUpdateType::Kill => {
+                        log::info!("Terminating source stage `{}`...", self.label);
+                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource,
+                                                                                   ctx: Arc<
+                            DefaultPipelineContext,
+                        >| {
                             let ictx = ctx.clone();
                             let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
                                 Ok(x) => x,
-                                Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
+                                Err(e) => {
+                                    return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                                }
                             };
                             bcast.kill().await?;
                             log::info!("Sent termination signal for frame {}", source.0.name());
@@ -122,11 +130,16 @@ impl Stage for RootSource {
                     }
                     // i.e. the fetch only runs again everytime the replace signal is received
                     FrameUpdateType::Replace => {
-                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource,
+                                                                                   ctx: Arc<
+                            DefaultPipelineContext,
+                        >| {
                             let ictx = ctx.clone();
                             let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
                                 Ok(x) => x,
-                                Err(e) => return Err(CpError::PipelineError("Broadcast channel failed", e.to_string())),
+                                Err(e) => {
+                                    return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                                }
                             };
                             match source.0.fetch(ctx.clone()).await {
                                 Ok(lf) => {
@@ -139,7 +152,7 @@ impl Stage for RootSource {
                         });
                         loops += 1;
                     }
-                }, 
+                },
                 Err(e) => {
                     log::warn!("Error while receiving signal: {:?}", e)
                 }
@@ -307,10 +320,9 @@ mod tests {
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
         let event = async || {
-            let ctx = Arc::new(DefaultPipelineContext::with_results(
-                &["df", "next", "test_df", "test_next"],
-                2,
-            ).with_signal());
+            let ctx = Arc::new(
+                DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(),
+            );
             let ictx = ctx.clone();
             let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
             next_handle.broadcast(default_next().lazy()).await.unwrap();

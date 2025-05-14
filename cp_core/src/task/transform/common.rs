@@ -94,8 +94,8 @@ impl Transform for RootTransform {
     /// which can also extract changes on frames
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let mut next = main;
-        for stage in &self.subtransforms {
-            next = stage.as_ref().run(next, ctx.clone())?
+        for subtransform in &self.subtransforms {
+            next = subtransform.as_ref().run(next, ctx.clone())?
         }
         Ok(next)
     }

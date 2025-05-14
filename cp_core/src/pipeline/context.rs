@@ -40,7 +40,7 @@ pub trait PipelineContext<
     /// The signalling channels are unusable without calling `with_signal()` previously.
     fn signal_propagator(&self) -> Receiver<FrameUpdateInfo>;
     async fn signal_replace(&self) -> CpResult<()>;
-    async fn force_terminate(&self) -> CpResult<()>;
+    async fn signal_terminate(&self) -> CpResult<()>;
 }
 
 /// The pipeline context contains the universe of results.
@@ -197,7 +197,7 @@ impl<'a>
     async fn signal_replace(&self) -> CpResult<()> {
         self.signal().send_replace_signal().await
     }
-    async fn force_terminate(&self) -> CpResult<()> {
-        self.signal().send_termination().await
+    async fn signal_terminate(&self) -> CpResult<()> {
+        self.signal().send_terminate_signal().await
     }
 }

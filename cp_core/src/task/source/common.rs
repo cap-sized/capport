@@ -350,7 +350,7 @@ mod tests {
                     Ok(_) => log::info!("Replace signal successfully sent"),
                     Err(e) => log::error!("Error signalling replace: {}", e),
                 };
-                match ictx.force_terminate().await {
+                match ictx.signal_terminate().await {
                     Ok(_) => log::info!("Termination successfully sent"),
                     Err(e) => log::error!("Error terminating: {}", e),
                 };

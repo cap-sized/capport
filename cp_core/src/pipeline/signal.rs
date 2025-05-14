@@ -20,12 +20,6 @@ pub struct SignalState {
     state_type: SignalStateType,
 }
 
-impl Default for SignalState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl SignalState {
     pub fn new() -> Self {
         let (sig_sender, sig_recver) = unbounded();
@@ -53,7 +47,7 @@ impl SignalState {
         }
     }
 
-    pub async fn send_termination(&self) -> CpResult<()> {
+    pub async fn send_terminate_signal(&self) -> CpResult<()> {
         match self
             .sig_sender
             .send(FrameUpdateInfo {
@@ -79,7 +73,7 @@ impl SignalState {
                         "Stages will terminate after completing their current event cycle. Ctrl-C again to force-kill"
                     );
                     self.state_type = SignalStateType::RequestedKill;
-                    self.send_termination()
+                    self.send_terminate_signal()
                         .await
                         .expect("Failed to send termination signal to stages");
                 }

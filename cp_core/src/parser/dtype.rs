@@ -60,34 +60,32 @@ impl<'de> Deserialize<'de> for DType {
             Full(HashMap<String, serde_yaml_ng::Value>),
         }
         match Helper::deserialize(deserializer)? {
-            Helper::Short(s) => {
-                match s.as_str() {
-                    "bool" => Ok(DType(DataType::Boolean)),
-                    "int" => Ok(DType(DataType::Int64)),
-                    "int8" => Ok(DType(DataType::Int8)),
-                    "int16" => Ok(DType(DataType::Int16)),
-                    "int32" => Ok(DType(DataType::Int32)),
-                    "int64" => Ok(DType(DataType::Int64)),
-                    "uint8" => Ok(DType(DataType::UInt8)),
-                    "uint16" => Ok(DType(DataType::UInt16)),
-                    "uint32" => Ok(DType(DataType::UInt32)),
-                    "uint64" => Ok(DType(DataType::UInt64)),
-                    "float" => Ok(DType(DataType::Float32)),
-                    "double" => Ok(DType(DataType::Float64)),
-                    "str" => Ok(DType(DataType::String)),
-                    "time" => Ok(DType(DataType::Time)),
-                    "date" => Ok(DType(DataType::Date)),
-                    "datetime_nyt" => Ok(DType(DataType::Datetime(
-                        TimeUnit::Milliseconds,
-                        Some(TimeZone::from_str(NYT)),
-                    ))),
-                    "datetime_utc" => Ok(DType(DataType::Datetime(
-                        TimeUnit::Milliseconds,
-                        Some(TimeZone::from_str(UTC)),
-                    ))),
-                    s => Err(de::Error::custom(format!("Unknown dtype in model: {}", s))),
-                }
-            }
+            Helper::Short(s) => match s.as_str() {
+                "bool" => Ok(DType(DataType::Boolean)),
+                "int" => Ok(DType(DataType::Int64)),
+                "int8" => Ok(DType(DataType::Int8)),
+                "int16" => Ok(DType(DataType::Int16)),
+                "int32" => Ok(DType(DataType::Int32)),
+                "int64" => Ok(DType(DataType::Int64)),
+                "uint8" => Ok(DType(DataType::UInt8)),
+                "uint16" => Ok(DType(DataType::UInt16)),
+                "uint32" => Ok(DType(DataType::UInt32)),
+                "uint64" => Ok(DType(DataType::UInt64)),
+                "float" => Ok(DType(DataType::Float32)),
+                "double" => Ok(DType(DataType::Float64)),
+                "str" => Ok(DType(DataType::String)),
+                "time" => Ok(DType(DataType::Time)),
+                "date" => Ok(DType(DataType::Date)),
+                "datetime_nyt" => Ok(DType(DataType::Datetime(
+                    TimeUnit::Milliseconds,
+                    Some(TimeZone::from_str(NYT)),
+                ))),
+                "datetime_utc" => Ok(DType(DataType::Datetime(
+                    TimeUnit::Milliseconds,
+                    Some(TimeZone::from_str(UTC)),
+                ))),
+                s => Err(de::Error::custom(format!("Unknown dtype in model: {}", s))),
+            },
             Helper::Full(full) => {
                 if full.len() != 1 {
                     return Err(de::Error::custom(format!(
@@ -107,12 +105,11 @@ impl<'de> Deserialize<'de> for DType {
                         }
                         Ok(DataType::Struct(fields))
                     }),
-                    "list" => serde_yaml_ng::from_value::<DType>(type_args).map(|dtype| {
-                        Ok(DataType::List(Box::new(dtype.0)))
-                    }),
-                    "datetime" => serde_yaml_ng::from_value::<String>(type_args).map(|tz| 
-                        Ok(DataType::Datetime(TimeUnit::Milliseconds, Some(tz.into())))
-                    ),
+                    "list" => {
+                        serde_yaml_ng::from_value::<DType>(type_args).map(|dtype| Ok(DataType::List(Box::new(dtype.0))))
+                    }
+                    "datetime" => serde_yaml_ng::from_value::<String>(type_args)
+                        .map(|tz| Ok(DataType::Datetime(TimeUnit::Milliseconds, Some(tz.into())))),
                     x => {
                         return Err(de::Error::custom(format!("Unrecognized datatype: {}", x)));
                     }
@@ -219,7 +216,10 @@ mod tests {
             DataType::Struct(vec![Field::new("test".into(), DataType::Int64)]),
             DataType::List(Box::new(DataType::String)),
             DataType::Datetime(TimeUnit::Milliseconds, Some("Europe/London".into())),
-            DataType::Struct(vec![Field::new("test".into(), DataType::List(Box::new(DataType::String)))]),
+            DataType::Struct(vec![Field::new(
+                "test".into(),
+                DataType::List(Box::new(DataType::String)),
+            )]),
             DataType::List(Box::new(DataType::Struct(vec![
                 Field::new("a".into(), DataType::UInt64),
                 Field::new("b".into(), DataType::Boolean),

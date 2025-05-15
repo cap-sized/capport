@@ -75,7 +75,7 @@ impl Stage for RootSource {
     }
     /// WARNING: This method shouldn't be chosen to run concurrently any source tasks
     /// that might have dependencies on each other: if they are scheduled out of order
-    /// on the same thread execution will definitely be blocked. If any ordering is 
+    /// on the same thread execution will definitely be blocked. If any ordering is
     /// required, use separate source tasks so execution reliably runs.
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
@@ -314,13 +314,9 @@ mod tests {
         next_handle.broadcast(default_next().lazy()).unwrap();
         let mock_src_next = MockSource::from("test_next", &["next"]);
         let mock_src = MockSource::new("df");
-        // mock_src depends on mock_src_df. If max_threads is any less than 3, 
+        // mock_src depends on mock_src_df. If max_threads is any less than 3,
         // there is a chance this blocks.
-        let src = RootSource::new(
-            "root",
-            1,
-            vec![Box::new(mock_src_next), Box::new(mock_src)],
-        );
+        let src = RootSource::new("root", 1, vec![Box::new(mock_src_next), Box::new(mock_src)]);
         // This will NOT work with linear! mock_src depends on mock_src_df
         src.sync_exec(ctx.clone()).unwrap();
         assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
@@ -341,7 +337,7 @@ mod tests {
             let mock_src_df = MockSource::from("test_df", &["df"]);
             let mock_src_next = MockSource::from("test_next", &["next"]);
             let mock_src = MockSource::new("df");
-            // mock_src depends on mock_src_df. If max_threads is any less than 3, 
+            // mock_src depends on mock_src_df. If max_threads is any less than 3,
             // there is a chance this blocks.
             let src = RootSource::new(
                 "root",

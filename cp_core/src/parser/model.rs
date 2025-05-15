@@ -52,7 +52,7 @@ mod tests {
             actual_str,
             example_str()
                 .into_iter()
-                .map(|x| format!("{}{}", x.chars().nth(0).unwrap().to_uppercase(), x[1..].to_lowercase()))
+                .map(|x| format!("{}{}", x.chars().next().unwrap().to_uppercase(), x[1..].to_lowercase()))
                 .collect::<Vec<_>>()
         );
     }

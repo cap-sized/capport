@@ -41,20 +41,29 @@ mod tests {
 
     use polars::prelude::{DataType, Field, TimeUnit};
 
-    use crate::parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}, model::ModelConstraint};
+    use crate::parser::{
+        dtype::DType,
+        keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+        model::ModelConstraint,
+    };
 
     use super::{ModelConfig, ModelFieldInfo};
 
     macro_rules! test_build_field_values {
         ($key:expr, $value:expr) => {
-            (StrKeyword::with_value(($key).to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(($value)))))
+            (
+                StrKeyword::with_value(($key).to_owned()),
+                ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(($value)))),
+            )
         };
     }
 
     macro_rules! test_build_field_values_constraints {
         ($key:expr, $value:expr, $constraints:expr) => {
-            (StrKeyword::with_value(($key).to_owned()), 
-            ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(($value)), ($constraints))))
+            (
+                StrKeyword::with_value(($key).to_owned()),
+                ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(($value)), ($constraints))),
+            )
         };
     }
 
@@ -76,10 +85,17 @@ fields:
         let expected = ModelConfig {
             label: StrKeyword::with_value("OUTPUT".to_owned()),
             fields: HashMap::from([
-                (StrKeyword::with_symbol("sym"), ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::Int64), &[]))),
+                (
+                    StrKeyword::with_symbol("sym"),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::Int64), &[])),
+                ),
                 test_build_field_values_constraints!("simple", DataType::String, &[ModelConstraint::Unique]),
-                test_build_field_values_constraints!("complex", DataType::List(Box::new(DataType::Date)), &[ModelConstraint::Foreign]),
-            ])
+                test_build_field_values_constraints!(
+                    "complex",
+                    DataType::List(Box::new(DataType::Date)),
+                    &[ModelConstraint::Foreign]
+                ),
+            ]),
         };
         let actual: ModelConfig = serde_yaml_ng::from_str(model_config).unwrap();
         assert_eq!(actual, expected);
@@ -107,18 +123,31 @@ fields:
         let expected = ModelConfig {
             label: StrKeyword::with_value("OUTPUT".to_owned()),
             fields: HashMap::from([
-                (StrKeyword::with_symbol("sym"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))),
-                (StrKeyword::with_value("value".to_owned()), ModelFieldKeyword::with_symbol("dtype_sym")),
+                (
+                    StrKeyword::with_symbol("sym"),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
+                ),
+                (
+                    StrKeyword::with_value("value".to_owned()),
+                    ModelFieldKeyword::with_symbol("dtype_sym"),
+                ),
                 test_build_field_values!("simple", DataType::String),
                 test_build_field_values!("complex", DataType::List(Box::new(DataType::Date))),
-                test_build_field_values!("complex_nested", DataType::List(Box::new(DataType::Datetime(TimeUnit::Milliseconds, Some("Asia/Tokyo".into()))))),
-                test_build_field_values!("complex_nested_collections", DataType::List(Box::new(DataType::Struct(
-                    vec![
+                test_build_field_values!(
+                    "complex_nested",
+                    DataType::List(Box::new(DataType::Datetime(
+                        TimeUnit::Milliseconds,
+                        Some("Asia/Tokyo".into())
+                    )))
+                ),
+                test_build_field_values!(
+                    "complex_nested_collections",
+                    DataType::List(Box::new(DataType::Struct(vec![
                         Field::new("a".into(), DataType::String),
                         Field::new("b".into(), DataType::Boolean),
-                    ]
-                )))),
-            ])
+                    ])))
+                ),
+            ]),
         };
         let actual: ModelConfig = serde_yaml_ng::from_str(model_config).unwrap();
         assert_eq!(actual, expected);

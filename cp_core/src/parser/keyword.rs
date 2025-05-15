@@ -3,8 +3,9 @@ use std::{collections::HashMap, hash::Hash};
 use polars::prelude::{Expr, lit};
 use serde::{Deserialize, Deserializer, Serialize, de, ser};
 
-use crate::parser::expr::parse_str_to_col_expr;
+use crate::parser::dtype::DType;
 use crate::util::error::CpResult;
+use crate::{model::common::ModelFieldInfo, parser::expr::parse_str_to_col_expr};
 
 use super::action::{ConcatAction, ExprAction, FormatAction};
 
@@ -43,6 +44,50 @@ pub struct PolarsExprKeyword {
     value: Option<Expr>,
 }
 
+/// Keyword that yields a column definition expression. Valid expressions are dtype or complete field info (parsed from map).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelFieldKeyword {
+    symbol: Option<String>,
+    value: Option<ModelFieldInfo>,
+}
+
+impl<'de> Deserialize<'de> for ModelFieldKeyword {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            Short(StrKeyword),
+            ValueDType(DType),
+            Full(ModelFieldInfo),
+        }
+        match Helper::deserialize(deserializer)? {
+            Helper::Short(str_kw) => {
+                if let Some(sym) = str_kw.symbol() {
+                    return Ok(ModelFieldKeyword::with_symbol(sym));
+                }
+                if let Some(val) = str_kw.value() {
+                    return match serde_yaml_ng::from_str::<DType>(val) {
+                        Ok(x) => Ok(ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(x))),
+                        Err(e) => Err(de::Error::custom(format!(
+                            "Model field dtype {:?} is not valid: {:?}",
+                            str_kw, e
+                        ))),
+                    };
+                }
+                Err(de::Error::custom(format!(
+                    "Model field dtype is not a symbol or value: {:?}",
+                    str_kw
+                )))
+            }
+            Helper::ValueDType(dtype) => Ok(ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(dtype))),
+            Helper::Full(model_field_info) => Ok(ModelFieldKeyword::with_value(model_field_info)),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for PolarsExprKeyword {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -72,7 +117,7 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
             Helper::Full(full) => {
                 if full.len() != 1 {
                     return Err(de::Error::custom(format!(
-                        "To parse PolarsExprKeyword as an action, it must be a map with exactly one pair. Found: {:?}",
+                        "To parse PolarsExprKeyword as an action, it must be a map with exactly one key. Found: {:?}",
                         full
                     )));
                 }
@@ -150,6 +195,30 @@ impl Keyword<'_, Expr> for PolarsExprKeyword {
     }
 }
 
+impl Keyword<'_, ModelFieldInfo> for ModelFieldKeyword {
+    fn with_value(value: ModelFieldInfo) -> Self {
+        Self {
+            symbol: None,
+            value: Some(value),
+        }
+    }
+    fn with_symbol(symbol: &str) -> Self {
+        Self {
+            symbol: Some(symbol.to_owned()),
+            value: None,
+        }
+    }
+    fn value(&'_ self) -> Option<&'_ ModelFieldInfo> {
+        self.value.as_ref()
+    }
+    fn symbol(&'_ self) -> Option<&str> {
+        self.symbol.as_deref()
+    }
+    fn insert_value(&mut self, value: ModelFieldInfo) {
+        let _ = self.value.insert(value);
+    }
+}
+
 impl Serialize for StrKeyword {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -185,10 +254,15 @@ impl<'de> Deserialize<'de> for StrKeyword {
 mod tests {
     use std::collections::HashMap;
 
-    use polars::prelude::{col, concat_str, format_str, lit};
+    use polars::prelude::{DataType, col, concat_str, format_str, lit};
     use serde::{Deserialize, Serialize};
 
-    use super::{Keyword, PolarsExprKeyword, StrKeyword};
+    use crate::{
+        model::common::ModelFieldInfo,
+        parser::{dtype::DType, model::ModelConstraint},
+    };
+
+    use super::{Keyword, ModelFieldKeyword, PolarsExprKeyword, StrKeyword};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     struct StrKeywordExample {
@@ -335,5 +409,59 @@ format:
         let mut strk = PolarsExprKeyword::with_symbol("test");
         strk.insert_value(col("actual_value"));
         assert_eq!(strk.value().unwrap(), &col("actual_value"));
+    }
+
+    #[test]
+    fn valid_model_field_keyword_de() {
+        let config = [
+            "$test",
+            "int64",
+            "dtype: int64",
+            "
+dtype: str
+constraints: [unique]
+",
+            "
+dtype: str
+constraints: [foreign, unique]
+",
+        ];
+        let expected = [
+            ModelFieldKeyword::with_symbol("test"),
+            ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
+            ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
+            ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::String), &[ModelConstraint::Unique])),
+            ModelFieldKeyword::with_value(ModelFieldInfo::new(
+                DType(DataType::String),
+                &[ModelConstraint::Foreign, ModelConstraint::Unique],
+            )),
+        ];
+        let actual = config
+            .iter()
+            .map(|x| serde_yaml_ng::from_str::<ModelFieldKeyword>(x).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn invalid_model_field_keyword_de() {
+        let configs = [
+            "bad",
+            "",
+            "
+constraints: [unique]
+",
+            "
+dtype: str
+constraints: [not]
+",
+            "
+dtype: str
+constraints: [$nosymbols]
+",
+        ];
+        for config in configs {
+            assert!(serde_yaml_ng::from_str::<ModelFieldKeyword>(config).is_err());
+        }
     }
 }

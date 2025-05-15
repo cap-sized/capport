@@ -25,6 +25,11 @@ pub trait Source {
 
 pub struct BoxedSource(Box<dyn Source>);
 
+pub trait SourceConfig {
+    fn validate(&self) -> Vec<CpError>;
+    fn transform(&self) -> Box<dyn Source>;
+}
+
 /// We NEVER modify the individual Source instantiations after initialization.
 /// Hence the Box<dyn Source> is safe to access in parallel
 unsafe impl Send for BoxedSource {}
@@ -68,6 +73,10 @@ impl Stage for RootSource {
         }
         Ok(())
     }
+    /// WARNING: This method shouldn't be chosen to run concurrently any source tasks
+    /// that might have dependencies on each other: if they are scheduled out of order
+    /// on the same thread execution will definitely be blocked. If any ordering is 
+    /// required, use separate source tasks so execution reliably runs.
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
@@ -103,6 +112,8 @@ impl Stage for RootSource {
         Ok(())
     }
     /// async exec should NOT fail if a connection fails. it should just log the error and poll again.
+    /// suitable for running concurrently even tasks that have dependencies on each other, but for
+    /// clarity this is unadvised.
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         log::info!("Stage initialized [async fetch]: {}", &self.label);
         let label = self.label.as_str();
@@ -294,27 +305,55 @@ mod tests {
     }
 
     #[test]
-    fn success_mock_source_sync_exec() {
-        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+    fn success_mock_source_sync_exec_single_thread() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(
             &["df", "next", "test_df", "test_next"],
             1,
         ));
         let mut next_handle = ctx.get_broadcast("next", "orig").unwrap();
         next_handle.broadcast(default_next().lazy()).unwrap();
-        let mock_src_df = MockSource::from("test_df", &["df"]);
         let mock_src_next = MockSource::from("test_next", &["next"]);
         let mock_src = MockSource::new("df");
+        // mock_src depends on mock_src_df. If max_threads is any less than 3, 
+        // there is a chance this blocks.
         let src = RootSource::new(
             "root",
-            3,
-            vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
+            1,
+            vec![Box::new(mock_src_next), Box::new(mock_src)],
         );
         // This will NOT work with linear! mock_src depends on mock_src_df
         src.sync_exec(ctx.clone()).unwrap();
         assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
         assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
-        assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
+    }
+
+    #[test]
+    fn success_mock_source_sync_exec() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let count = [3, 4];
+        for thread_count in count {
+            let ctx = Arc::new(DefaultPipelineContext::with_results(
+                &["df", "next", "test_df", "test_next"],
+                1,
+            ));
+            let mut next_handle = ctx.get_broadcast("next", "orig").unwrap();
+            next_handle.broadcast(default_next().lazy()).unwrap();
+            let mock_src_df = MockSource::from("test_df", &["df"]);
+            let mock_src_next = MockSource::from("test_next", &["next"]);
+            let mock_src = MockSource::new("df");
+            // mock_src depends on mock_src_df. If max_threads is any less than 3, 
+            // there is a chance this blocks.
+            let src = RootSource::new(
+                "root",
+                thread_count,
+                vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
+            );
+            // This will NOT work with linear! mock_src depends on mock_src_df
+            src.sync_exec(ctx.clone()).unwrap();
+            assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
+            assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
+            assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
+        }
     }
 
     #[test]

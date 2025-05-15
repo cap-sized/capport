@@ -25,3 +25,5 @@ context (this implementation is up to the individual source type).
 
 Sources must implement `run(ctx)`, a synchronous execution mode, and `fetch(ctx)`, 
 an asynchronous execution mode.
+
+## Modes

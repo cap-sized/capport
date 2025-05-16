@@ -158,5 +158,109 @@ impl TransformConfig for JoinTransformConfig {
 
 #[cfg(test)]
 mod tests {
-    // YX TODO: implement tests
+    use crate::parser::jtype::JType;
+    use crate::parser::keyword::{Keyword, PolarsExprKeyword, StrKeyword};
+    use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
+    use crate::task::transform::common::TransformConfig;
+    use crate::task::transform::config::{_JoinTransformConfig, JoinTransformConfig};
+    use polars::df;
+    use polars::prelude::{IntoLazy, JoinType, col};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[test]
+    fn valid_join_transform_basic() {
+        let test_cases = vec![
+            (
+                JoinType::Inner,
+                df!(
+                    "col"           => [2, 2, 3, 3, 3, 3],
+                    "data_2"        => [1, 2, 3, 3, 4, 4],
+                    "left_col"      => [2, 2, 3, 3, 3, 3],
+                    "left_data_2"   => [1, 2, 3, 3, 4, 4],
+                    "data_1"        => [2, 2, 3, 4, 3, 4],
+                ),
+            ),
+            (
+                JoinType::Left,
+                df!(
+                    "col"           => [2, 2, 3, 3, 3, 3, 4, 4],
+                    "data_2"        => [1, 2, 3, 3, 4, 4, 5, 6],
+                    "left_col"      => [2, 2, 3, 3, 3, 3, 4, 4],
+                    "left_data_2"   => [1, 2, 3, 3, 4, 4, 5, 6],
+                    "data_1"        => [Some(2), Some(2), Some(3), Some(4), Some(3), Some(4), None, None],
+                ),
+            ),
+        ];
+
+        for (join_type, expected) in test_cases {
+            let config = JoinTransformConfig {
+                join: _JoinTransformConfig {
+                    right: StrKeyword::with_value("BASIC".to_owned()),
+                    left_on: vec![StrKeyword::with_value("col".to_owned())],
+                    right_on: vec![StrKeyword::with_value("col".to_owned())],
+                    left_prefix: Some(StrKeyword::with_value("left_".to_owned())),
+                    right_prefix: None,
+                    right_select: Some(HashMap::from([
+                        (
+                            StrKeyword::with_value("col".to_owned()),
+                            PolarsExprKeyword::with_value(col("my_col")),
+                        ),
+                        (
+                            StrKeyword::with_value("data_1".to_owned()),
+                            PolarsExprKeyword::with_value(col("data_1")),
+                        ),
+                    ])),
+                    how: JType(join_type),
+                },
+            };
+
+            assert!(config.validate().is_empty());
+
+            let join = config.transform();
+            let ctx = Arc::new(DefaultPipelineContext::with_results(&["BASIC"], 1));
+            let basic = df!(
+                "my_col" => [1, 2, 3, 3],
+                "data_1" => [1, 2, 3, 4]
+            )
+            .unwrap()
+            .lazy();
+            ctx.insert_result("BASIC", basic).unwrap();
+
+            let main = df!(
+                "col"       => [2, 2, 3, 3, 4, 4],
+                "data_2"    => [1, 2, 3, 4, 5, 6]
+            )
+            .unwrap()
+            .lazy();
+
+            let actual = join.run(main, ctx).unwrap();
+            assert_eq!(actual.collect().unwrap(), expected.unwrap());
+        }
+    }
+    #[test]
+    fn invalid_join_transform_basic() {
+        let config = JoinTransformConfig {
+            join: _JoinTransformConfig {
+                right: StrKeyword::with_value("BASIC".to_owned()),
+                left_on: vec![StrKeyword::with_symbol("col")],
+                right_on: vec![StrKeyword::with_symbol("col")],
+                left_prefix: Some(StrKeyword::with_value("left_".to_owned())),
+                right_prefix: None,
+                right_select: Some(HashMap::from([
+                    (
+                        StrKeyword::with_value("col".to_owned()),
+                        PolarsExprKeyword::with_value(col("my_col")),
+                    ),
+                    (
+                        StrKeyword::with_value("data_1".to_owned()),
+                        PolarsExprKeyword::with_value(col("data_1")),
+                    ),
+                ])),
+                how: JType(JoinType::Left),
+            },
+        };
+
+        assert_eq!(config.validate().len(), 2);
+    }
 }

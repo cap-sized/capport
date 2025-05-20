@@ -1,8 +1,12 @@
 use async_channel::Receiver;
 use async_trait::async_trait;
-use polars::{frame::DataFrame, prelude::LazyFrame};
+use polars::{
+    frame::DataFrame,
+    prelude::{LazyFrame, Schema},
+};
 
 use crate::{
+    context::model::ModelRegistry,
     frame::{
         common::{FrameUpdateInfo, PipelineFrame},
         polars::{
@@ -10,6 +14,7 @@ use crate::{
             PolarsPipelineFrame,
         },
     },
+    model::common::{ModelConfig, ModelFields},
     util::error::{CpError, CpResult},
 };
 
@@ -36,6 +41,11 @@ pub trait PipelineContext<
     fn extract_result(&self, label: &str) -> CpResult<FrameType>;
     fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
 
+    /// Model Registry
+    fn get_model(&self, model_name: &str) -> CpResult<ModelConfig>;
+    fn get_substituted_model_fields(&self, model_name: &str, context: &serde_yaml_ng::Mapping)
+    -> CpResult<ModelFields>;
+
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
     fn signal_propagator(&self) -> Receiver<FrameUpdateInfo>;
@@ -46,6 +56,7 @@ pub trait PipelineContext<
 /// The pipeline context contains the universe of results.
 pub struct DefaultPipelineContext {
     results: PipelineResults<PolarsPipelineFrame>,
+    model_registry: ModelRegistry,
     signal_state: Option<SignalState>,
 }
 
@@ -62,9 +73,10 @@ impl Default for DefaultPipelineContext {
 
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
-    pub fn from(results: PipelineResults<PolarsPipelineFrame>) -> Self {
+    pub fn from(results: PipelineResults<PolarsPipelineFrame>, model_registry: ModelRegistry) -> Self {
         Self {
             results,
+            model_registry,
             signal_state: None,
         }
     }
@@ -75,14 +87,14 @@ impl DefaultPipelineContext {
         self
     }
     pub fn new() -> Self {
-        Self::from(PipelineResults::<PolarsPipelineFrame>::new())
+        Self::from(PipelineResults::<PolarsPipelineFrame>::new(), ModelRegistry::new())
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
         let mut results = PipelineResults::<PolarsPipelineFrame>::new();
         labels.iter().for_each(|label| {
             results.insert(label.to_owned(), bufsize);
         });
-        Self::from(results)
+        Self::from(results, ModelRegistry::new())
     }
     pub fn signal(&self) -> &SignalState {
         self.signal_state
@@ -199,5 +211,21 @@ impl<'a>
     }
     async fn signal_terminate(&self) -> CpResult<()> {
         self.signal().send_terminate_signal().await
+    }
+    fn get_model(&self, model_name: &str) -> CpResult<ModelConfig> {
+        match self.model_registry.get_model(model_name) {
+            Some(x) => Ok(x),
+            None => Err(CpError::ConfigError(
+                "Missing config for model",
+                format!("Config required: {}", model_name),
+            )),
+        }
+    }
+    fn get_substituted_model_fields(
+        &self,
+        model_name: &str,
+        context: &serde_yaml_ng::Mapping,
+    ) -> CpResult<ModelFields> {
+        self.model_registry.get_substituted_model_fields(model_name, context)
     }
 }

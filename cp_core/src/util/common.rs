@@ -7,7 +7,6 @@ use rand::{Rng, distr::Alphanumeric};
 use crate::{
     context::envvar::get_env_var_str,
     logger::common::{DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR},
-    parser::common::YamlRead,
 };
 
 use super::error::{CpError, CpResult};
@@ -76,12 +75,22 @@ pub fn get_full_path(abs_or_rel_path_str: &str, is_config: bool) -> CpResult<std
     Ok(full_path)
 }
 
-pub fn create_config_pack(
-    yaml_str: &str,
-    configurable: &str,
-) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>> {
-    let configs: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_str).unwrap();
-    HashMap::from([(configurable.to_owned(), configs.to_str_map().unwrap())])
+pub fn create_config_pack<I>(
+    yaml_strs: I,
+) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>> where I: IntoIterator, I::Item: AsRef<str> {
+    let configs = yaml_strs.into_iter().map(|x| serde_yaml_ng::from_str::<HashMap<String, serde_yaml_ng::Mapping>>(x.as_ref()).expect("invalid yaml"));
+    let mut map = HashMap::new();
+    for config in configs {
+        for (key, value) in config {
+            if !map.contains_key(&key) {
+                map.insert(key.clone(), HashMap::<String, serde_yaml_ng::Value>::new());
+            }
+            for (k, v) in value {
+                map.get_mut(&key).unwrap().insert(k.as_str().unwrap().to_owned(), v);
+            }
+        }
+    }
+    map
 }
 
 pub fn yaml_from_str(s: &str) -> CpResult<serde_yaml_ng::Value> {

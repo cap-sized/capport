@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
+use polars::prelude::Schema;
 use serde::Deserialize;
 
-use crate::parser::{
-    dtype::DType,
-    keyword::{ModelFieldKeyword, StrKeyword},
-    model::ModelConstraint,
+use crate::{
+    parser::{
+        dtype::DType,
+        keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+        model::ModelConstraint,
+    },
+    util::error::CpResult,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -29,10 +33,38 @@ impl ModelFieldInfo {
     }
 }
 
+pub type ModelFields = HashMap<StrKeyword, ModelFieldKeyword>;
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ModelConfig {
-    pub label: StrKeyword,
-    pub fields: HashMap<StrKeyword, ModelFieldKeyword>,
+    pub label: String,
+    pub fields: ModelFields,
+}
+
+impl ModelConfig {
+    pub fn schema(&self) -> CpResult<Schema> {
+        let mut schema = Schema::with_capacity(self.fields.len());
+        for (field_name, field_detail) in &self.fields {
+            let name = field_name
+                .value()
+                .expect("value not present for model field_name")
+                .as_str();
+            let detail = field_detail.value().expect("value not present for model field_detail");
+            schema.insert(name.into(), detail.dtype.0.clone());
+        }
+        Ok(schema)
+    }
+    pub fn substitute_model_fields(&self, context: &serde_yaml_ng::Mapping) -> CpResult<ModelFields> {
+        let mut fields = HashMap::new();
+        for (colname, coldetail) in &self.fields {
+            let mut name = colname.clone();
+            name.insert_value_from_context(context)?;
+            let mut detail = coldetail.clone();
+            detail.insert_value_from_context(context)?;
+            fields.insert(name, detail);
+        }
+        Ok(fields)
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +115,7 @@ fields:
         constraints: [foreign]
 ";
         let expected = ModelConfig {
-            label: StrKeyword::with_value("OUTPUT".to_owned()),
+            label: "OUTPUT".to_owned(),
             fields: HashMap::from([
                 (
                     StrKeyword::with_symbol("sym"),
@@ -121,7 +153,7 @@ fields:
                 b: bool
 ";
         let expected = ModelConfig {
-            label: StrKeyword::with_value("OUTPUT".to_owned()),
+            label: "OUTPUT".to_owned(),
             fields: HashMap::from([
                 (
                     StrKeyword::with_symbol("sym"),

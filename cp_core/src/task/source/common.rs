@@ -26,8 +26,8 @@ pub trait Source {
 pub struct BoxedSource(Box<dyn Source>);
 
 pub trait SourceConfig {
-    fn validate(&self) -> Vec<CpError>;
-    fn transform(&self) -> Box<dyn Source>;
+    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
+    fn transform(&self, ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source>;
 }
 
 /// We NEVER modify the individual Source instantiations after initialization.

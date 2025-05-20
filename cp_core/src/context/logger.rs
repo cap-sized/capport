@@ -122,21 +122,22 @@ mod tests {
     use super::LoggerRegistry;
 
     fn create_logger_registry(yaml_str: &str) -> LoggerRegistry {
-        let mut config_pack = create_config_pack(yaml_str, "logger");
+        let mut config_pack = create_config_pack([yaml_str]);
         LoggerRegistry::from(&mut config_pack).unwrap()
     }
 
     fn assert_invalid_model(yaml_str: &str) {
-        let mut config_pack = create_config_pack(yaml_str, "logger");
+        let mut config_pack = create_config_pack([yaml_str]);
         LoggerRegistry::from(&mut config_pack).unwrap_err();
     }
 
     #[test]
     fn valid_one_full_log_writer() {
         let config = "
-base_log:
-    level: debug
-    output_path_prefix: myprogram_
+logger:
+    base_log:
+        level: debug
+        output_path_prefix: myprogram_
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
@@ -148,8 +149,9 @@ base_log:
     #[test]
     fn valid_missing_output_prefix_timestamp_fields() {
         let config = "
-base_log:
-    output_path_prefix: /tmp/
+logger:
+    base_log:
+        output_path_prefix: /tmp/
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
@@ -161,9 +163,10 @@ base_log:
     #[test]
     fn valid_missing_prefix_timestamp_fields() {
         let config = "
-base_log:
-    level: warn
-    output_path_prefix: /tmp/
+logger:
+    base_log:
+        level: warn
+        output_path_prefix: /tmp/
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
@@ -175,9 +178,10 @@ base_log:
     #[test]
     fn valid_missing_timestamp_fields() {
         let config = "
-base_log:
-    level: error
-    output_path_prefix: /tmp/myprogram_
+logger:
+    base_log:
+        level: error
+        output_path_prefix: /tmp/myprogram_
         ";
         let reg = create_logger_registry(config);
         println!("{:?}", reg);
@@ -189,10 +193,11 @@ base_log:
     #[test]
     fn invalid_field() {
         let config = "
-base_log:
-    level: bad
-    output_path_prefix: /tmp/
-    _final_output_path: something
+logger:
+    base_log:
+        level: bad
+        output_path_prefix: /tmp/
+        _final_output_path: something
         ";
         assert_invalid_model(config);
     }
@@ -200,9 +205,10 @@ base_log:
     #[test]
     fn invalid_level() {
         let config = "
-base_log:
-    level: bad
-    output_path_prefix: /tmp/myprogram_
+logger:
+    base_log:
+        level: bad
+        output_path_prefix: /tmp/myprogram_
         ";
         assert_invalid_model(config);
     }
@@ -211,11 +217,13 @@ base_log:
     fn invalid_missing_output() {
         [
             "
-base_log:
-    level: error
+logger:
+    base_log:
+        level: error
         ",
             "
-base_log:
+logger:
+    base_log:
         ",
         ]
         .iter()
@@ -238,12 +246,13 @@ base_log:
 
         let config = format!(
             "
-base_log:
-    level: error
-    output_path_prefix: {}/myprogram_
-second_log:
-    level: error
-    output_path_prefix: {}/anothermyprogram_
+logger:
+    base_log:
+        level: error
+        output_path_prefix: {}/myprogram_
+    second_log:
+        level: error
+        output_path_prefix: {}/anothermyprogram_
         ",
             dir_path, dir_path
         );

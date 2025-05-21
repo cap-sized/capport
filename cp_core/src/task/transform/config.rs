@@ -42,6 +42,11 @@ pub struct DropTransformConfig {
     pub drop: Vec<PolarsExprKeyword>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SqlTransformConfig {
+    pub sql: String,
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -56,7 +61,7 @@ mod tests {
         task::transform::config::_JoinTransformConfig,
     };
 
-    use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig};
+    use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig, SqlTransformConfig};
 
     #[test]
     fn parse_transform_select() {
@@ -239,6 +244,19 @@ join:
                     PolarsExprKeyword::with_symbol("second"),
                     PolarsExprKeyword::with_value(col("third").struct_().field_by_name("fourth")),
                 ]
+            }
+        );
+    }
+
+    #[test]
+    fn parse_transform_sql() {
+        let config = "sql: select col from data";
+        let actual: SqlTransformConfig = serde_yaml_ng::from_str(config).unwrap();
+
+        assert_eq!(
+            actual,
+            SqlTransformConfig {
+                sql: "select col from data".to_string(),
             }
         );
     }

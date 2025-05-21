@@ -163,6 +163,7 @@ mod tests {
     use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
     use crate::task::transform::common::TransformConfig;
     use crate::task::transform::config::{_JoinTransformConfig, JoinTransformConfig};
+    use crate::util::test::assert_frame_equal;
     use polars::df;
     use polars::prelude::{IntoLazy, JoinType, col};
     use std::collections::HashMap;
@@ -189,6 +190,27 @@ mod tests {
                     "left_col"      => [2, 2, 3, 3, 3, 3, 4, 4],
                     "left_data_2"   => [1, 2, 3, 3, 4, 4, 5, 6],
                     "data_1"        => [Some(2), Some(2), Some(3), Some(4), Some(3), Some(4), None, None],
+                ),
+            ),
+            (
+                JoinType::Right,
+                df!(
+                    "col"           => [1, 2, 2, 3, 3, 3, 3],
+                    "data_2"        => [None, Some(1), Some(2), Some(3), Some(4), Some(3), Some(4)],
+                    "left_col"      => [None, Some(2), Some(2), Some(3), Some(3), Some(3), Some(3)],
+                    "left_data_2"   => [None, Some(1), Some(2), Some(3), Some(4), Some(3), Some(4)],
+                    "data_1"        => [1, 2, 2, 3, 3, 4, 4],
+                ),
+            ),
+            (
+                JoinType::Full,
+                df!(
+                    "col"           => [None, Some(2), Some(2), Some(3), Some(3), Some(3), Some(3), Some(4), Some(4)],
+                    "col_right"     => [Some(1), Some(2), Some(2), Some(3), Some(3), Some(3), Some(3), None, None],
+                    "data_1"        => [Some(1), Some(2), Some(2), Some(3), Some(3), Some(4), Some(4), None, None],
+                    "data_2"        => [None, Some(1), Some(2), Some(3), Some(4), Some(3), Some(4), Some(5), Some(6)],
+                    "left_col"      => [None, Some(2), Some(2), Some(3), Some(3), Some(3), Some(3), Some(4), Some(4)],
+                    "left_data_2"   => [None, Some(1), Some(2), Some(3), Some(4), Some(3), Some(4), Some(5), Some(6)],
                 ),
             ),
         ];
@@ -235,7 +257,7 @@ mod tests {
             .lazy();
 
             let actual = join.run(main, ctx).unwrap();
-            assert_eq!(actual.collect().unwrap(), expected.unwrap());
+            assert_frame_equal(actual.collect().unwrap(), expected.unwrap());
         }
     }
     #[test]

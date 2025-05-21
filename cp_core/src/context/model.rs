@@ -149,6 +149,7 @@ irrelevant_node:
 
     #[test]
     fn valid_insert_substitute_model_registry() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let mut reg = ModelRegistry::new();
         reg.insert(ModelConfig {
             label: "model_a".to_owned(),
@@ -166,6 +167,10 @@ value:
         let fields = reg.get_substituted_model_fields("model_a", &context).unwrap();
         // TODO: 
         assert_eq!(fields, HashMap::from([
+            (StrKeyword::with_value("sub1".to_owned()).and_symbol("field1"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))),
+            (StrKeyword::with_value("field2".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(
+                DataType::Datetime(TimeUnit::Milliseconds, Some("Asia/Tokyo".into()))
+            ))).and_symbol("value")),
         ]));
     }
 }

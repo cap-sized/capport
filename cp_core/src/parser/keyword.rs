@@ -17,6 +17,7 @@ pub trait Keyword<'a, T> {
     fn symbol(&'a self) -> Option<&'a str>;
     fn with_value(value: T) -> Self;
     fn with_symbol(symbol: &str) -> Self;
+    fn and_symbol(self, symbol: &str) -> Self;
     fn insert_value(&mut self, value: T);
     fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
 }
@@ -167,10 +168,18 @@ impl Keyword<'_, String> for StrKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: String) {
         let _ = self.value.insert(value);
     }
     fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
         let symbol = self.symbol().expect("no symbol or value");
         let value = match context.get(symbol) {
             Some(x) => x,
@@ -218,10 +227,18 @@ impl Keyword<'_, Expr> for PolarsExprKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: Expr) {
         let _ = self.value.insert(value);
     }
     fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
         let symbol = self.symbol().expect("no symbol or value");
         let value = match context.get(symbol) {
             Some(x) => x,
@@ -277,10 +294,19 @@ impl Keyword<'_, ModelFieldInfo> for ModelFieldKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: ModelFieldInfo) {
         let _ = self.value.insert(value);
     }
     fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
+        log::debug!("symbol: {:?}", self.symbol());
         let symbol = self.symbol().expect("no symbol or value");
         let value = match context.get(symbol) {
             Some(x) => x,

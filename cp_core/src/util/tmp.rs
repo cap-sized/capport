@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::{env::temp_dir, fs::{self, File}};
 
 use log::info;
 
@@ -38,8 +38,9 @@ impl TempFile {
 
 impl Default for TempFile {
     fn default() -> Self {
+        let tmp_dir = temp_dir();
         let rndstr = rng_str(12);
-        let filepath = format!("/tmp/{}", &rndstr);
+        let filepath = format!("{}/{}", tmp_dir.to_str().unwrap(), &rndstr);
         TempFile::new(&filepath).unwrap()
     }
 }

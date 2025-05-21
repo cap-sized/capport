@@ -56,6 +56,7 @@ impl ModelConfig {
     }
     pub fn substitute_model_fields(&self, context: &serde_yaml_ng::Mapping) -> CpResult<ModelFields> {
         let mut fields = HashMap::new();
+        log::debug!("original model: {:?}", self);
         for (colname, coldetail) in &self.fields {
             let mut name = colname.clone();
             name.insert_value_from_context(context)?;

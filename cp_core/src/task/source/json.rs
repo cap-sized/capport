@@ -21,6 +21,17 @@ pub struct JsonSource {
     schema: Option<Schema>,
 }
 
+impl JsonSource {
+    pub fn new(filepath: &str, output: &str) -> Self {
+        Self { filepath: filepath.to_owned(), output: output.to_owned(), schema: None }
+    }
+
+    pub fn and_schema(mut self, schema: Schema) -> Self {
+        let _ = self.schema.insert(schema);
+        self
+    }
+}
+
 #[async_trait]
 impl Source for JsonSource {
     fn connection_type(&self) -> &str {
@@ -92,18 +103,16 @@ impl SourceConfig for JsonSourceConfig {
                 Err(e) => {
                     errors.push(CpError::ConfigError(
                         "Failed to substitute model with context",
-                        format!("Could not substitute model `{}` in ModelRegistry", model_name),
+                        format!("Could not substitute model `{}` in ModelRegistry: {:?}", model_name, e),
                     ));
                 }
             }
         }
-        // check model and if it is valid
         errors
     }
 
-    // TODO: Add model registry
     fn transform(&self, _ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source> {
-        // Ok to completely fail here at unwrap
+        // By here the model_fields should be completely populated.
         let schema = self.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
@@ -119,4 +128,77 @@ impl SourceConfig for JsonSourceConfig {
             schema,
         })
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, sync::Arc};
+
+    use polars::{df, frame::DataFrame, io::SerWriter, prelude::{DataType, JsonWriter}};
+
+    use crate::{context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}}, pipeline::context::DefaultPipelineContext, task::source::{common::{Source, SourceConfig}, config::JsonSourceConfig}, util::tmp::TempFile};
+
+    use super::JsonSource;
+
+    fn example() -> DataFrame {
+        df!(
+            "a" => [-1, 1, 3, 5, 6],
+            "b" => ["z", "a", "j", "i", "c"],
+        ).unwrap()
+    }
+
+    fn example_model() -> ModelConfig {
+        ModelConfig {
+            label: "S".to_string(),
+            fields: HashMap::from([
+                (StrKeyword::with_value("a".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int32)))),
+                (StrKeyword::with_value("b".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String)))),
+            ])
+        }
+    }
+
+    #[test]
+    fn valid_json_source() {
+        let mut expected = example();
+        let tmp = TempFile::default();
+        let buffer = tmp.get_mut().unwrap();
+        let mut writer = JsonWriter::new(buffer);
+        writer.finish(&mut expected).unwrap();
+        let model_schema = example_model().schema().unwrap();
+        let json_source = JsonSource::new(&tmp.filepath, "_sample").and_schema(model_schema);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let result = json_source.run(ctx).unwrap();
+        // TODO: replace with helper method when yx impls it
+        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+        assert_eq!(json_source.name(), "_sample");
+        assert_eq!(json_source.connection_type(), "json");
+        // TODO: test async
+    }
+
+    #[test]
+    fn valid_json_source_config_to_json_source() {
+        let mut expected = example();
+        let tmp = TempFile::default();
+        let buffer = tmp.get_mut().unwrap();
+        let mut writer = JsonWriter::new(buffer);
+        writer.finish(&mut expected).unwrap();
+        let mut source_config = JsonSourceConfig {
+            filepath: StrKeyword::with_value(tmp.filepath.clone()),
+            output: StrKeyword::with_value("_sample".to_owned()),
+            model_fields: None,
+            model: StrKeyword::with_value("S".to_owned())
+        };
+        let mut model_reg = ModelRegistry::new();
+        model_reg.insert(example_model());
+        let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_reg));
+        let mapping = serde_yaml_ng::Mapping::new();
+        let errors = source_config.validate(ctx.clone(), &mapping);
+        assert!(errors.is_empty());
+        assert_eq!(source_config.model_fields.clone().unwrap(), example_model().fields);
+        let actual_node = source_config.transform(ctx.clone());
+        let result = actual_node.run(ctx.clone()).unwrap();
+        // TODO: replace with helper method when yx impls it
+        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+    }
+
 }

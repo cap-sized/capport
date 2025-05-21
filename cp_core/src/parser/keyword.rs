@@ -4,7 +4,7 @@ use polars::prelude::{Expr, lit};
 use serde::{Deserialize, Deserializer, Serialize, de, ser};
 
 use crate::parser::dtype::DType;
-use crate::util::error::CpResult;
+use crate::util::error::{CpError, CpResult};
 use crate::{model::common::ModelFieldInfo, parser::expr::parse_str_to_col_expr};
 
 use super::action::{ConcatAction, ExprAction, FormatAction};
@@ -17,7 +17,9 @@ pub trait Keyword<'a, T> {
     fn symbol(&'a self) -> Option<&'a str>;
     fn with_value(value: T) -> Self;
     fn with_symbol(symbol: &str) -> Self;
+    fn and_symbol(self, symbol: &str) -> Self;
     fn insert_value(&mut self, value: T);
+    fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
 }
 
 /// Keyword that a string value
@@ -166,8 +168,43 @@ impl Keyword<'_, String> for StrKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: String) {
         let _ = self.value.insert(value);
+    }
+    fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
+        let symbol = self.symbol().expect("no symbol or value");
+        let value = match context.get(symbol) {
+            Some(x) => x,
+            None => {
+                return Err(CpError::ConfigError(
+                    "value not found for variable",
+                    format!("value of `{}` not found in context: {:?}", symbol, context),
+                ));
+            }
+        };
+        match serde_yaml_ng::from_value::<String>(value.clone()) {
+            Ok(x) => {
+                let _ = self.value.insert(x);
+            }
+            Err(e) => {
+                return Err(CpError::ConfigError(
+                    "invalid value",
+                    format!(
+                        "value of `{}: {:?}` is not string or otherwise invalid: {:?}",
+                        symbol, value, e
+                    ),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -190,8 +227,51 @@ impl Keyword<'_, Expr> for PolarsExprKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: Expr) {
         let _ = self.value.insert(value);
+    }
+    fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
+        let symbol = self.symbol().expect("no symbol or value");
+        let value = match context.get(symbol) {
+            Some(x) => x,
+            None => {
+                return Err(CpError::ConfigError(
+                    "value not found for variable",
+                    format!("value of `{}` not found in context: {:?}", symbol, context),
+                ));
+            }
+        };
+        match serde_yaml_ng::from_value::<PolarsExprKeyword>(value.clone()) {
+            Ok(x) => match x.value() {
+                Some(value) => {
+                    let _ = self.value.insert(value.clone());
+                }
+                None => {
+                    return Err(CpError::ConfigError(
+                        "invalid value",
+                        format!("substituted value of `{}: {:?}` doesn't exist", symbol, x),
+                    ));
+                }
+            },
+            Err(e) => {
+                return Err(CpError::ConfigError(
+                    "invalid value",
+                    format!(
+                        "value of `{}: {:?}` is not string or otherwise invalid: {:?}",
+                        symbol, value, e
+                    ),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -214,8 +294,52 @@ impl Keyword<'_, ModelFieldInfo> for ModelFieldKeyword {
     fn symbol(&'_ self) -> Option<&str> {
         self.symbol.as_deref()
     }
+    fn and_symbol(mut self, symbol: &str) -> Self {
+        let _ = self.symbol.insert(symbol.to_owned());
+        self
+    }
     fn insert_value(&mut self, value: ModelFieldInfo) {
         let _ = self.value.insert(value);
+    }
+    fn insert_value_from_context(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        if self.value().is_some() {
+            log::debug!("value already exists: {:?}", self.value());
+            return Ok(());
+        }
+        log::debug!("symbol: {:?}", self.symbol());
+        let symbol = self.symbol().expect("no symbol or value");
+        let value = match context.get(symbol) {
+            Some(x) => x,
+            None => {
+                return Err(CpError::ConfigError(
+                    "value not found for variable",
+                    format!("value of `{}` not found in context: {:?}", symbol, context),
+                ));
+            }
+        };
+        match serde_yaml_ng::from_value::<ModelFieldKeyword>(value.clone()) {
+            Ok(x) => match x.value() {
+                Some(value) => {
+                    let _ = self.value.insert(value.clone());
+                }
+                None => {
+                    return Err(CpError::ConfigError(
+                        "invalid value",
+                        format!("substituted value of `{}: {:?}` doesn't exist", symbol, x),
+                    ));
+                }
+            },
+            Err(e) => {
+                return Err(CpError::ConfigError(
+                    "invalid value",
+                    format!(
+                        "value of `{}: {:?}` is not string or otherwise invalid: {:?}",
+                        symbol, value, e
+                    ),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 

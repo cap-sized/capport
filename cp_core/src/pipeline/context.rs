@@ -1,9 +1,6 @@
 use async_channel::Receiver;
 use async_trait::async_trait;
-use polars::{
-    frame::DataFrame,
-    prelude::{LazyFrame, Schema},
-};
+use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     context::model::ModelRegistry,

@@ -75,10 +75,14 @@ pub fn get_full_path(abs_or_rel_path_str: &str, is_config: bool) -> CpResult<std
     Ok(full_path)
 }
 
-pub fn create_config_pack<I>(
-    yaml_strs: I,
-) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>> where I: IntoIterator, I::Item: AsRef<str> {
-    let configs = yaml_strs.into_iter().map(|x| serde_yaml_ng::from_str::<HashMap<String, serde_yaml_ng::Mapping>>(x.as_ref()).expect("invalid yaml"));
+pub fn create_config_pack<I>(yaml_strs: I) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>>
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let configs = yaml_strs
+        .into_iter()
+        .map(|x| serde_yaml_ng::from_str::<HashMap<String, serde_yaml_ng::Mapping>>(x.as_ref()).expect("invalid yaml"));
     let mut map = HashMap::new();
     for config in configs {
         for (key, value) in config {

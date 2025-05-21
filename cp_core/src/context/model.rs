@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use polars::prelude::Schema;
-
 use crate::{
     model::common::{ModelConfig, ModelFields},
-    parser::keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+    parser::keyword::{ModelFieldKeyword, StrKeyword},
     util::error::{CpError, CpResult},
 };
 
@@ -13,6 +11,12 @@ use super::common::Configurable;
 #[derive(Debug)]
 pub struct ModelRegistry {
     configs: HashMap<String, ModelConfig>,
+}
+
+impl Default for ModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModelRegistry {
@@ -69,9 +73,9 @@ impl Configurable for ModelRegistry {
             match serde_yaml_ng::from_value::<HashMap<StrKeyword, ModelFieldKeyword>>(fields) {
                 Ok(model_fields) => {
                     self.configs.insert(
-                        config_name.clone().into(),
+                        config_name.clone(),
                         ModelConfig {
-                            label: config_name.into(),
+                            label: config_name,
                             fields: model_fields,
                         },
                     );
@@ -101,7 +105,14 @@ mod tests {
 
     use polars::prelude::{DataType, TimeUnit};
 
-    use crate::{context::common::Configurable, model::common::{ModelConfig, ModelFieldInfo}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}}, util::common::create_config_pack};
+    use crate::{
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
+            dtype::DType,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+        },
+        util::common::create_config_pack,
+    };
 
     use super::ModelRegistry;
 
@@ -123,28 +134,51 @@ irrelevant_node:
         ";
         let mut config_pack = create_config_pack([config]);
         let actual = ModelRegistry::from(&mut config_pack).unwrap();
-        assert_eq!(actual.get_model("model_b").unwrap(), ModelConfig {
-            label: "model_b".to_owned(),
-            fields: HashMap::from([
-                (StrKeyword::with_value("dt".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(
-                    DataType::Datetime(TimeUnit::Milliseconds, Some("America/New_York".into()))
-                )))),
-                (StrKeyword::with_value("datetime".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(
-                    DataType::Datetime(TimeUnit::Milliseconds, Some("America/New_York".into()))
-                )))),
-                (StrKeyword::with_value("utc".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(
-                    DataType::Datetime(TimeUnit::Milliseconds, Some("UTC".into()))
-                )))),
-            ])
-        });
-        assert_eq!(actual.get_model("model_a").unwrap(), ModelConfig {
-            label: "model_a".to_owned(),
-            fields: HashMap::from([
-                (StrKeyword::with_symbol("field1"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))),
-                (StrKeyword::with_value("field2".to_owned()), ModelFieldKeyword::with_symbol("value")),
-            ])
-        });
-        
+        assert_eq!(
+            actual.get_model("model_b").unwrap(),
+            ModelConfig {
+                label: "model_b".to_owned(),
+                fields: HashMap::from([
+                    (
+                        StrKeyword::with_value("dt".to_owned()),
+                        ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Datetime(
+                            TimeUnit::Milliseconds,
+                            Some("America/New_York".into())
+                        ))))
+                    ),
+                    (
+                        StrKeyword::with_value("datetime".to_owned()),
+                        ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Datetime(
+                            TimeUnit::Milliseconds,
+                            Some("America/New_York".into())
+                        ))))
+                    ),
+                    (
+                        StrKeyword::with_value("utc".to_owned()),
+                        ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Datetime(
+                            TimeUnit::Milliseconds,
+                            Some("UTC".into())
+                        ))))
+                    ),
+                ])
+            }
+        );
+        assert_eq!(
+            actual.get_model("model_a").unwrap(),
+            ModelConfig {
+                label: "model_a".to_owned(),
+                fields: HashMap::from([
+                    (
+                        StrKeyword::with_symbol("field1"),
+                        ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))
+                    ),
+                    (
+                        StrKeyword::with_value("field2".to_owned()),
+                        ModelFieldKeyword::with_symbol("value")
+                    ),
+                ])
+            }
+        );
     }
 
     #[test]
@@ -154,23 +188,43 @@ irrelevant_node:
         reg.insert(ModelConfig {
             label: "model_a".to_owned(),
             fields: HashMap::from([
-                (StrKeyword::with_symbol("field1"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))),
-                (StrKeyword::with_value("field2".to_owned()), ModelFieldKeyword::with_symbol("value")),
-            ])
+                (
+                    StrKeyword::with_symbol("field1"),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
+                ),
+                (
+                    StrKeyword::with_value("field2".to_owned()),
+                    ModelFieldKeyword::with_symbol("value"),
+                ),
+            ]),
         });
 
-        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
+            "
 field1: sub1
 value: 
     datetime: Asia/Tokyo
-").unwrap();
+",
+        )
+        .unwrap();
         let fields = reg.get_substituted_model_fields("model_a", &context).unwrap();
-        // TODO: 
-        assert_eq!(fields, HashMap::from([
-            (StrKeyword::with_value("sub1".to_owned()).and_symbol("field1"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))),
-            (StrKeyword::with_value("field2".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(
-                DataType::Datetime(TimeUnit::Milliseconds, Some("Asia/Tokyo".into()))
-            ))).and_symbol("value")),
-        ]));
+        // TODO:
+        assert_eq!(
+            fields,
+            HashMap::from([
+                (
+                    StrKeyword::with_value("sub1".to_owned()).and_symbol("field1"),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))
+                ),
+                (
+                    StrKeyword::with_value("field2".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Datetime(
+                        TimeUnit::Milliseconds,
+                        Some("Asia/Tokyo".into())
+                    ))))
+                    .and_symbol("value")
+                ),
+            ])
+        );
     }
 }

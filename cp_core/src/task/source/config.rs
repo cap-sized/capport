@@ -1,9 +1,6 @@
 use serde::Deserialize;
 
-use crate::{
-    model::common::{ModelConfig, ModelFields},
-    parser::keyword::StrKeyword,
-};
+use crate::{model::common::ModelFields, parser::keyword::StrKeyword};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct RootSourceConfig {

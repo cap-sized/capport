@@ -1,7 +1,7 @@
-use std::{fs::File, path::PathBuf, str::FromStr, sync::Arc};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::prelude::{ArrowSchema, LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema};
+use polars::prelude::{LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema};
 
 use crate::{
     model::common::ModelConfig,
@@ -23,7 +23,11 @@ pub struct JsonSource {
 
 impl JsonSource {
     pub fn new(filepath: &str, output: &str) -> Self {
-        Self { filepath: filepath.to_owned(), output: output.to_owned(), schema: None }
+        Self {
+            filepath: filepath.to_owned(),
+            output: output.to_owned(),
+            schema: None,
+        }
     }
 
     pub fn and_schema(mut self, schema: Schema) -> Self {
@@ -58,7 +62,7 @@ impl Source for JsonSource {
             None => LazyJsonLineReader::new(filepath).with_infer_schema_length(None),
         };
         let lf = reader.finish()?;
-        return Ok(lf);
+        Ok(lf)
     }
 }
 
@@ -134,9 +138,27 @@ impl SourceConfig for JsonSourceConfig {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use polars::{df, frame::DataFrame, io::SerWriter, prelude::{DataType, JsonWriter}};
+    use polars::{
+        df,
+        frame::DataFrame,
+        io::SerWriter,
+        prelude::{DataType, JsonWriter},
+    };
 
-    use crate::{context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}}, pipeline::context::DefaultPipelineContext, task::source::{common::{Source, SourceConfig}, config::JsonSourceConfig}, util::tmp::TempFile};
+    use crate::{
+        context::model::ModelRegistry,
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
+            dtype::DType,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+        },
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
+            common::{Source, SourceConfig},
+            config::JsonSourceConfig,
+        },
+        util::tmp::TempFile,
+    };
 
     use super::JsonSource;
 
@@ -144,16 +166,23 @@ mod tests {
         df!(
             "a" => [-1, 1, 3, 5, 6],
             "b" => ["z", "a", "j", "i", "c"],
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     fn example_model() -> ModelConfig {
         ModelConfig {
             label: "S".to_string(),
             fields: HashMap::from([
-                (StrKeyword::with_value("a".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int32)))),
-                (StrKeyword::with_value("b".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String)))),
-            ])
+                (
+                    StrKeyword::with_value("a".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int32))),
+                ),
+                (
+                    StrKeyword::with_value("b".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String))),
+                ),
+            ]),
         }
     }
 
@@ -186,7 +215,7 @@ mod tests {
             filepath: StrKeyword::with_value(tmp.filepath.clone()),
             output: StrKeyword::with_value("_sample".to_owned()),
             model_fields: None,
-            model: StrKeyword::with_value("S".to_owned())
+            model: StrKeyword::with_value("S".to_owned()),
         };
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(example_model());
@@ -200,5 +229,4 @@ mod tests {
         // TODO: replace with helper method when yx impls it
         assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
     }
-
 }

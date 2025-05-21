@@ -1,4 +1,7 @@
-use std::{env::temp_dir, fs::{self, File}};
+use std::{
+    env::temp_dir,
+    fs::{self, File},
+};
 
 use log::info;
 

@@ -244,14 +244,27 @@ mod tests {
 
     use async_trait::async_trait;
     use polars::{
-        df, frame::DataFrame, functions::concat_df_horizontal, io::SerWriter, prelude::{concat_lf_horizontal, DataType, IntoLazy, JsonWriter, LazyFrame, UnionArgs}
+        df,
+        frame::DataFrame,
+        functions::concat_df_horizontal,
+        io::SerWriter,
+        prelude::{DataType, IntoLazy, JsonWriter, LazyFrame, UnionArgs, concat_lf_horizontal},
     };
 
     use crate::{
-        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle}, model::common::{ModelConfig, ModelFieldInfo}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
+        context::model::ModelRegistry,
+        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
+            dtype::DType,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+        },
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{
             source::{common::SourceGroup, config::SourceGroupConfig},
             stage::{Stage, StageTaskConfig},
-        }, util::{error::CpResult, test::assert_frame_equal, tmp::TempFile}
+        },
+        util::{error::CpResult, test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::Source;
@@ -566,18 +579,22 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "CD".to_owned(),
-            fields: HashMap::from([
-                (
-                    StrKeyword::with_value("c".to_owned()),
-                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String))),
-                ),
-            ]),
+            fields: HashMap::from([(
+                StrKeyword::with_value("c".to_owned()),
+                ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String))),
+            )]),
         });
-        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE1", "SAMPLE2", "SAMPLE3"], 1).with_model_registry(model_registry));
+        let ctx = Arc::new(
+            DefaultPipelineContext::with_results(&["SAMPLE1", "SAMPLE2", "SAMPLE3"], 1)
+                .with_model_registry(model_registry),
+        );
         let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
         actual.linear(ctx.clone()).unwrap();
         assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE1").unwrap(), default_next());
-        assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE2").unwrap(), default_next().select(["c"]).unwrap());
+        assert_frame_equal(
+            ctx.clone().extract_clone_result("SAMPLE2").unwrap(),
+            default_next().select(["c"]).unwrap(),
+        );
         assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE3").unwrap(), default_next());
     }
 }

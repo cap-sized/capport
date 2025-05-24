@@ -240,7 +240,12 @@ mod tests {
     use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
 
     use async_trait::async_trait;
-    use polars::{df, frame::DataFrame, io::SerReader, prelude::{CsvReader, IntoLazy, JsonReader}};
+    use polars::{
+        df,
+        frame::DataFrame,
+        io::SerReader,
+        prelude::{CsvReader, IntoLazy},
+    };
 
     use crate::{
         context::model::ModelRegistry,
@@ -468,13 +473,14 @@ mod tests {
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
         let tmp1 = TempFile::default();
         let tmp2 = TempFile::default();
-        let context_str = format!("
+        let context_str = format!(
+            "
 fp1: {}
 fp2: {}
-"
-            , &tmp1.filepath, &tmp2.filepath);
-        let context =
-            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(&context_str).unwrap();
+",
+            &tmp1.filepath, &tmp2.filepath
+        );
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(&context_str).unwrap();
         let sgconfig = SinkGroupConfig {
             label: "".to_owned(),
             input: StrKeyword::with_value("SAMPLE".to_owned()),
@@ -486,7 +492,7 @@ fp2: {}
         bcast.broadcast(default_next().lazy()).unwrap();
         let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
         actual.linear(ctx.clone()).unwrap();
-        for tmp in vec![tmp1, tmp2] {
+        for tmp in [tmp1, tmp2] {
             let buffer = tmp.get().unwrap();
             let reader = CsvReader::new(buffer);
             assert_frame_equal(reader.finish().unwrap(), default_next());

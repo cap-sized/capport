@@ -4,6 +4,7 @@ use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformCon
 use crate::frame::common::FrameUpdate;
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
+use crate::task::stage::StageTaskConfig;
 use crate::{
     frame::common::{
         FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
@@ -132,8 +133,10 @@ impl RootTransformConfig {
             })
             .collect()
     }
+}
 
-    pub fn parse(&self, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
+impl StageTaskConfig<RootTransform> for RootTransformConfig {
+    fn parse(&self, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
         let mut subtransforms = vec![];
         let mut errors = vec![];
         for result in self.parse_subtransforms() {

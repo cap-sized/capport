@@ -23,15 +23,16 @@ use crate::{
 #[async_trait]
 pub trait Sink {
     fn connection_type(&self) -> &str;
-    fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
-    async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
+    fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()>;
+    async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()>;
 }
 
 pub struct BoxedSink(Box<dyn Sink>);
 
 pub trait SinkConfig {
-    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
-    fn transform(&self, ctx: Arc<DefaultPipelineContext>) -> Box<dyn Sink>;
+    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
+    fn validate(&self) -> Vec<CpError>;
+    fn transform(&self) -> Box<dyn Sink>;
 }
 
 /// We NEVER modify the individual Sink instantiations after initialization.
@@ -182,7 +183,7 @@ mod tests {
     use polars::{
         df,
         frame::DataFrame,
-        prelude::{IntoLazy, LazyFrame},
+        prelude::IntoLazy,
     };
 
     use crate::{
@@ -217,18 +218,18 @@ mod tests {
         fn connection_type(&self) -> &str {
             "mock"
         }
-        fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+        fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
             log::info!("DONE\n{:?}", frame);
             let lf = frame.lazy();
             sleep(Duration::new(1, 0));
             ctx.insert_result(self.out.as_str(), lf.clone()).unwrap();
-            Ok(lf)
+            Ok(())
         }
-        async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+        async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
             log::info!("DONE\n{:?}", frame);
             let lf = frame.lazy();
             ctx.insert_result(self.out.as_str(), lf.clone()).unwrap();
-            Ok(lf)
+            Ok(())
         }
     }
 
@@ -236,8 +237,9 @@ mod tests {
     fn success_mock_sink_run() {
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["test"], 1));
         let src = MockSink::new("test");
-        let expected = src.run(default_df(), ctx.clone());
-        assert_eq!(expected.unwrap().collect().unwrap(), default_df());
+        let _ = src.run(default_df(), ctx.clone());
+        let actual = ctx.extract_clone_result("test").unwrap();
+        assert_eq!(actual, default_df());
     }
 
     #[test]

@@ -26,11 +26,9 @@ pub trait Source {
 pub struct BoxedSource(Box<dyn Source>);
 
 pub trait SourceConfig {
-    // TODO PX: see issue #143
-    // fn emplace(&mut self, ctx: Arc<DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
-    // fn validate(&self, ctx: Arc<DefaultPipelineContext) -> Vec<CpError>;
-    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
-    fn transform(&self, ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source>;
+    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
+    fn validate(&self) -> Vec<CpError>;
+    fn transform(&self) -> Box<dyn Source>;
 }
 
 /// We NEVER modify the individual Source instantiations after initialization.

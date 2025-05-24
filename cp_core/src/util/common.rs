@@ -160,3 +160,16 @@ macro_rules! ctx_run_n_threads {
         };
     };
 }
+
+#[macro_export]
+macro_rules! valid_or_insert_error {
+    ($errors:expr, $keyword:expr, $keyname:expr) => {
+        match ($keyword).value() {
+            Some(_) => {}
+            None => ($errors).push(CpError::SymbolMissingValueError(
+                ($keyname),
+                ($keyword).symbol().unwrap_or("?").to_owned(),
+            )),
+        }
+    };
+}

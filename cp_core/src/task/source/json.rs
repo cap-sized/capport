@@ -5,9 +5,9 @@ use polars::prelude::{LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema}
 
 use crate::{
     model::common::ModelConfig,
-    parser::keyword::Keyword,
+    parser::keyword::{Keyword, ModelFieldKeyword, StrKeyword},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::error::{CpError, CpResult},
+    util::error::{CpError, CpResult}, valid_or_insert_error,
 };
 
 use super::{
@@ -67,55 +67,39 @@ impl Source for JsonSource {
 }
 
 impl SourceConfig for JsonSourceConfig {
-    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError> {
-        let mut errors = vec![];
-        match self.filepath.value() {
-            Some(_) => {}
-            None => errors.push(CpError::SymbolMissingValueError(
-                "filepath",
-                self.filepath.symbol().unwrap_or("?").to_owned(),
-            )),
-        }
-        match self.output.value() {
-            Some(_) => {}
-            None => errors.push(CpError::SymbolMissingValueError(
-                "output",
-                self.output.symbol().unwrap_or("?").to_owned(),
-            )),
-        };
+    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        self.filepath.insert_value_from_context(context);
+        self.output.insert_value_from_context(context);
+        self.model.insert_value_from_context(context);
+        if let Some(model_name) = self.model.value() {
+            let model = ctx.get_model(model_name)?;
+            self.model_fields = Some(model.fields);
+        } 
         if let Some(model_fields) = self.model_fields.take() {
             let model = ModelConfig {
                 label: "".to_string(),
                 fields: model_fields,
             };
-            match model.substitute_model_fields(context) {
-                Ok(fields) => {
-                    let _ = self.model_fields.insert(fields);
-                }
-                Err(e) => {
-                    errors.push(CpError::ConfigError(
-                        "Failed to substitute model with context",
-                        format!("Could not substitute model in JsonSourceConfig `{:?}`: {}", self, e),
-                    ));
-                }
-            }
-        } else if let Some(model_name) = self.model.value() {
-            match ctx.get_substituted_model_fields(model_name, context) {
-                Ok(fields) => {
-                    let _ = self.model_fields.insert(fields);
-                }
-                Err(e) => {
-                    errors.push(CpError::ConfigError(
-                        "Failed to substitute model with context",
-                        format!("Could not substitute model `{}` in ModelRegistry: {:?}", model_name, e),
-                    ));
-                }
+            let fields = model.substitute_model_fields(context)?;
+            self.model_fields.insert(fields);
+        }
+        Ok(())
+        
+    }
+    fn validate(&self) -> Vec<CpError> {
+        let mut errors = vec![];
+        valid_or_insert_error!(errors, self.filepath, "source[json].filepath");
+        valid_or_insert_error!(errors, self.output, "source[json].output");
+        if let Some(model_fields) = &self.model_fields {
+            for (key_kw, field_kw) in model_fields {
+                valid_or_insert_error!(errors, key_kw, "source[json].model.key");
+                valid_or_insert_error!(errors, field_kw, "source[json].model.field");
             }
         }
         errors
     }
 
-    fn transform(&self, _ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source> {
+    fn transform(&self) -> Box<dyn Source> {
         // By here the model_fields should be completely populated.
         let schema = self.model_fields.as_ref().map(|x| {
             ModelConfig {
@@ -221,10 +205,11 @@ mod tests {
         model_reg.insert(example_model());
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_reg));
         let mapping = serde_yaml_ng::Mapping::new();
-        let errors = source_config.validate(ctx.clone(), &mapping);
+        source_config.emplace(ctx.clone(), &mapping);
+        let errors = source_config.validate();
         assert!(errors.is_empty());
         assert_eq!(source_config.model_fields.clone().unwrap(), example_model().fields);
-        let actual_node = source_config.transform(ctx.clone());
+        let actual_node = source_config.transform();
         let result = actual_node.run(ctx.clone()).unwrap();
         // TODO: replace with helper method when yx impls it
         assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);

@@ -5,10 +5,17 @@ use crossbeam::thread;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads, frame::{
+    ctx_run_n_async, ctx_run_n_threads,
+    frame::{
         common::{FrameAsyncListenHandle, FrameListenHandle, FrameUpdate, FrameUpdateType},
         polars::PolarsAsyncListenHandle,
-    }, parser::{keyword::Keyword, merge_type::MergeTypeEnum}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::{Stage, StageTaskConfig}, try_deserialize_transform, util::error::{CpError, CpResult}, valid_or_insert_error
+    },
+    parser::{keyword::Keyword, merge_type::MergeTypeEnum},
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    task::stage::{Stage, StageTaskConfig},
+    try_deserialize_transform,
+    util::error::{CpError, CpResult},
+    valid_or_insert_error,
 };
 
 use super::config::{CsvSinkConfig, SinkGroupConfig};
@@ -189,7 +196,11 @@ impl SinkGroupConfig {
 }
 
 impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
-    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<SinkGroup, Vec<CpError>> {
+    fn parse(
+        &self,
+        ctx: Arc<DefaultPipelineContext>,
+        context: &serde_yaml_ng::Mapping,
+    ) -> Result<SinkGroup, Vec<CpError>> {
         let mut subsinks = vec![];
         let mut errors = vec![];
         for result in self.parse_subsinks() {

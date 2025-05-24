@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
@@ -113,7 +112,12 @@ impl RootTransformConfig {
         self.steps
             .iter()
             .map(|transform| {
-                let config = try_deserialize_transform!(transform, dyn TransformConfig, SelectTransformConfig, JoinTransformConfig);
+                let config = try_deserialize_transform!(
+                    transform,
+                    dyn TransformConfig,
+                    SelectTransformConfig,
+                    JoinTransformConfig
+                );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Transform config parsing error",
@@ -126,7 +130,11 @@ impl RootTransformConfig {
 }
 
 impl StageTaskConfig<RootTransform> for RootTransformConfig {
-    fn parse(&self, _ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
+    fn parse(
+        &self,
+        _ctx: Arc<DefaultPipelineContext>,
+        context: &serde_yaml_ng::Mapping,
+    ) -> Result<RootTransform, Vec<CpError>> {
         let mut subtransforms = vec![];
         let mut errors = vec![];
         for result in self.parse_subtransforms() {
@@ -158,15 +166,13 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::{sync::Arc, thread};
 
-    use async_trait::async_trait;
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
-    use super::{RootTransform, Transform, TransformConfig};
+    use super::{RootTransform, Transform};
     use crate::parser::keyword::{Keyword, StrKeyword};
     use crate::task::stage::StageTaskConfig;
     use crate::task::transform::config::RootTransformConfig;
@@ -287,7 +293,7 @@ join:
         let ctx = Arc::new(DefaultPipelineContext::new());
         let errs = config.parse(ctx, &context);
 
-        assert!(!errs.is_err());
+        assert!(errs.is_ok());
     }
 
     #[test]

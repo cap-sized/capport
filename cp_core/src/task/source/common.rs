@@ -5,7 +5,12 @@ use crossbeam::thread;
 use polars::prelude::LazyFrame;
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::{Stage, StageTaskConfig}, try_deserialize_transform, util::error::{CpError, CpResult}
+    ctx_run_n_async, ctx_run_n_threads,
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType},
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    task::stage::{Stage, StageTaskConfig},
+    try_deserialize_transform,
+    util::error::{CpError, CpResult},
 };
 
 use super::config::{JsonSourceConfig, SourceGroupConfig};
@@ -198,7 +203,11 @@ impl SourceGroupConfig {
 }
 
 impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
-    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<SourceGroup, Vec<CpError>> {
+    fn parse(
+        &self,
+        ctx: Arc<DefaultPipelineContext>,
+        context: &serde_yaml_ng::Mapping,
+    ) -> Result<SourceGroup, Vec<CpError>> {
         let mut subsources = vec![];
         let mut errors = vec![];
         for result in self.parse_subsources() {

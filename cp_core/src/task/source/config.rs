@@ -5,7 +5,7 @@ use crate::{model::common::ModelFields, parser::keyword::StrKeyword};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SourceGroupConfig {
     pub label: String,
-    pub max_threads: usize, 
+    pub max_threads: usize,
     pub sources: Vec<serde_yaml_ng::Value>,
 }
 

@@ -5,7 +5,8 @@ use polars::prelude::{Expr, IntoLazy, JoinArgs, LazyFrame, all, col};
 use crate::{
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::error::{CpError, CpResult}, valid_or_insert_error,
+    util::error::{CpError, CpResult},
+    valid_or_insert_error,
 };
 
 use super::{
@@ -51,8 +52,14 @@ impl Transform for JoinTransform {
 
 impl TransformConfig for JoinTransformConfig {
     fn emplace(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        self.join.right_prefix.iter_mut().map(|sp| sp.insert_value_from_context(context));
-        self.join.left_prefix.iter_mut().map(|sp| sp.insert_value_from_context(context));
+        self.join
+            .right_prefix
+            .iter_mut()
+            .map(|sp| sp.insert_value_from_context(context));
+        self.join
+            .left_prefix
+            .iter_mut()
+            .map(|sp| sp.insert_value_from_context(context));
         for on in &mut self.join.left_on {
             on.insert_value_from_context(context);
         }

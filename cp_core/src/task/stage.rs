@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde::Deserialize;
 
-use crate::{pipeline::context::DefaultPipelineContext, util::error::{CpError, CpResult}};
+use crate::{
+    pipeline::context::DefaultPipelineContext,
+    util::error::{CpError, CpResult},
+};
 
 pub trait Stage {
     /// Executes the default pipeline context with stages executed in linear order.
@@ -27,4 +30,3 @@ pub struct StageConfig {
     pub task: String,
     pub emplace: HashMap<String, serde_yaml_ng::Value>,
 }
-

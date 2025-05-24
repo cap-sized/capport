@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
@@ -5,6 +6,7 @@ use crate::frame::common::FrameUpdate;
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
+use crate::try_deserialize_transform;
 use crate::{
     frame::common::{
         FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
@@ -106,24 +108,12 @@ impl Transform for RootTransform {
     }
 }
 
-macro_rules! try_deserialize_transform {
-    ($value:expr, $($type:ty),+) => {
-        $(if let Ok(config) = serde_yaml_ng::from_value::<$type>($value.clone()) {
-            Some(Box::new(config) as Box<dyn TransformConfig>)
-        }) else+
-        else {
-            None
-        }
-    };
-}
-
 impl RootTransformConfig {
     fn parse_subtransforms(&self) -> Vec<Result<Box<dyn TransformConfig>, CpError>> {
         self.steps
             .iter()
             .map(|transform| {
-                let config = try_deserialize_transform!(transform, SelectTransformConfig, JoinTransformConfig);
-
+                let config = try_deserialize_transform!(transform, dyn TransformConfig, SelectTransformConfig, JoinTransformConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Transform config parsing error",
@@ -136,7 +126,7 @@ impl RootTransformConfig {
 }
 
 impl StageTaskConfig<RootTransform> for RootTransformConfig {
-    fn parse(&self, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
+    fn parse(&self, _ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
         let mut subtransforms = vec![];
         let mut errors = vec![];
         for result in self.parse_subtransforms() {
@@ -165,7 +155,6 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
         } else {
             Err(errors)
         }
-
     }
 }
 
@@ -174,10 +163,12 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
 mod tests {
     use std::{sync::Arc, thread};
 
+    use async_trait::async_trait;
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
     use super::{RootTransform, Transform, TransformConfig};
     use crate::parser::keyword::{Keyword, StrKeyword};
+    use crate::task::stage::StageTaskConfig;
     use crate::task::transform::config::RootTransformConfig;
     use crate::{
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
@@ -293,7 +284,8 @@ join:
             steps: vec![select_value, join_value],
         };
         let context = serde_yaml_ng::Mapping::new();
-        let errs = config.parse(&context);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let errs = config.parse(ctx, &context);
 
         assert!(!errs.is_err());
     }
@@ -319,7 +311,8 @@ purr_transform:
             steps: vec![select_value, invalid_value],
         };
         let context = serde_yaml_ng::Mapping::new();
-        let errs = config.parse(&context);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let errs = config.parse(ctx, &context);
 
         assert!(errs.is_err());
     }
@@ -347,8 +340,9 @@ select:
             steps: vec![select_value_1, select_value_2],
         };
         let mapping = serde_yaml_ng::Mapping::new();
+        let ctx = Arc::new(DefaultPipelineContext::new());
 
-        let root_transform = config.parse(&mapping).unwrap();
+        let root_transform = config.parse(ctx, &mapping).unwrap();
         let ctx = Arc::new(DefaultPipelineContext::new());
         let main = df!(
             "two" => [1, 2, 3]

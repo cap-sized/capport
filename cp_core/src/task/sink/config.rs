@@ -3,9 +3,10 @@ use serde::Deserialize;
 use crate::parser::keyword::StrKeyword;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct RootSinkConfig {
+pub struct SinkGroupConfig {
     pub label: String,
     pub input: StrKeyword,
+    pub max_threads: usize,
     pub sinks: Vec<serde_yaml_ng::Value>,
 }
 

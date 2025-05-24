@@ -5,16 +5,13 @@ use crossbeam::thread;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads,
-    frame::{
+    ctx_run_n_async, ctx_run_n_threads, frame::{
         common::{FrameAsyncListenHandle, FrameListenHandle, FrameUpdate, FrameUpdateType},
         polars::PolarsAsyncListenHandle,
-    },
-    parser::merge_type::MergeTypeEnum,
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
-    task::stage::Stage,
-    util::error::{CpError, CpResult},
+    }, parser::{keyword::Keyword, merge_type::MergeTypeEnum}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::{Stage, StageTaskConfig}, try_deserialize_transform, util::error::{CpError, CpResult}, valid_or_insert_error
 };
+
+use super::config::{CsvSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -171,6 +168,59 @@ impl Stage for SinkGroup {
             loops += 1;
         }
         Ok(loops)
+    }
+}
+
+impl SinkGroupConfig {
+    fn parse_subsinks(&self) -> Vec<Result<Box<dyn SinkConfig>, CpError>> {
+        self.sinks
+            .iter()
+            .map(|transform| {
+                let config = try_deserialize_transform!(transform, dyn SinkConfig, CsvSinkConfig);
+                config.ok_or_else(|| {
+                    CpError::ConfigError(
+                        "Source config parsing error",
+                        format!("Failed to parse source config: {:?}", transform),
+                    )
+                })
+            })
+            .collect()
+    }
+}
+
+impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
+    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<SinkGroup, Vec<CpError>> {
+        let mut subsinks = vec![];
+        let mut errors = vec![];
+        for result in self.parse_subsinks() {
+            match result {
+                Ok(mut config) => {
+                    if let Err(e) = config.emplace(ctx.clone(), context) {
+                        errors.push(e);
+                    }
+                    let errs = config.validate();
+                    if errs.is_empty() {
+                        subsinks.push(BoxedSink(config.transform()));
+                    } else {
+                        errors.extend(errs);
+                    }
+                }
+                Err(e) => errors.push(e),
+            }
+        }
+        let mut input = self.input.clone();
+        let _ = input.insert_value_from_context(context);
+        valid_or_insert_error!(errors, self.input, "sink.input");
+        if errors.is_empty() {
+            Ok(SinkGroup {
+                label: self.label.clone(),
+                result_name: input.value().expect("sink.input").to_owned(),
+                max_threads: self.max_threads,
+                sinks: subsinks,
+            })
+        } else {
+            Err(errors)
+        }
     }
 }
 

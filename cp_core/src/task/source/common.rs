@@ -5,12 +5,10 @@ use crossbeam::thread;
 use polars::prelude::LazyFrame;
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads,
-    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType},
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
-    task::stage::Stage,
-    util::error::{CpError, CpResult},
+    ctx_run_n_async, ctx_run_n_threads, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::{Stage, StageTaskConfig}, try_deserialize_transform, util::error::{CpError, CpResult}
 };
+
+use super::config::{JsonSourceConfig, SourceGroupConfig};
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
 /// If it receives a termination signal, it is the source type's responsibility to clean up and
@@ -36,18 +34,18 @@ pub trait SourceConfig {
 unsafe impl Send for BoxedSource {}
 unsafe impl Sync for BoxedSource {}
 
-/// Unlike RootTransform, RootSource/RootSink do not implement Source/Sink respectively
-/// Their stage interface is run directly without calling RootSource
+/// Unlike RootTransform, SourceGroup/RootSink do not implement Source/Sink respectively
+/// Their stage interface is run directly without calling SourceGroup
 /// TODO: change naming to SourceGroup
-pub struct RootSource {
+pub struct SourceGroup {
     label: String,
     max_threads: usize,
     sources: Vec<BoxedSource>,
 }
 
-impl RootSource {
-    pub fn new(label: &str, max_threads: usize, sources: Vec<Box<dyn Source>>) -> RootSource {
-        RootSource {
+impl SourceGroup {
+    pub fn new(label: &str, max_threads: usize, sources: Vec<Box<dyn Source>>) -> SourceGroup {
+        SourceGroup {
             label: label.to_owned(),
             max_threads,
             sources: sources.into_iter().map(BoxedSource).collect::<Vec<BoxedSource>>(),
@@ -69,7 +67,7 @@ fn run_source(label: &str, bsource: &BoxedSource, ctx: Arc<DefaultPipelineContex
     Ok(())
 }
 
-impl Stage for RootSource {
+impl Stage for SourceGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         for source in &self.sources {
@@ -182,6 +180,55 @@ impl Stage for RootSource {
     }
 }
 
+impl SourceGroupConfig {
+    fn parse_subsources(&self) -> Vec<Result<Box<dyn SourceConfig>, CpError>> {
+        self.sources
+            .iter()
+            .map(|transform| {
+                let config = try_deserialize_transform!(transform, dyn SourceConfig, JsonSourceConfig);
+                config.ok_or_else(|| {
+                    CpError::ConfigError(
+                        "Source config parsing error",
+                        format!("Failed to parse source config: {:?}", transform),
+                    )
+                })
+            })
+            .collect()
+    }
+}
+
+impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
+    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<SourceGroup, Vec<CpError>> {
+        let mut subsources = vec![];
+        let mut errors = vec![];
+        for result in self.parse_subsources() {
+            match result {
+                Ok(mut config) => {
+                    if let Err(e) = config.emplace(ctx.clone(), context) {
+                        errors.push(e);
+                    }
+                    let errs = config.validate();
+                    if errs.is_empty() {
+                        subsources.push(BoxedSource(config.transform()));
+                    } else {
+                        errors.extend(errs);
+                    }
+                }
+                Err(e) => errors.push(e),
+            }
+        }
+        if errors.is_empty() {
+            Ok(SourceGroup {
+                label: self.label.clone(),
+                max_threads: self.max_threads,
+                sources: subsources,
+            })
+        } else {
+            Err(errors)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -197,7 +244,7 @@ mod tests {
     use crate::{
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{source::common::RootSource, stage::Stage},
+        task::{source::common::SourceGroup, stage::Stage},
         util::error::CpResult,
     };
 
@@ -302,7 +349,7 @@ mod tests {
         df_handle.broadcast(default_df().lazy()).unwrap();
         next_handle.broadcast(default_next().lazy()).unwrap();
         let mock_src = MockSource::from("mock_source", &["df", "next"]);
-        let src = RootSource::new("root", 1, vec![Box::new(mock_src)]);
+        let src = SourceGroup::new("root", 1, vec![Box::new(mock_src)]);
         src.linear(ctx.clone()).unwrap();
         let actual = concat_df_horizontal(&[default_df(), default_next()], true).unwrap();
         assert_eq!(ctx.extract_clone_result("mock_source").unwrap(), actual);
@@ -320,7 +367,7 @@ mod tests {
         let mock_src = MockSource::new("df");
         // mock_src depends on mock_src_df. If max_threads is any less than 3,
         // there is a chance this blocks.
-        let src = RootSource::new("root", 1, vec![Box::new(mock_src_next), Box::new(mock_src)]);
+        let src = SourceGroup::new("root", 1, vec![Box::new(mock_src_next), Box::new(mock_src)]);
         // This will NOT work with linear! mock_src depends on mock_src_df
         src.sync_exec(ctx.clone()).unwrap();
         assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
@@ -343,7 +390,7 @@ mod tests {
             let mock_src = MockSource::new("df");
             // mock_src depends on mock_src_df. If max_threads is any less than 3,
             // there is a chance this blocks.
-            let src = RootSource::new(
+            let src = SourceGroup::new(
                 "root",
                 thread_count,
                 vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
@@ -372,7 +419,7 @@ mod tests {
             let mock_src_df = MockSource::from("test_df", &["df"]);
             let mock_src_next = MockSource::from("test_next", &["next"]);
             let mock_src = MockSource::new("df");
-            let src = RootSource::new(
+            let src = SourceGroup::new(
                 "root",
                 3,
                 vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],

@@ -17,8 +17,8 @@ pub trait Stage {
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64>;
 }
 
-pub trait StageTaskConfig<TaskType> {
-    fn parse(&self, context: &serde_yaml_ng::Mapping) -> Result<TaskType, Vec<CpError>>;
+pub trait StageTaskConfig<T> {
+    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

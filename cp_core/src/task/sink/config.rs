@@ -54,10 +54,7 @@ filepath: fp
             },
         ];
         for i in 0..2 {
-            assert_eq!(
-                jsons[i],
-                serde_yaml_ng::from_str::<JsonSinkConfig>(configs[i]).unwrap()
-            );
+            assert_eq!(jsons[i], serde_yaml_ng::from_str::<JsonSinkConfig>(configs[i]).unwrap());
             assert_eq!(csvs[i], serde_yaml_ng::from_str::<CsvSinkConfig>(configs[i]).unwrap());
         }
     }

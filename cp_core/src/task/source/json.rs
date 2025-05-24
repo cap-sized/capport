@@ -5,9 +5,10 @@ use polars::prelude::{LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema}
 
 use crate::{
     model::common::ModelConfig,
-    parser::keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+    parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::error::{CpError, CpResult}, valid_or_insert_error,
+    util::error::{CpError, CpResult},
+    valid_or_insert_error,
 };
 
 use super::{
@@ -74,7 +75,7 @@ impl SourceConfig for JsonSourceConfig {
         if let Some(model_name) = self.model.value() {
             let model = ctx.get_model(model_name)?;
             self.model_fields = Some(model.fields);
-        } 
+        }
         if let Some(model_fields) = self.model_fields.take() {
             let model = ModelConfig {
                 label: "".to_string(),
@@ -84,7 +85,6 @@ impl SourceConfig for JsonSourceConfig {
             self.model_fields.insert(fields);
         }
         Ok(())
-        
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];

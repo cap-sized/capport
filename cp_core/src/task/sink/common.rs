@@ -73,8 +73,7 @@ impl Stage for SinkGroup {
             let _ = dataframe.insert(fread.clone().collect()?);
         }
         for sink in &self.sinks {
-            let _ = sink
-                .0
+            sink.0
                 .run(dataframe.clone().expect("must have dataframe"), ctx.clone())?;
             log::info!(
                 "Success pushing frame update via {}: {}",
@@ -152,7 +151,7 @@ impl Stage for SinkGroup {
                             let fread = update.frame.read()?;
                             let _ = dataframe.insert(fread.clone().collect()?);
                         }
-                        let _ = sink.fetch(dataframe.expect("must have dataframe"), ctx.clone()).await?;
+                        sink.fetch(dataframe.expect("must have dataframe"), ctx.clone()).await?;
                         log::info!(
                             "Success pushing frame update via {}: {}",
                             sink.connection_type(),
@@ -180,11 +179,7 @@ mod tests {
     use std::{sync::Arc, thread::sleep, time::Duration};
 
     use async_trait::async_trait;
-    use polars::{
-        df,
-        frame::DataFrame,
-        prelude::IntoLazy,
-    };
+    use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
     use crate::{
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},

@@ -1,12 +1,11 @@
 use std::{fs::File, sync::Arc};
 
 use async_trait::async_trait;
-use polars::{frame::DataFrame, io::SerWriter, prelude::{CsvWriter, Schema}};
+use polars::{frame::DataFrame, io::SerWriter, prelude::CsvWriter};
 
 use crate::{
-    model::common::ModelConfig,
     parser::keyword::Keyword,
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    pipeline::context::DefaultPipelineContext,
     util::error::{CpError, CpResult},
 };
 
@@ -41,7 +40,7 @@ impl Sink for CsvSink {
         let filepath = File::create(&self.filepath)?;
         let mut writer = CsvWriter::new(filepath);
         let mut df_to_write = dataframe;
-        let _ = writer.finish(&mut df_to_write)?;
+        writer.finish(&mut df_to_write)?;
         Ok(())
     }
 }
@@ -72,24 +71,17 @@ impl SinkConfig for CsvSinkConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
-    use polars::{
-        df,
-        frame::DataFrame,
-        io::SerReader,
-        prelude::{CsvReader, DataType},
-    };
+    use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
 
     use crate::{
-        context::model::ModelRegistry,
-        model::common::{ModelConfig, ModelFieldInfo},
-        parser::{
-            dtype::DType,
-            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        },
+        parser::keyword::{Keyword, StrKeyword},
         pipeline::context::DefaultPipelineContext,
-        task::sink::{common::{Sink, SinkConfig}, config::CsvSinkConfig},
+        task::sink::{
+            common::{Sink, SinkConfig},
+            config::CsvSinkConfig,
+        },
         util::{test::assert_frame_equal, tmp::TempFile},
     };
 
@@ -130,7 +122,7 @@ mod tests {
         let errors = source_config.validate();
         assert!(errors.is_empty());
         let actual_node = source_config.transform();
-        let _ = actual_node.run(expected.clone(), ctx.clone()).unwrap();
+        actual_node.run(expected.clone(), ctx.clone()).unwrap();
         let buffer = tmp.get().unwrap();
         let reader = CsvReader::new(buffer);
         let actual = reader.finish().unwrap();

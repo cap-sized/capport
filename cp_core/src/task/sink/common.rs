@@ -221,7 +221,7 @@ impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
         }
         let mut input = self.input.clone();
         let _ = input.insert_value_from_context(context);
-        valid_or_insert_error!(errors, self.input, "sink.input");
+        valid_or_insert_error!(errors, input, "sink.input");
         if errors.is_empty() {
             Ok(SinkGroup {
                 label: self.label.clone(),
@@ -237,16 +237,13 @@ impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, thread::sleep, time::Duration};
+    use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
 
     use async_trait::async_trait;
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
     use crate::{
-        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{sink::common::SinkGroup, stage::Stage},
-        util::error::CpResult,
+        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{sink::{common::SinkGroup, config::SinkGroupConfig}, stage::{Stage, StageTaskConfig}}, util::error::CpResult
     };
 
     use super::Sink;
@@ -388,5 +385,62 @@ mod tests {
             tokio::join!(action_path(), terminator());
         };
         rt.block_on(event());
+    }
+
+    #[test]
+    fn create_sink_group_good_config() {
+        let configs_str = "
+- csv:
+    filepath: fp
+- csv:
+    filepath: $replace
+";
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: filepaaath, input: SAMPLE}").unwrap();
+        let sgconfig = SinkGroupConfig {
+            label: "".to_owned(),
+            input: StrKeyword::with_symbol("input"),
+            max_threads: 1,
+            sinks: configs,
+        };
+        let mut model_registry = ModelRegistry::new();
+        model_registry.insert(ModelConfig {
+            label: "SAMPLE".to_owned(),
+            fields: HashMap::new(),
+        });
+        let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
+        let actual = sgconfig.parse(ctx, &context);
+        actual.unwrap();
+    }
+
+    #[test]
+    fn create_sink_group_bad_configs() {
+        [
+            "
+- bad:
+    filepath: fp
+", 
+            "
+- csv:
+    filepath: $notoutput
+", 
+        ].iter().for_each(|configs_str| {
+            let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+            let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: SAMPLE2").unwrap();
+            let sgconfig = SinkGroupConfig {
+                label: "".to_owned(),
+                input: StrKeyword::with_value("input".to_owned()),
+                max_threads: 1,
+                sinks: configs,
+            };
+            let mut model_registry = ModelRegistry::new();
+            model_registry.insert(ModelConfig {
+                label: "input".to_owned(),
+                fields: HashMap::new(),
+            });
+            let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
+            let actual = sgconfig.parse(ctx, &context);
+            assert!(actual.is_err());
+        });
     }
 }

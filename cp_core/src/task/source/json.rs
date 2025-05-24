@@ -48,7 +48,6 @@ impl Source for JsonSource {
     }
 
     async fn fetch(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-        // let filepath = tokio::fs::File::open(self.filepath).await;
         self.run(ctx)
     }
 
@@ -69,28 +68,31 @@ impl Source for JsonSource {
 
 impl SourceConfig for JsonSourceConfig {
     fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        self.filepath.insert_value_from_context(context);
-        self.output.insert_value_from_context(context);
-        self.model.insert_value_from_context(context);
-        if let Some(model_name) = self.model.value() {
-            let model = ctx.get_model(model_name)?;
-            self.model_fields = Some(model.fields);
+        self.json.filepath.insert_value_from_context(context)?;
+        self.json.output.insert_value_from_context(context)?;
+        if let Some(mut model_name) = self.json.model.take() {
+            model_name.insert_value_from_context(context)?;
+            if let Some(name) = model_name.value() {
+                let model = ctx.get_model(name)?;
+                self.json.model_fields = Some(model.fields);
+            }
+            let _ = self.json.model.insert(model_name.clone());
         }
-        if let Some(model_fields) = self.model_fields.take() {
+        if let Some(model_fields) = self.json.model_fields.take() {
             let model = ModelConfig {
                 label: "".to_string(),
                 fields: model_fields,
             };
             let fields = model.substitute_model_fields(context)?;
-            self.model_fields.insert(fields);
+            let _ = self.json.model_fields.insert(fields);
         }
         Ok(())
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
-        valid_or_insert_error!(errors, self.filepath, "source[json].filepath");
-        valid_or_insert_error!(errors, self.output, "source[json].output");
-        if let Some(model_fields) = &self.model_fields {
+        valid_or_insert_error!(errors, self.json.filepath, "source[json].filepath");
+        valid_or_insert_error!(errors, self.json.output, "source[json].output");
+        if let Some(model_fields) = &self.json.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[json].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[json].model.field");
@@ -101,7 +103,7 @@ impl SourceConfig for JsonSourceConfig {
 
     fn transform(&self) -> Box<dyn Source> {
         // By here the model_fields should be completely populated.
-        let schema = self.model_fields.as_ref().map(|x| {
+        let schema = self.json.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
                 fields: x.clone(),
@@ -111,8 +113,8 @@ impl SourceConfig for JsonSourceConfig {
         });
 
         Box::new(JsonSource {
-            filepath: self.filepath.value().expect("filepath").to_owned(),
-            output: self.output.value().expect("output").to_owned(),
+            filepath: self.json.filepath.value().expect("filepath").to_owned(),
+            output: self.json.output.value().expect("output").to_owned(),
             schema,
         })
     }
@@ -139,7 +141,7 @@ mod tests {
         pipeline::context::DefaultPipelineContext,
         task::source::{
             common::{Source, SourceConfig},
-            config::JsonSourceConfig,
+            config::{JsonSourceConfig, LocalFileSourceConfig},
         },
         util::{test::assert_frame_equal, tmp::TempFile},
     };
@@ -181,7 +183,6 @@ mod tests {
         let json_source = JsonSource::new(&tmp.filepath, "_sample").and_schema(model_schema);
         let ctx = Arc::new(DefaultPipelineContext::new());
         let result = json_source.run(ctx).unwrap();
-        // TODO: replace with helper method when yx impls it
         assert_frame_equal(result.collect().unwrap(), expected);
         assert_eq!(json_source.name(), "_sample");
         assert_eq!(json_source.connection_type(), "json");
@@ -217,10 +218,12 @@ mod tests {
         let mut writer = JsonWriter::new(buffer);
         writer.finish(&mut expected).unwrap();
         let mut source_config = JsonSourceConfig {
-            filepath: StrKeyword::with_value(tmp.filepath.clone()),
-            output: StrKeyword::with_value("_sample".to_owned()),
-            model_fields: None,
-            model: StrKeyword::with_value("S".to_owned()),
+            json: LocalFileSourceConfig {
+                filepath: StrKeyword::with_value(tmp.filepath.clone()),
+                output: StrKeyword::with_value("_sample".to_owned()),
+                model_fields: None,
+                model: Some(StrKeyword::with_value("S".to_owned())),
+            }
         };
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(example_model());
@@ -229,10 +232,9 @@ mod tests {
         let _ = source_config.emplace(ctx.clone(), &mapping);
         let errors = source_config.validate();
         assert!(errors.is_empty());
-        assert_eq!(source_config.model_fields.clone().unwrap(), example_model().fields);
+        assert_eq!(source_config.json.model_fields.clone().unwrap(), example_model().fields);
         let actual_node = source_config.transform();
         let result = actual_node.run(ctx.clone()).unwrap();
-        // TODO: replace with helper method when yx impls it
         assert_frame_equal(result.collect().unwrap(), expected);
     }
 }

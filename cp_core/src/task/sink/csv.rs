@@ -29,7 +29,7 @@ impl CsvSink {
 #[async_trait]
 impl Sink for CsvSink {
     fn connection_type(&self) -> &str {
-        "json"
+        "csv"
     }
 
     async fn fetch(&self, dataframe: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
@@ -47,16 +47,16 @@ impl Sink for CsvSink {
 
 impl SinkConfig for CsvSinkConfig {
     fn emplace(&mut self, _ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        self.filepath.insert_value_from_context(context)
+        self.csv.filepath.insert_value_from_context(context)
     }
 
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
-        match self.filepath.value() {
+        match self.csv.filepath.value() {
             Some(_) => {}
             None => errors.push(CpError::SymbolMissingValueError(
                 "filepath",
-                self.filepath.symbol().unwrap_or("?").to_owned(),
+                self.csv.filepath.symbol().unwrap_or("?").to_owned(),
             )),
         }
         errors
@@ -64,7 +64,7 @@ impl SinkConfig for CsvSinkConfig {
 
     fn transform(&self) -> Box<dyn Sink> {
         Box::new(CsvSink {
-            filepath: self.filepath.value().expect("filepath").to_owned(),
+            filepath: self.csv.filepath.value().expect("filepath").to_owned(),
         })
     }
 }
@@ -80,7 +80,7 @@ mod tests {
         pipeline::context::DefaultPipelineContext,
         task::sink::{
             common::{Sink, SinkConfig},
-            config::CsvSinkConfig,
+            config::{CsvSinkConfig, LocalFileSinkConfig},
         },
         util::{test::assert_frame_equal, tmp::TempFile},
     };
@@ -106,7 +106,7 @@ mod tests {
         let reader = CsvReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
-        assert_eq!(csv_sink.connection_type(), "json");
+        assert_eq!(csv_sink.connection_type(), "csv");
     }
 
     #[test]
@@ -133,7 +133,9 @@ mod tests {
         let expected = example();
         let tmp = TempFile::default();
         let mut source_config = CsvSinkConfig {
-            filepath: StrKeyword::with_symbol("sample"),
+            csv: LocalFileSinkConfig {
+                filepath: StrKeyword::with_symbol("sample"),
+            }
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let config = format!("sample: {}", &tmp.filepath);

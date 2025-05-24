@@ -240,7 +240,7 @@ impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     use async_trait::async_trait;
     use polars::{
@@ -251,10 +251,7 @@ mod tests {
     };
 
     use crate::{
-        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{source::common::SourceGroup, stage::Stage},
-        util::error::CpResult,
+        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle}, model::common::ModelConfig, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{source::{common::SourceGroup, config::SourceGroupConfig}, stage::{Stage, StageTaskConfig}}, util::error::CpResult
     };
 
     use super::Source;
@@ -453,5 +450,84 @@ mod tests {
             tokio::join!(action_path(), terminator());
         };
         rt.block_on(event());
+    }
+
+    #[test]
+    fn create_source_group_good_config() {
+        let configs_str = "
+- json:
+    filepath: fp
+    output: SAMPLE3
+- json:
+    filepath: fp
+    output: SAMPLE
+    model: test
+- json:
+    filepath: fp
+    output: $output
+    model: test
+- json:
+    filepath: fp
+    output: $output
+    model: test
+    model_fields: 
+        aaa: int64
+        bbb: str
+";
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: SAMPLE2").unwrap();
+        let sgconfig = SourceGroupConfig {
+            label: "".to_owned(),
+            max_threads: 1,
+            sources: configs,
+        };
+        let mut model_registry = ModelRegistry::new();
+        model_registry.insert(ModelConfig {
+            label: "test".to_owned(),
+            fields: HashMap::new(),
+        });
+        let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
+        let actual = sgconfig.parse(ctx, &context).unwrap();
+        assert_eq!(actual.sources.len(), 4);
+    }
+
+    #[test]
+    fn create_source_group_bad_configs() {
+        [
+            "
+- bad:
+    filepath: fp
+    output: $output
+    model: test
+", 
+            "
+- csv:
+    filepath: fp
+    output: output
+    model: not_a_test
+", 
+            "
+- json:
+    filepath: fp
+    output: $output2
+    model: not_a_test
+", 
+        ].iter().for_each(|configs_str| {
+            let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+            let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: SAMPLE2").unwrap();
+            let sgconfig = SourceGroupConfig {
+                label: "".to_owned(),
+                max_threads: 1,
+                sources: configs,
+            };
+            let mut model_registry = ModelRegistry::new();
+            model_registry.insert(ModelConfig {
+                label: "test".to_owned(),
+                fields: HashMap::new(),
+            });
+            let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
+            let actual = sgconfig.parse(ctx, &context);
+            assert!(actual.is_err());
+        });
     }
 }

@@ -11,13 +11,18 @@ pub struct SinkGroupConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct JsonSinkConfig {
+pub struct LocalFileSinkConfig {
     pub filepath: StrKeyword,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct JsonSinkConfig {
+    pub json: LocalFileSinkConfig
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CsvSinkConfig {
-    pub filepath: StrKeyword,
+    pub csv: LocalFileSinkConfig
 }
 
 #[cfg(test)]
@@ -28,35 +33,53 @@ mod tests {
         task::sink::config::{CsvSinkConfig, JsonSinkConfig},
     };
 
+    use super::LocalFileSinkConfig;
+
+    fn get_locals() -> [LocalFileSinkConfig; 2] {
+        [
+            LocalFileSinkConfig {
+                filepath: StrKeyword::with_symbol("fp"),
+            },
+            LocalFileSinkConfig {
+                filepath: StrKeyword::with_value("fp".to_string()),
+            },
+        ]
+    }
+
+    fn get_configs() -> [&'static str; 2] {
+        [
+            "
+{}:
+    filepath: $fp
+",
+            "
+{}:
+    filepath: fp
+",
+        ]
+    }
+
     #[test]
-    fn valid_source_config_json_csv() {
-        let configs = [
-            "
-filepath: $fp
-",
-            "
-filepath: fp
-",
-        ];
-        let jsons = [
-            JsonSinkConfig {
-                filepath: StrKeyword::with_symbol("fp"),
-            },
-            JsonSinkConfig {
-                filepath: StrKeyword::with_value("fp".to_string()),
-            },
-        ];
-        let csvs = [
-            CsvSinkConfig {
-                filepath: StrKeyword::with_symbol("fp"),
-            },
-            CsvSinkConfig {
-                filepath: StrKeyword::with_value("fp".to_string()),
-            },
-        ];
+    fn valid_sink_config_json() {
+        let configs = get_configs().iter().map(|c| c.replace("{}", "json")).collect::<Vec<String>>();
+        let locals = get_locals();
         for i in 0..2 {
-            assert_eq!(jsons[i], serde_yaml_ng::from_str::<JsonSinkConfig>(configs[i]).unwrap());
-            assert_eq!(csvs[i], serde_yaml_ng::from_str::<CsvSinkConfig>(configs[i]).unwrap());
+            assert_eq!(
+                JsonSinkConfig{ json: locals[i].clone() },
+                serde_yaml_ng::from_str::<JsonSinkConfig>(&configs[i]).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn valid_sink_config_csv() {
+        let configs = get_configs().iter().map(|c| c.replace("{}", "csv")).collect::<Vec<String>>();
+        let locals = get_locals();
+        for i in 0..2 {
+            assert_eq!(
+                CsvSinkConfig{ csv: locals[i].clone() },
+                serde_yaml_ng::from_str::<CsvSinkConfig>(&configs[i]).unwrap()
+            );
         }
     }
 }

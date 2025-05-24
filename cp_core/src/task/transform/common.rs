@@ -334,8 +334,8 @@ select:
 
         let select_yaml_2 = r#"
 select:
-    one: one
-    four: three
+    one: $input
+    four: $output
 "#;
         let select_value_2: serde_yaml_ng::Value = serde_yaml_ng::from_str(select_yaml_2).unwrap();
 
@@ -345,11 +345,10 @@ select:
             output: StrKeyword::with_value("test_output".to_owned()),
             steps: vec![select_value_1, select_value_2],
         };
-        let mapping = serde_yaml_ng::Mapping::new();
+        let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{input: one, output: three}").unwrap();
         let ctx = Arc::new(DefaultPipelineContext::new());
 
-        let root_transform = config.parse(ctx, &mapping).unwrap();
-        let ctx = Arc::new(DefaultPipelineContext::new());
+        let root_transform = config.parse(ctx.clone(), &mapping).unwrap();
         let main = df!(
             "two" => [1, 2, 3]
         )

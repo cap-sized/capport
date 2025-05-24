@@ -55,17 +55,17 @@ We are drastically changing the structure of capport to support
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
 - [x] RootSource, method of pulling data, and types
-    - [ ] Running RootSource as a Source
-    - [ ] JsonSource
+    - [x] Running RootSource as a Source
+    - [x] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
     - [ ] PostgresSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
     - [ ] FromArrowAdapter
-- [ ] RootSink, method of writing data, and types
-    - [ ] Running RootSink as a Sink
+- [x] RootSink, method of writing data, and types
+    - [x] Running RootSink as a Sink
     - [ ] JsonSink
-    - [ ] CsvSink
+    - [x] CsvSink
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)

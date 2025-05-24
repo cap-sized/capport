@@ -240,7 +240,7 @@ mod tests {
     use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
 
     use async_trait::async_trait;
-    use polars::{df, frame::DataFrame, prelude::IntoLazy};
+    use polars::{df, frame::DataFrame, io::SerReader, prelude::{CsvReader, IntoLazy, JsonReader}};
 
     use crate::{
         context::model::ModelRegistry,
@@ -252,7 +252,7 @@ mod tests {
             sink::{common::SinkGroup, config::SinkGroupConfig},
             stage::{Stage, StageTaskConfig},
         },
-        util::error::CpResult,
+        util::{error::CpResult, test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::Sink;
@@ -454,5 +454,42 @@ mod tests {
             let actual = sgconfig.parse(ctx, &context);
             assert!(actual.is_err());
         });
+    }
+
+    #[test]
+    fn valid_sink_group_basic() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let configs_str = "
+- csv:
+    filepath: $fp1
+- csv:
+    filepath: $fp2
+";
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let tmp1 = TempFile::default();
+        let tmp2 = TempFile::default();
+        let context_str = format!("
+fp1: {}
+fp2: {}
+"
+            , &tmp1.filepath, &tmp2.filepath);
+        let context =
+            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(&context_str).unwrap();
+        let sgconfig = SinkGroupConfig {
+            label: "".to_owned(),
+            input: StrKeyword::with_value("SAMPLE".to_owned()),
+            max_threads: 1,
+            sinks: configs,
+        };
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE"], 1));
+        let mut bcast = ctx.get_broadcast("SAMPLE", "main").unwrap();
+        bcast.broadcast(default_next().lazy()).unwrap();
+        let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
+        actual.linear(ctx.clone()).unwrap();
+        for tmp in vec![tmp1, tmp2] {
+            let buffer = tmp.get().unwrap();
+            let reader = CsvReader::new(buffer);
+            assert_frame_equal(reader.finish().unwrap(), default_next());
+        }
     }
 }

@@ -244,22 +244,14 @@ mod tests {
 
     use async_trait::async_trait;
     use polars::{
-        df,
-        frame::DataFrame,
-        functions::concat_df_horizontal,
-        prelude::{IntoLazy, LazyFrame, UnionArgs, concat_lf_horizontal},
+        df, frame::DataFrame, functions::concat_df_horizontal, io::SerWriter, prelude::{concat_lf_horizontal, DataType, IntoLazy, JsonWriter, LazyFrame, UnionArgs}
     };
 
     use crate::{
-        context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
-        model::common::ModelConfig,
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{
+        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle}, model::common::{ModelConfig, ModelFieldInfo}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
             source::{common::SourceGroup, config::SourceGroupConfig},
             stage::{Stage, StageTaskConfig},
-        },
-        util::error::CpResult,
+        }, util::{error::CpResult, test::assert_frame_equal, tmp::TempFile}
     };
 
     use super::Source;
@@ -539,5 +531,53 @@ mod tests {
             let actual = sgconfig.parse(ctx, &context);
             assert!(actual.is_err());
         });
+    }
+
+    #[test]
+    fn valid_source_group_basic() {
+        let configs_str = "
+- json:
+    filepath: $fp
+    output: SAMPLE1
+- json:
+    filepath: $fp
+    output: SAMPLE2
+    model: CD
+- json:
+    filepath: $fp
+    output: SAMPLE3
+    model_fields: 
+        d: int32
+        c: str
+";
+        let mut expected = default_next();
+        let tmp = TempFile::default();
+        let buffer = tmp.get_mut().unwrap();
+        let mut writer = JsonWriter::new(buffer);
+        writer.finish(&mut expected).unwrap();
+        let context_str = format!("fp: {}", &tmp.filepath);
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(&context_str).unwrap();
+        let sgconfig = SourceGroupConfig {
+            label: "".to_owned(),
+            max_threads: 1,
+            sources: configs,
+        };
+        let mut model_registry = ModelRegistry::new();
+        model_registry.insert(ModelConfig {
+            label: "CD".to_owned(),
+            fields: HashMap::from([
+                (
+                    StrKeyword::with_value("c".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String))),
+                ),
+            ]),
+        });
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE1", "SAMPLE2", "SAMPLE3"], 1).with_model_registry(model_registry));
+        let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
+        actual.linear(ctx.clone()).unwrap();
+        assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE1").unwrap(), default_next());
+        assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE2").unwrap(), default_next().select(["c"]).unwrap());
+        assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE3").unwrap(), default_next());
     }
 }

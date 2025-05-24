@@ -52,19 +52,21 @@ impl Transform for JoinTransform {
 
 impl TransformConfig for JoinTransformConfig {
     fn emplace(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        self.join
+        let _ = self
+            .join
             .right_prefix
             .iter_mut()
             .map(|sp| sp.insert_value_from_context(context));
-        self.join
+        let _ = self
+            .join
             .left_prefix
             .iter_mut()
             .map(|sp| sp.insert_value_from_context(context));
         for on in &mut self.join.left_on {
-            on.insert_value_from_context(context);
+            on.insert_value_from_context(context)?;
         }
         for on in &mut self.join.right_on {
-            on.insert_value_from_context(context);
+            on.insert_value_from_context(context)?;
         }
         Ok(())
     }

@@ -243,7 +243,16 @@ mod tests {
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
     use crate::{
-        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{sink::{common::SinkGroup, config::SinkGroupConfig}, stage::{Stage, StageTaskConfig}}, util::error::CpResult
+        context::model::ModelRegistry,
+        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+        model::common::ModelConfig,
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{
+            sink::{common::SinkGroup, config::SinkGroupConfig},
+            stage::{Stage, StageTaskConfig},
+        },
+        util::error::CpResult,
     };
 
     use super::Sink;
@@ -396,7 +405,8 @@ mod tests {
     filepath: $replace
 ";
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
-        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: filepaaath, input: SAMPLE}").unwrap();
+        let context =
+            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: filepaaath, input: SAMPLE}").unwrap();
         let sgconfig = SinkGroupConfig {
             label: "".to_owned(),
             input: StrKeyword::with_symbol("input"),
@@ -419,12 +429,14 @@ mod tests {
             "
 - bad:
     filepath: fp
-", 
+",
             "
 - csv:
     filepath: $notoutput
-", 
-        ].iter().for_each(|configs_str| {
+",
+        ]
+        .iter()
+        .for_each(|configs_str| {
             let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
             let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: SAMPLE2").unwrap();
             let sgconfig = SinkGroupConfig {

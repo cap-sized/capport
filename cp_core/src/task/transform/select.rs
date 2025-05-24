@@ -29,9 +29,9 @@ impl TransformConfig for SelectTransformConfig {
         log::debug!("original model: {:?}", self);
         for (alias_kw, expr_kw) in &self.select {
             let mut alias = alias_kw.clone();
-            alias.insert_value_from_context(context);
+            alias.insert_value_from_context(context)?;
             let mut expr = expr_kw.clone();
-            expr.insert_value_from_context(context);
+            expr.insert_value_from_context(context)?;
             fields.insert(alias, expr);
         }
         self.select = fields;

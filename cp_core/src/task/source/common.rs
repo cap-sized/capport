@@ -251,7 +251,15 @@ mod tests {
     };
 
     use crate::{
-        context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle}, model::common::ModelConfig, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{source::{common::SourceGroup, config::SourceGroupConfig}, stage::{Stage, StageTaskConfig}}, util::error::CpResult
+        context::model::ModelRegistry,
+        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
+        model::common::ModelConfig,
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{
+            source::{common::SourceGroup, config::SourceGroupConfig},
+            stage::{Stage, StageTaskConfig},
+        },
+        util::error::CpResult,
     };
 
     use super::Source;
@@ -499,20 +507,22 @@ mod tests {
     filepath: fp
     output: $output
     model: test
-", 
+",
             "
 - csv:
     filepath: fp
     output: output
     model: not_a_test
-", 
+",
             "
 - json:
     filepath: fp
     output: $output2
     model: not_a_test
-", 
-        ].iter().for_each(|configs_str| {
+",
+        ]
+        .iter()
+        .for_each(|configs_str| {
             let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
             let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: SAMPLE2").unwrap();
             let sgconfig = SourceGroupConfig {

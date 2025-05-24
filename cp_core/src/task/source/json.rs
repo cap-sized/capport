@@ -223,7 +223,7 @@ mod tests {
                 output: StrKeyword::with_value("_sample".to_owned()),
                 model_fields: None,
                 model: Some(StrKeyword::with_value("S".to_owned())),
-            }
+            },
         };
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(example_model());

@@ -135,7 +135,7 @@ mod tests {
         let mut source_config = CsvSinkConfig {
             csv: LocalFileSinkConfig {
                 filepath: StrKeyword::with_symbol("sample"),
-            }
+            },
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let config = format!("sample: {}", &tmp.filepath);

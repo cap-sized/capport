@@ -21,12 +21,12 @@ pub struct LocalFileSourceConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct JsonSourceConfig {
-    pub json: LocalFileSourceConfig
+    pub json: LocalFileSourceConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CsvSourceConfig {
-    pub csv: LocalFileSourceConfig
+    pub csv: LocalFileSourceConfig,
 }
 
 #[cfg(test)]
@@ -128,14 +128,18 @@ mod tests {
         ]
     }
 
-
     #[test]
     fn valid_source_config_json() {
-        let configs = get_configs().iter().map(|c| c.replace("{}", "json")).collect::<Vec<String>>();
+        let configs = get_configs()
+            .iter()
+            .map(|c| c.replace("{}", "json"))
+            .collect::<Vec<String>>();
         let locals = get_locals();
         for i in 0..5 {
             assert_eq!(
-                JsonSourceConfig{ json: locals[i].clone() },
+                JsonSourceConfig {
+                    json: locals[i].clone()
+                },
                 serde_yaml_ng::from_str::<JsonSourceConfig>(&configs[i]).unwrap()
             );
         }
@@ -143,11 +147,14 @@ mod tests {
 
     #[test]
     fn valid_source_config_csv() {
-        let configs = get_configs().iter().map(|c| c.replace("{}", "csv")).collect::<Vec<String>>();
+        let configs = get_configs()
+            .iter()
+            .map(|c| c.replace("{}", "csv"))
+            .collect::<Vec<String>>();
         let locals = get_locals();
         for i in 0..5 {
             assert_eq!(
-                CsvSourceConfig{ csv: locals[i].clone() },
+                CsvSourceConfig { csv: locals[i].clone() },
                 serde_yaml_ng::from_str::<CsvSourceConfig>(&configs[i]).unwrap()
             );
         }

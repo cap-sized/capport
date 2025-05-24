@@ -5,7 +5,7 @@ use crate::frame::common::FrameUpdate;
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
-use crate::try_deserialize_transform;
+use crate::try_deserialize_stage;
 use crate::{
     frame::common::{
         FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
@@ -112,7 +112,7 @@ impl RootTransformConfig {
         self.steps
             .iter()
             .map(|transform| {
-                let config = try_deserialize_transform!(
+                let config = try_deserialize_stage!(
                     transform,
                     dyn TransformConfig,
                     SelectTransformConfig,

@@ -9,7 +9,7 @@ use crate::{
     frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameUpdateType},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
-    try_deserialize_transform,
+    try_deserialize_stage,
     util::error::{CpError, CpResult},
 };
 
@@ -190,7 +190,7 @@ impl SourceGroupConfig {
         self.sources
             .iter()
             .map(|transform| {
-                let config = try_deserialize_transform!(transform, dyn SourceConfig, JsonSourceConfig);
+                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",

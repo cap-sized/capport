@@ -175,7 +175,7 @@ macro_rules! valid_or_insert_error {
 }
 
 #[macro_export]
-macro_rules! try_deserialize_transform {
+macro_rules! try_deserialize_stage {
     ($value:expr, $result:ty, $($type:ty),+) => {
         $(if let Ok(config) = serde_yaml_ng::from_value::<$type>($value.clone()) {
             Some(Box::new(config) as Box<$result>)

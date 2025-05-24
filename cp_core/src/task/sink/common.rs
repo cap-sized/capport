@@ -13,7 +13,7 @@ use crate::{
     parser::{keyword::Keyword, merge_type::MergeTypeEnum},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
-    try_deserialize_transform,
+    try_deserialize_stage,
     util::error::{CpError, CpResult},
     valid_or_insert_error,
 };
@@ -183,7 +183,7 @@ impl SinkGroupConfig {
         self.sinks
             .iter()
             .map(|transform| {
-                let config = try_deserialize_transform!(transform, dyn SinkConfig, CsvSinkConfig);
+                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",

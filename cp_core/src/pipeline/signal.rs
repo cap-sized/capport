@@ -1,4 +1,4 @@
-use async_channel::{Receiver, Sender, unbounded};
+use async_broadcast::{Receiver, Sender};
 use chrono::Utc;
 use tokio::signal::unix::{Signal, SignalKind, signal};
 
@@ -28,7 +28,7 @@ impl Default for SignalState {
 
 impl SignalState {
     pub fn new() -> Self {
-        let (sig_sender, sig_recver) = unbounded();
+        let (sig_sender, sig_recver) = async_broadcast::broadcast(2);
         let sigterm_stream = signal(SignalKind::terminate()).expect("Failed to initialize SIGTERM stream");
         Self {
             sig_sender,
@@ -41,7 +41,7 @@ impl SignalState {
     pub async fn send_replace_signal(&self) -> CpResult<()> {
         match self
             .sig_sender
-            .send(FrameUpdateInfo {
+            .broadcast(FrameUpdateInfo {
                 source: "REPLACE".to_owned(),
                 timestamp: Utc::now(),
                 msg_type: FrameUpdateType::Replace,
@@ -56,7 +56,7 @@ impl SignalState {
     pub async fn send_terminate_signal(&self) -> CpResult<()> {
         match self
             .sig_sender
-            .send(FrameUpdateInfo {
+            .broadcast(FrameUpdateInfo {
                 source: "SIGTERM".to_owned(),
                 timestamp: Utc::now(),
                 msg_type: FrameUpdateType::Kill,

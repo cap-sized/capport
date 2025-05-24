@@ -1,4 +1,3 @@
-use async_channel::Receiver;
 use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
@@ -45,7 +44,7 @@ pub trait PipelineContext<
 
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
-    fn signal_propagator(&self) -> Receiver<FrameUpdateInfo>;
+    fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo>;
     async fn signal_replace(&self) -> CpResult<()>;
     async fn signal_terminate(&self) -> CpResult<()>;
 }
@@ -204,7 +203,7 @@ impl<'a>
             )),
         }
     }
-    fn signal_propagator(&self) -> Receiver<FrameUpdateInfo> {
+    fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo> {
         self.signal().sig_recver.clone()
     }
     async fn signal_replace(&self) -> CpResult<()> {

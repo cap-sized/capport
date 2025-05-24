@@ -1,5 +1,5 @@
 use polars::prelude::*;
-use std::sync::{RwLock, atomic::AtomicBool};
+use std::{sync::{atomic::AtomicBool, RwLock}, thread};
 
 use crate::util::error::{CpError, CpResult};
 
@@ -13,17 +13,17 @@ pub struct PolarsPipelineFrame {
     lf: Arc<RwLock<LazyFrame>>,
     df: Arc<RwLock<DataFrame>>,
     df_dirty: Arc<AtomicBool>,
-    sender: crossbeam::channel::Sender<FrameUpdateInfo>,
-    receiver: crossbeam::channel::Receiver<FrameUpdateInfo>,
-    asender: async_channel::Sender<FrameUpdateInfo>,
-    areceiver: async_channel::Receiver<FrameUpdateInfo>,
+    sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
+    receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
+    asender: async_broadcast::Sender<FrameUpdateInfo>,
+    areceiver: async_broadcast::Receiver<FrameUpdateInfo>,
 }
 
 #[derive(Clone)]
 pub struct PolarsBroadcastHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    sender: crossbeam::channel::Sender<FrameUpdateInfo>,
+    sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
     df_dirty: Arc<AtomicBool>,
 }
@@ -32,7 +32,7 @@ pub struct PolarsBroadcastHandle<'a> {
 pub struct PolarsListenHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    receiver: crossbeam::channel::Receiver<FrameUpdateInfo>,
+    receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
 }
 
@@ -40,7 +40,7 @@ pub struct PolarsListenHandle<'a> {
 pub struct PolarsAsyncBroadcastHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    sender: async_channel::Sender<FrameUpdateInfo>,
+    sender: async_broadcast::Sender<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
     df_dirty: Arc<AtomicBool>,
 }
@@ -49,7 +49,7 @@ pub struct PolarsAsyncBroadcastHandle<'a> {
 pub struct PolarsAsyncListenHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    receiver: async_channel::Receiver<FrameUpdateInfo>,
+    receiver: async_broadcast::Receiver<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
 }
 
@@ -63,7 +63,10 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
         // informs all readers
         let update = FrameUpdateInfo::new(self.handle_name.as_str());
         log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
-        let _ = self.sender.send(update);
+        while let Err(e) = self.sender.try_send(update.clone()) {
+            log::warn!("{}: {:?}", self.handle_name, e);
+            thread::sleep(std::time::Duration::from_millis(100));
+        }
         Ok(())
     }
 }
@@ -80,13 +83,14 @@ impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle
         // informs all readers
         let update = FrameUpdateInfo::new(self.handle_name.as_str());
         log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
-        let _ = self.sender.send(update).await;
+        let _ = self.sender.broadcast(update).await;
         Ok(())
     }
 
     async fn kill(&mut self) -> CpResult<()> {
         let update = FrameUpdateInfo::kill(self.handle_name.as_str());
-        let _ = self.sender.send(update).await;
+        let _ = self.sender.broadcast(update).await;
+        log::debug!("Kill sent from {}: {}", &self.handle_name, &self.result_label);
         Ok(())
     }
 }
@@ -140,8 +144,8 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
 
 impl PolarsPipelineFrame {
     pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
-        let (sender, receiver) = crossbeam::channel::bounded(bufsize);
-        let (asender, areceiver) = async_channel::bounded(bufsize);
+        let (sender, receiver) = multiqueue::broadcast_queue(bufsize as u64);
+        let (asender, areceiver) = async_broadcast::broadcast(bufsize);
         Self {
             label: label.to_owned(),
             lf: Arc::new(RwLock::new(lf.clone())),

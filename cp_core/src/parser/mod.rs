@@ -6,3 +6,4 @@ pub mod jtype;
 pub mod keyword;
 pub mod logger;
 pub mod model;
+pub mod merge_type;

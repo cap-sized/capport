@@ -29,7 +29,7 @@ We are drastically changing the structure of capport to support
     - [x] Results
     - [ ] ConnectionRegistry
     - [ ] TransformTaskDictionary
-    - [ ] ModelRegistry
+    - [x] ModelRegistry
     - [ ] SourceTaskDictionary
     - [ ] SinkTaskDictionary
     - [ ] Runner
@@ -47,7 +47,7 @@ We are drastically changing the structure of capport to support
         - [x] Literals (u64, i64, str)
     - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
     - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
-- [ ] RootTransform and sub-transforms (config and impl)
+- [x] RootTransform and sub-transforms (config and impl)
     - [x] SelectStatement
     - [x] SelectTransform
     - [x] JoinTransform
@@ -58,6 +58,7 @@ We are drastically changing the structure of capport to support
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
 - [x] RootSource, method of pulling data, and types
+    - [ ] Running RootSource as a Source
     - [ ] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
@@ -65,6 +66,7 @@ We are drastically changing the structure of capport to support
     - [ ] ClickhouseSource (cp_ext)
     - [ ] FromArrowAdapter
 - [ ] RootSink, method of writing data, and types
+    - [ ] Running RootSink as a Sink
     - [ ] JsonSink
     - [ ] CsvSink
     - [ ] BsonSink (cp_ext)

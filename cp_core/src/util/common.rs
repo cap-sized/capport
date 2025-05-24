@@ -137,7 +137,7 @@ macro_rules! ctx_run_n_async {
 /// This macro allows us to split evenly (best effort) the tasks into n_threads to be handled
 #[macro_export]
 macro_rules! ctx_run_n_threads {
-    ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {
+    ($num_threads:expr, $slice:expr, $action:expr, $($i:expr),*) => {
         let slice = ($slice);
         let len = slice.len();
         let n = std::cmp::min(($num_threads) as usize, len);
@@ -145,11 +145,10 @@ macro_rules! ctx_run_n_threads {
         let (quo, rem) = (len / n, len % n);
         let split = (quo + 1) * rem;
         match thread::scope(|scope| {
-            let ctx = ($ctx).clone();
             let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
             for chunk in chunks {
-                let ictx = ctx.clone();
-                scope.spawn(move |_| ($action)(chunk, ictx));
+                let items = (chunk, $($i.clone()),*);
+                scope.spawn(move |_| ($action)(items));
             }
         }) {
             Ok(_) => {

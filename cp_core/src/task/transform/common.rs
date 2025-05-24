@@ -1,6 +1,8 @@
 use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
+use crate::frame::common::FrameUpdate;
+use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::{
     frame::common::{
@@ -17,6 +19,8 @@ pub trait Transform {
 }
 
 pub trait TransformConfig {
+    // TODO PX: see issue #143
+    // fn emplace(&self, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
     fn validate(&self) -> Vec<CpError>;
     fn transform(&self) -> Box<dyn Transform>;
 }
@@ -64,14 +68,16 @@ impl Stage for RootTransform {
     /// The asynchronous, concurrent execution executes until it receives a Kill message.
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         let mut loops = 0;
-        let lctx = ctx.clone();
-        let bctx = ctx.clone();
         log::info!("Stage initialized: {}", &self.label);
+        let mut listen = ctx.get_async_listener(&self.input, &self.label)?;
+        let listen_ptr : *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let mut output_broadcast = ctx.get_async_broadcast(&self.output, &self.label)?;
         loop {
-            let mut input_listener = lctx.get_async_listener(&self.input, &self.label)?;
-            let mut output_broadcast = bctx.get_async_broadcast(&self.output, &self.label)?;
             log::trace!("AWAIT RootTransform handle {}", &self.label);
-            let update = input_listener.listen().await?;
+            let update: FrameUpdate<LazyFrame> = unsafe { 
+                (*listen_ptr).listen().await
+            }?;
+            log::trace!("{} Received update: {:?}", &self.label, update.info);
             match update.info.msg_type {
                 FrameUpdateType::Replace => {
                     let input = update.frame.read()?.clone();
@@ -231,7 +237,7 @@ mod tests {
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
         let event = async || {
-            let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
+            let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 2));
             let lctx = ctx.clone();
             let bctx = ctx.clone();
             let fctx = ctx.clone();
@@ -247,13 +253,13 @@ mod tests {
             let thandle = async move || {
                 let mut listener = fctx.get_async_listener("actual", "killer").unwrap();
                 let mut killer = fctx.get_async_broadcast("orig", "killer").unwrap();
-                // log::debug!("AWAIT handle killer");
                 let update = listener.listen().await.unwrap();
                 {
                     let lf = update.frame.read().unwrap();
                     let actual = lf.clone().collect().unwrap();
                     assert_eq!(actual, expected());
                 }
+                log::debug!("AWAIT handle killer");
                 killer.kill().await.unwrap();
             };
             tokio::join!(bhandle(), lhandle(), thandle());

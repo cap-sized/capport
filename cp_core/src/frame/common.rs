@@ -19,6 +19,7 @@ pub struct FrameUpdateInfo {
 }
 
 /// Fully populated message
+#[derive(Clone)]
 pub struct FrameUpdate<FrameType> {
     pub info: FrameUpdateInfo,
     pub frame: Arc<RwLock<FrameType>>,

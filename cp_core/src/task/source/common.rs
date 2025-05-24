@@ -26,6 +26,9 @@ pub trait Source {
 pub struct BoxedSource(Box<dyn Source>);
 
 pub trait SourceConfig {
+    // TODO PX: see issue #143
+    // fn emplace(&mut self, ctx: Arc<DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
+    // fn validate(&self, ctx: Arc<DefaultPipelineContext) -> Vec<CpError>;
     fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
     fn transform(&self, ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source>;
 }
@@ -35,6 +38,9 @@ pub trait SourceConfig {
 unsafe impl Send for BoxedSource {}
 unsafe impl Sync for BoxedSource {}
 
+/// Unlike RootTransform, RootSource/RootSink do not implement Source/Sink respectively
+/// Their stage interface is run directly without calling RootSource
+/// TODO: change naming to SourceGroup
 pub struct RootSource {
     label: String,
     max_threads: usize,
@@ -88,8 +94,7 @@ impl Stage for RootSource {
             ctx_run_n_threads!(
                 self.max_threads,
                 self.sources.as_slice(),
-                ctx.clone(),
-                move |sources, ictx: Arc<DefaultPipelineContext>| {
+                move |(sources, ictx): (_, Arc<DefaultPipelineContext>)| {
                     for source in sources {
                         let s: &BoxedSource = source;
                         match run_source(label, s, ictx.clone()) {
@@ -102,7 +107,8 @@ impl Stage for RootSource {
                             ),
                         };
                     }
-                }
+                },
+                ctx.clone()
             );
         } else {
             for source in &self.sources {
@@ -118,7 +124,7 @@ impl Stage for RootSource {
         log::info!("Stage initialized [async fetch]: {}", &self.label);
         let label = self.label.as_str();
         let mut loops: u64 = 0;
-        let signal = ctx.signal_propagator();
+        let mut signal = ctx.signal_propagator();
         loop {
             // Source tasks do not fetch until an explicit "Replace" signal has been received.
             // i.e. the scheduler has to send the signal

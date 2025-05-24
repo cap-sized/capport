@@ -1,0 +1,296 @@
+use std::sync::{atomic::AtomicUsize, Arc};
+
+use async_trait::async_trait;
+use crossbeam::thread;
+use polars::{frame::DataFrame, prelude::LazyFrame};
+
+use crate::{
+    ctx_run_n_async, ctx_run_n_threads, frame::{common::{FrameAsyncListenHandle, FrameListenHandle, FrameUpdate, FrameUpdateType}, polars::PolarsAsyncListenHandle}, parser::merge_type::MergeTypeEnum, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::stage::Stage, util::error::{CpError, CpResult}
+};
+
+
+/// Base sink trait. Importantly, certain sinks may have dependencies as well.
+/// If it receives a termination signal, it is the sink type's responsibility to clean up and
+/// kill its dependents as well.
+/// Is a syntactic clone of the sink trait, but do semantically different things.
+#[async_trait]
+pub trait Sink {
+    fn connection_type(&self) -> &str;
+    fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
+    async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame>;
+}
+
+pub struct BoxedSink(Box<dyn Sink>);
+
+pub trait SinkConfig {
+    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
+    fn transform(&self, ctx: Arc<DefaultPipelineContext>) -> Box<dyn Sink>;
+}
+
+/// We NEVER modify the individual Sink instantiations after initialization.
+/// Hence the Box<dyn Sink> is safe to access in parallel
+unsafe impl Send for BoxedSink {}
+unsafe impl Sync for BoxedSink {}
+
+pub struct SinkOptions {
+    pub merge_type: MergeTypeEnum
+}
+
+pub struct SinkGroup {
+    result_name: String,
+    label: String,
+    max_threads: usize,
+    sinks: Vec<BoxedSink>,
+}
+
+impl SinkGroup {
+    pub fn new(result_name: &str, label: &str, max_threads: usize, sinks: Vec<Box<dyn Sink>>) -> SinkGroup {
+        SinkGroup {
+            result_name: result_name.to_owned(),
+            label: label.to_owned(),
+            max_threads,
+            sinks: sinks.into_iter().map(BoxedSink).collect::<Vec<BoxedSink>>(),
+        }
+    }
+}
+
+impl Stage for SinkGroup {
+    fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+        log::info!("Stage initialized [single-thread]: {}", &self.label);
+        let mut listen = ctx.get_listener(&self.result_name, &self.label)?;
+        let update = listen.listen()?;
+        let mut dataframe: Option<DataFrame> = None;
+        {
+            let fread = update.frame.read()?;
+            let _ = dataframe.insert(fread.clone().collect()?);
+        }
+        for sink in &self.sinks {
+            let _ = sink.0.run(dataframe.clone().expect("must have dataframe"), ctx.clone())?;
+            log::info!(
+                "Success pushing frame update via {}: {}",
+                sink.0.connection_type(),
+                &self.result_name
+            );
+        }
+        Ok(())
+    }
+
+    fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+        log::info!(
+            "Stage initialized [max_threads: {}]: {}",
+            &self.label,
+            &self.max_threads
+        );
+        let label = self.label.as_str();
+        let result_name = self.result_name.as_str();
+        let mut listen = ctx.get_listener(result_name, label)?;
+        let update = listen.listen()?;
+        let mut dataframe: Option<DataFrame> = None;
+        {
+            let fread = update.frame.read()?;
+            let _ = dataframe.insert(fread.clone().collect()?);
+        }
+        ctx_run_n_threads!(
+            self.max_threads,
+            self.sinks.as_slice(),
+            move |(sinks, ictx, dfh): (_, Arc<DefaultPipelineContext>, Option<DataFrame>)| {
+                for sink in sinks {
+                    let s: &BoxedSink = sink;
+                    let sink = &s.0;
+                    match sink.run(dfh.clone().expect("dataframe"), ictx.clone()) {
+                        Ok(_) => log::info!("pushed frame `{}` on connection `{}`",
+                            result_name,
+                            &s.0.connection_type(),
+                        ),
+                        Err(e) => log::error!(
+                            "Failed fetch frame `{}` of type `{}`: {:?}",
+                            result_name,
+                            &s.0.connection_type(),
+                            e
+                        ),
+
+                    };
+                }
+            },
+            ctx,
+            dataframe
+        );
+        Ok(())
+    }
+
+    async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
+        log::info!("Stage initialized [async fetch]: {}", &self.label);
+        let label = self.label.as_str();
+        let result_name = self.result_name.as_str();
+        let mut listen = ctx.get_async_listener(result_name, label)?;
+        let listen_ptr : *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let mut loops: u64 = 0;
+        let terminations = AtomicUsize::new(0);
+        loop {
+            // annoying thing to get past the borrow checker
+            let update: FrameUpdate<LazyFrame> = unsafe { 
+                (*listen_ptr).listen().await
+            }?;
+            ctx_run_n_async!(label, &self.sinks, ctx.clone(), async |bsink:&BoxedSink, ctx: Arc<DefaultPipelineContext>| {
+                let sink = &bsink.0;
+                let upd = update.clone();
+                match upd.info.msg_type {
+                    FrameUpdateType::Replace => {
+                        let mut dataframe: Option<DataFrame> = None;
+                        {
+                            let fread = update.frame.read()?;
+                            let _ = dataframe.insert(fread.clone().collect()?);
+                        }
+                        let _ = sink.fetch(dataframe.expect("must have dataframe"), ctx.clone()).await?;
+                        log::info!(
+                            "Success pushing frame update via {}: {}",
+                            sink.connection_type(),
+                            result_name
+                        );
+                    }
+                    FrameUpdateType::Kill => {
+                        terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+                Ok::<(), CpError>(())
+            }); 
+            if terminations.load(std::sync::atomic::Ordering::Relaxed) >= self.sinks.len() {
+                log::info!("Stage killed after {} iterations: {}", loops, &self.label);
+                break;
+            }
+            loops += 1;
+        }
+        Ok(loops)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{sync::Arc, thread::sleep, time::Duration};
+
+    use async_trait::async_trait;
+    use polars::{df, frame::DataFrame, prelude::{IntoLazy, LazyFrame}};
+
+    use crate::{frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{sink::common::SinkGroup, stage::Stage}, util::error::CpResult};
+
+    use super::Sink;
+
+
+    struct MockSink {
+        out: String
+    }
+
+    impl MockSink {
+        fn new(out: &str) -> Self {
+            Self { out: out.to_owned() }
+        }
+    }
+
+    fn default_df() -> DataFrame {
+        df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap()
+    }
+
+    fn default_next() -> DataFrame {
+        df!( "c" => ["a", "b", "c"], "d" => [4, 5, 6] ).unwrap()
+    }
+
+    #[async_trait]
+    impl Sink for MockSink {
+        fn connection_type(&self) -> &str {
+            "mock"
+        }
+        fn run(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+            log::info!("DONE\n{:?}", frame);
+            let lf = frame.lazy();
+            sleep(Duration::new(1, 0));
+            ctx.insert_result(self.out.as_str(), lf.clone()).unwrap();
+            Ok(lf)
+        }
+        async fn fetch(&self, frame: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+            log::info!("DONE\n{:?}", frame);
+            let lf = frame.lazy();
+            ctx.insert_result(self.out.as_str(), lf.clone()).unwrap();
+            Ok(lf)
+        }
+    }
+
+    #[test]
+    fn success_mock_sink_run() {
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["test"], 1));
+        let src = MockSink::new("test");
+        let expected = src.run(default_df(), ctx.clone());
+        assert_eq!(expected.unwrap().collect().unwrap(), default_df());
+    }
+
+    #[test]
+    fn success_mock_sink_linear_exec() {
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next1", "next2"], 1));
+        let mut df_handle = ctx.get_broadcast("df", "orig").unwrap();
+        df_handle.broadcast(default_df().lazy()).unwrap();
+        let src = SinkGroup::new("df", "msink", 1, vec![Box::new(MockSink::new("next1")), Box::new(MockSink::new("next2"))]);
+        src.linear(ctx.clone()).unwrap();
+        assert_eq!(ctx.extract_clone_result("next1").unwrap(), default_df());
+        assert_eq!(ctx.extract_clone_result("next2").unwrap(), default_df());
+    }
+
+    #[test]
+    fn success_mock_sink_sync_exec_single_thread() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next1", "next2"], 2));
+        let mut df_handle = ctx.get_broadcast("df", "orig").unwrap();
+        df_handle.broadcast(default_df().lazy()).unwrap();
+        let snk = SinkGroup::new("df", "msink", 1, vec![Box::new(MockSink::new("next1")), Box::new(MockSink::new("next2"))]);
+        snk.sync_exec(ctx.clone()).unwrap();
+        assert_eq!(ctx.extract_clone_result("next1").unwrap(), default_df());
+        assert_eq!(ctx.extract_clone_result("next2").unwrap(), default_df());
+    }
+
+    #[test]
+    fn success_mock_sink_sync_exec_multi_thread() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next1", "next2", "next3"], 2));
+        let mut df_handle = ctx.get_broadcast("df", "orig").unwrap();
+        df_handle.broadcast(default_df().lazy()).unwrap();
+        let snk = SinkGroup::new("df", "msink", 3, vec![Box::new(MockSink::new("next1")), Box::new(MockSink::new("next2")), Box::new(MockSink::new("next3"))]);
+        snk.sync_exec(ctx.clone()).unwrap();
+        assert_eq!(ctx.extract_clone_result("next1").unwrap(), default_df());
+        assert_eq!(ctx.extract_clone_result("next2").unwrap(), default_df());
+        assert_eq!(ctx.extract_clone_result("next3").unwrap(), default_df());
+    }
+
+    #[test]
+    fn success_mock_sink_async_exec() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let ctx = Arc::new(
+                DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal(),
+            );
+            let ictx = ctx.clone();
+            let iictx = ctx.clone();
+            let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
+            next_handle.broadcast(default_next().lazy()).await.unwrap();
+            let mnext1 = Box::new(MockSink::new("next1"));
+            let mnext2 = Box::new(MockSink::new("next2"));
+            let mnext3 = Box::new(MockSink::new("next3"));
+            // let snk = SinkGroup::new("next", "msink", 1, vec![mnext1]);
+            let snk = SinkGroup::new("next", "msink", 1, vec![mnext1, mnext2, mnext3]);
+            let action_path = async move || {
+                // This will NOT work with linear! mock_src depends on mock_src_df
+                snk.async_exec(ictx.clone()).await.unwrap();
+                assert_eq!(ictx.extract_clone_result("next1").unwrap(), default_next());
+                assert_eq!(ictx.extract_clone_result("next2").unwrap(), default_next());
+                assert_eq!(ictx.extract_clone_result("next3").unwrap(), default_next());
+            };
+            let terminator = async move || {
+                let mut kill_handle = iictx.get_async_broadcast("next", "orig").unwrap();
+                kill_handle.kill().await.unwrap();
+            };
+            tokio::join!(action_path(), terminator());
+        };
+        rt.block_on(event());
+    }
+
+}

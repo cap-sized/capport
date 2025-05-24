@@ -106,6 +106,26 @@ mod tests {
         let reader = CsvReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
+        assert_eq!(csv_sink.connection_type(), "json");
+    }
+
+    #[test]
+    fn valid_csv_sink_async() {
+        let expected = example();
+        let tmp = TempFile::default();
+        let csv_sink = CsvSink::new(&tmp.filepath);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let _ = csv_sink.fetch(expected.clone(), ctx).await;
+            let buffer = tmp.get().unwrap();
+            let reader = CsvReader::new(buffer);
+            let actual = reader.finish().unwrap();
+            assert_frame_equal(actual, expected);
+        };
+        rt.block_on(event());
     }
 
     #[test]

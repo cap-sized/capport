@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use polars::prelude::{Expr, LazyFrame};
 
@@ -24,6 +24,19 @@ impl Transform for SelectTransform {
 }
 
 impl TransformConfig for SelectTransformConfig {
+    fn emplace(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        let mut fields = HashMap::new();
+        log::debug!("original model: {:?}", self);
+        for (alias_kw, expr_kw) in &self.select {
+            let mut alias = alias_kw.clone();
+            alias.insert_value_from_context(context);
+            let mut expr = expr_kw.clone();
+            expr.insert_value_from_context(context);
+            fields.insert(alias, expr);
+        }
+        self.select = fields;
+        Ok(())
+    }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         for (alias_kw, expr_kw) in &self.select {

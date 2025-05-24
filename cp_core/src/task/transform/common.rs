@@ -19,8 +19,7 @@ pub trait Transform {
 }
 
 pub trait TransformConfig {
-    // TODO PX: see issue #143
-    // fn emplace(&self, context: &serde_yaml_ng::Mapping) -> Vec<CpError>;
+    fn emplace(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
     fn validate(&self) -> Vec<CpError>;
     fn transform(&self) -> Box<dyn Transform>;
 }
@@ -133,38 +132,40 @@ impl RootTransformConfig {
             })
             .collect()
     }
-}
 
-impl TransformConfig for RootTransformConfig {
-    fn validate(&self) -> Vec<CpError> {
+    pub fn parse(&self, context: &serde_yaml_ng::Mapping) -> Result<RootTransform, Vec<CpError>> {
+        let mut subtransforms = vec![];
         let mut errors = vec![];
-
         for result in self.parse_subtransforms() {
             match result {
-                Ok(config) => {
-                    errors.extend(config.validate());
+                Ok(mut config) => {
+                    if let Err(e) = config.emplace(context) {
+                        errors.push(e);
+                    }
+                    let errs = config.validate();
+                    if errs.is_empty() {
+                        subtransforms.push(config.transform());
+                    } else {
+                        errors.extend(errs);
+                    }
                 }
                 Err(e) => errors.push(e),
             }
         }
-
-        errors
-    }
-
-    fn transform(&self) -> Box<dyn Transform> {
-        let mut subtransforms: Vec<Box<dyn Transform>> = vec![];
-        for result in self.parse_subtransforms() {
-            subtransforms.push(result.unwrap().transform());
+        if errors.is_empty() {
+            Ok(RootTransform {
+                label: self.label.clone(),
+                input: self.input.value().expect("input").clone(),
+                output: self.output.value().expect("output").clone(),
+                subtransforms,
+            })
+        } else {
+            Err(errors)
         }
 
-        Box::new(RootTransform {
-            label: self.label.clone(),
-            input: self.input.value().expect("input").clone(),
-            output: self.output.value().expect("output").clone(),
-            subtransforms,
-        })
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -288,8 +289,10 @@ join:
             output: StrKeyword::with_value("test_output".to_owned()),
             steps: vec![select_value, join_value],
         };
+        let context = serde_yaml_ng::Mapping::new();
+        let errs = config.parse(&context);
 
-        assert!(config.validate().is_empty());
+        assert!(!errs.is_err());
     }
 
     #[test]
@@ -312,8 +315,10 @@ purr_transform:
             output: StrKeyword::with_value("test_output".to_owned()),
             steps: vec![select_value, invalid_value],
         };
+        let context = serde_yaml_ng::Mapping::new();
+        let errs = config.parse(&context);
 
-        assert_eq!(config.validate().len(), 1);
+        assert!(errs.is_err());
     }
 
     #[test]
@@ -338,9 +343,9 @@ select:
             output: StrKeyword::with_value("test_output".to_owned()),
             steps: vec![select_value_1, select_value_2],
         };
+        let mapping = serde_yaml_ng::Mapping::new();
 
-        assert!(config.validate().is_empty());
-        let root_transform = config.transform();
+        let root_transform = config.parse(&mapping).unwrap();
         let ctx = Arc::new(DefaultPipelineContext::new());
         let main = df!(
             "two" => [1, 2, 3]

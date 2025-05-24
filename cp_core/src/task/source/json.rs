@@ -185,7 +185,28 @@ mod tests {
         assert_frame_equal(result.collect().unwrap(), expected);
         assert_eq!(json_source.name(), "_sample");
         assert_eq!(json_source.connection_type(), "json");
-        // TODO: test async
+    }
+
+    #[test]
+    fn valid_json_source_async() {
+        let mut expected = example();
+        let tmp = TempFile::default();
+        let buffer = tmp.get_mut().unwrap();
+        let mut writer = JsonWriter::new(buffer);
+        writer.finish(&mut expected).unwrap();
+        let model_schema = example_model().schema().unwrap();
+        let json_source = JsonSource::new(&tmp.filepath, "_sample").and_schema(model_schema);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let result = json_source.fetch(ctx).await.unwrap();
+            assert_frame_equal(result.collect().unwrap(), expected);
+            assert_eq!(json_source.name(), "_sample");
+            assert_eq!(json_source.connection_type(), "json");
+        };
+        rt.block_on(event());
     }
 
     #[test]

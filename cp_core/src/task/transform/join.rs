@@ -5,7 +5,7 @@ use polars::prelude::{Expr, IntoLazy, JoinArgs, LazyFrame, all, col};
 use crate::{
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::error::{CpError, CpResult},
+    util::error::{CpError, CpResult}, valid_or_insert_error,
 };
 
 use super::{
@@ -50,56 +50,36 @@ impl Transform for JoinTransform {
 }
 
 impl TransformConfig for JoinTransformConfig {
+    fn emplace(&mut self, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        self.join.right_prefix.iter_mut().map(|sp| sp.insert_value_from_context(context));
+        self.join.left_prefix.iter_mut().map(|sp| sp.insert_value_from_context(context));
+        for on in &mut self.join.left_on {
+            on.insert_value_from_context(context);
+        }
+        for on in &mut self.join.right_on {
+            on.insert_value_from_context(context);
+        }
+        Ok(())
+    }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         if let Some(rp) = self.join.right_prefix.as_ref() {
-            match rp.value() {
-                Some(_) => {}
-                None => errors.push(CpError::SymbolMissingValueError(
-                    "right_prefix",
-                    rp.symbol().unwrap_or("?").to_owned(),
-                )),
-            }
+            valid_or_insert_error!(errors, rp, "transform[join].right_prefix");
         }
 
         if let Some(lp) = self.join.left_prefix.as_ref() {
-            match lp.value() {
-                Some(_) => {}
-                None => errors.push(CpError::SymbolMissingValueError(
-                    "left_prefix",
-                    lp.symbol().unwrap_or("?").to_owned(),
-                )),
-            }
+            valid_or_insert_error!(errors, lp, "transform[join].left_prefix");
         }
 
         for on in &self.join.left_on {
-            match on.value() {
-                Some(_) => {}
-                None => errors.push(CpError::SymbolMissingValueError(
-                    "left_on",
-                    on.symbol().unwrap_or("?").to_owned(),
-                )),
-            }
+            valid_or_insert_error!(errors, on, "transform[join].left_on");
         }
 
         for on in &self.join.right_on {
-            match on.value() {
-                Some(_) => {}
-                None => errors.push(CpError::SymbolMissingValueError(
-                    "right_on",
-                    on.symbol().unwrap_or("?").to_owned(),
-                )),
-            }
+            valid_or_insert_error!(errors, on, "transform[join].right_on");
         }
 
-        match self.join.right.value() {
-            Some(_) => {}
-            None => errors.push(CpError::SymbolMissingValueError(
-                "right",
-                self.join.right.symbol().unwrap_or("?").to_owned(),
-            )),
-        }
-
+        valid_or_insert_error!(errors, self.join.right, "transform[join].right");
         errors
     }
 

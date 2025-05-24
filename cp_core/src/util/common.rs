@@ -137,7 +137,7 @@ macro_rules! ctx_run_n_async {
 /// This macro allows us to split evenly (best effort) the tasks into n_threads to be handled
 #[macro_export]
 macro_rules! ctx_run_n_threads {
-    ($num_threads:expr, $slice:expr, $ctx:expr, $action:expr) => {
+    ($num_threads:expr, $slice:expr, $action:expr, $($i:expr),*) => {
         let slice = ($slice);
         let len = slice.len();
         let n = std::cmp::min(($num_threads) as usize, len);
@@ -145,11 +145,10 @@ macro_rules! ctx_run_n_threads {
         let (quo, rem) = (len / n, len % n);
         let split = (quo + 1) * rem;
         match thread::scope(|scope| {
-            let ctx = ($ctx).clone();
             let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
             for chunk in chunks {
-                let ictx = ctx.clone();
-                scope.spawn(move |_| ($action)(chunk, ictx));
+                let items = (chunk, $($i.clone()),*);
+                scope.spawn(move |_| ($action)(items));
             }
         }) {
             Ok(_) => {
@@ -159,5 +158,30 @@ macro_rules! ctx_run_n_threads {
                 log::error!("Thread err:\n{:?}", e);
             }
         };
+    };
+}
+
+#[macro_export]
+macro_rules! valid_or_insert_error {
+    ($errors:expr, $keyword:expr, $keyname:expr) => {
+        match ($keyword).value() {
+            Some(_) => {}
+            None => ($errors).push(CpError::SymbolMissingValueError(
+                ($keyname),
+                ($keyword).symbol().unwrap_or("?").to_owned(),
+            )),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_deserialize_stage {
+    ($value:expr, $result:ty, $($type:ty),+) => {
+        $(if let Ok(config) = serde_yaml_ng::from_value::<$type>($value.clone()) {
+            Some(Box::new(config) as Box<$result>)
+        }) else+
+        else {
+            None
+        }
     };
 }

@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde::Deserialize;
 
-use crate::{pipeline::context::DefaultPipelineContext, util::error::CpResult};
+use crate::{
+    pipeline::context::DefaultPipelineContext,
+    util::error::{CpError, CpResult},
+};
 
 pub trait Stage {
     /// Executes the default pipeline context with stages executed in linear order.
@@ -15,6 +18,10 @@ pub trait Stage {
     /// we will allow the async_fn_in_trait. Returns the number of iterations made.
     #[allow(async_fn_in_trait)]
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64>;
+}
+
+pub trait StageTaskConfig<T> {
+    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

@@ -8,6 +8,7 @@ use crate::{
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::error::{CpError, CpResult},
+    valid_or_insert_error,
 };
 
 use super::{
@@ -47,7 +48,6 @@ impl Source for JsonSource {
     }
 
     async fn fetch(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-        // let filepath = tokio::fs::File::open(self.filepath).await;
         self.run(ctx)
     }
 
@@ -67,57 +67,43 @@ impl Source for JsonSource {
 }
 
 impl SourceConfig for JsonSourceConfig {
-    fn validate(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Vec<CpError> {
-        let mut errors = vec![];
-        match self.filepath.value() {
-            Some(_) => {}
-            None => errors.push(CpError::SymbolMissingValueError(
-                "filepath",
-                self.filepath.symbol().unwrap_or("?").to_owned(),
-            )),
+    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+        self.json.filepath.insert_value_from_context(context)?;
+        self.json.output.insert_value_from_context(context)?;
+        if let Some(mut model_name) = self.json.model.take() {
+            model_name.insert_value_from_context(context)?;
+            if let Some(name) = model_name.value() {
+                let model = ctx.get_model(name)?;
+                self.json.model_fields = Some(model.fields);
+            }
+            let _ = self.json.model.insert(model_name.clone());
         }
-        match self.output.value() {
-            Some(_) => {}
-            None => errors.push(CpError::SymbolMissingValueError(
-                "output",
-                self.output.symbol().unwrap_or("?").to_owned(),
-            )),
-        };
-        if let Some(model_fields) = self.model_fields.take() {
+        if let Some(model_fields) = self.json.model_fields.take() {
             let model = ModelConfig {
                 label: "".to_string(),
                 fields: model_fields,
             };
-            match model.substitute_model_fields(context) {
-                Ok(fields) => {
-                    let _ = self.model_fields.insert(fields);
-                }
-                Err(e) => {
-                    errors.push(CpError::ConfigError(
-                        "Failed to substitute model with context",
-                        format!("Could not substitute model in JsonSourceConfig `{:?}`: {}", self, e),
-                    ));
-                }
-            }
-        } else if let Some(model_name) = self.model.value() {
-            match ctx.get_substituted_model_fields(model_name, context) {
-                Ok(fields) => {
-                    let _ = self.model_fields.insert(fields);
-                }
-                Err(e) => {
-                    errors.push(CpError::ConfigError(
-                        "Failed to substitute model with context",
-                        format!("Could not substitute model `{}` in ModelRegistry: {:?}", model_name, e),
-                    ));
-                }
+            let fields = model.substitute_model_fields(context)?;
+            let _ = self.json.model_fields.insert(fields);
+        }
+        Ok(())
+    }
+    fn validate(&self) -> Vec<CpError> {
+        let mut errors = vec![];
+        valid_or_insert_error!(errors, self.json.filepath, "source[json].filepath");
+        valid_or_insert_error!(errors, self.json.output, "source[json].output");
+        if let Some(model_fields) = &self.json.model_fields {
+            for (key_kw, field_kw) in model_fields {
+                valid_or_insert_error!(errors, key_kw, "source[json].model.key");
+                valid_or_insert_error!(errors, field_kw, "source[json].model.field");
             }
         }
         errors
     }
 
-    fn transform(&self, _ctx: Arc<DefaultPipelineContext>) -> Box<dyn Source> {
+    fn transform(&self) -> Box<dyn Source> {
         // By here the model_fields should be completely populated.
-        let schema = self.model_fields.as_ref().map(|x| {
+        let schema = self.json.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
                 fields: x.clone(),
@@ -127,8 +113,8 @@ impl SourceConfig for JsonSourceConfig {
         });
 
         Box::new(JsonSource {
-            filepath: self.filepath.value().expect("filepath").to_owned(),
-            output: self.output.value().expect("output").to_owned(),
+            filepath: self.json.filepath.value().expect("filepath").to_owned(),
+            output: self.json.output.value().expect("output").to_owned(),
             schema,
         })
     }
@@ -155,9 +141,9 @@ mod tests {
         pipeline::context::DefaultPipelineContext,
         task::source::{
             common::{Source, SourceConfig},
-            config::JsonSourceConfig,
+            config::{JsonSourceConfig, LocalFileSourceConfig},
         },
-        util::tmp::TempFile,
+        util::{test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::JsonSource;
@@ -197,11 +183,31 @@ mod tests {
         let json_source = JsonSource::new(&tmp.filepath, "_sample").and_schema(model_schema);
         let ctx = Arc::new(DefaultPipelineContext::new());
         let result = json_source.run(ctx).unwrap();
-        // TODO: replace with helper method when yx impls it
-        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+        assert_frame_equal(result.collect().unwrap(), expected);
         assert_eq!(json_source.name(), "_sample");
         assert_eq!(json_source.connection_type(), "json");
-        // TODO: test async
+    }
+
+    #[test]
+    fn valid_json_source_async() {
+        let mut expected = example();
+        let tmp = TempFile::default();
+        let buffer = tmp.get_mut().unwrap();
+        let mut writer = JsonWriter::new(buffer);
+        writer.finish(&mut expected).unwrap();
+        let model_schema = example_model().schema().unwrap();
+        let json_source = JsonSource::new(&tmp.filepath, "_sample").and_schema(model_schema);
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = async || {
+            let result = json_source.fetch(ctx).await.unwrap();
+            assert_frame_equal(result.collect().unwrap(), expected);
+            assert_eq!(json_source.name(), "_sample");
+            assert_eq!(json_source.connection_type(), "json");
+        };
+        rt.block_on(event());
     }
 
     #[test]
@@ -212,21 +218,23 @@ mod tests {
         let mut writer = JsonWriter::new(buffer);
         writer.finish(&mut expected).unwrap();
         let mut source_config = JsonSourceConfig {
-            filepath: StrKeyword::with_value(tmp.filepath.clone()),
-            output: StrKeyword::with_value("_sample".to_owned()),
-            model_fields: None,
-            model: StrKeyword::with_value("S".to_owned()),
+            json: LocalFileSourceConfig {
+                filepath: StrKeyword::with_value(tmp.filepath.clone()),
+                output: StrKeyword::with_value("_sample".to_owned()),
+                model_fields: None,
+                model: Some(StrKeyword::with_value("S".to_owned())),
+            },
         };
         let mut model_reg = ModelRegistry::new();
         model_reg.insert(example_model());
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_reg));
         let mapping = serde_yaml_ng::Mapping::new();
-        let errors = source_config.validate(ctx.clone(), &mapping);
+        let _ = source_config.emplace(ctx.clone(), &mapping);
+        let errors = source_config.validate();
         assert!(errors.is_empty());
-        assert_eq!(source_config.model_fields.clone().unwrap(), example_model().fields);
-        let actual_node = source_config.transform(ctx.clone());
+        assert_eq!(source_config.json.model_fields.clone().unwrap(), example_model().fields);
+        let actual_node = source_config.transform();
         let result = actual_node.run(ctx.clone()).unwrap();
-        // TODO: replace with helper method when yx impls it
-        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+        assert_frame_equal(result.collect().unwrap(), expected);
     }
 }

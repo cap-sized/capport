@@ -28,10 +28,7 @@ We are drastically changing the structure of capport to support
 - [x] PipelineContext
     - [x] Results
     - [ ] ConnectionRegistry
-    - [ ] TransformTaskDictionary
-    - [ ] ModelRegistry
-    - [ ] SourceTaskDictionary
-    - [ ] SinkTaskDictionary
+    - [x] ModelRegistry
     - [ ] Runner
     - [x] SignalState
     - [ ] Pipeline
@@ -47,7 +44,7 @@ We are drastically changing the structure of capport to support
         - [x] Literals (u64, i64, str)
     - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
     - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
-- [ ] RootTransform and sub-transforms (config and impl)
+- [x] RootTransform and sub-transforms (config and impl)
     - [x] SelectStatement
     - [x] SelectTransform
     - [x] JoinTransform
@@ -58,15 +55,17 @@ We are drastically changing the structure of capport to support
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
 - [x] RootSource, method of pulling data, and types
-    - [ ] JsonSource
+    - [x] Running RootSource as a Source
+    - [x] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
     - [ ] PostgresSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
     - [ ] FromArrowAdapter
-- [ ] RootSink, method of writing data, and types
+- [x] RootSink, method of writing data, and types
+    - [x] Running RootSink as a Sink
     - [ ] JsonSink
-    - [ ] CsvSink
+    - [x] CsvSink
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)

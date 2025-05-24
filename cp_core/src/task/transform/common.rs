@@ -70,13 +70,11 @@ impl Stage for RootTransform {
         let mut loops = 0;
         log::info!("Stage initialized: {}", &self.label);
         let mut listen = ctx.get_async_listener(&self.input, &self.label)?;
-        let listen_ptr : *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let listen_ptr: *mut PolarsAsyncListenHandle<'_> = &mut listen;
         let mut output_broadcast = ctx.get_async_broadcast(&self.output, &self.label)?;
         loop {
             log::trace!("AWAIT RootTransform handle {}", &self.label);
-            let update: FrameUpdate<LazyFrame> = unsafe { 
-                (*listen_ptr).listen().await
-            }?;
+            let update: FrameUpdate<LazyFrame> = unsafe { (*listen_ptr).listen().await }?;
             log::trace!("{} Received update: {:?}", &self.label, update.info);
             match update.info.msg_type {
                 FrameUpdateType::Replace => {

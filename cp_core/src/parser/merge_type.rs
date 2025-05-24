@@ -1,4 +1,4 @@
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum MergeTypeEnum {

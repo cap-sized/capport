@@ -1,5 +1,8 @@
 use polars::prelude::*;
-use std::{sync::{atomic::AtomicBool, RwLock}, thread};
+use std::{
+    sync::{RwLock, atomic::AtomicBool},
+    thread,
+};
 
 use crate::util::error::{CpError, CpResult};
 

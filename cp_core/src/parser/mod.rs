@@ -5,5 +5,5 @@ pub mod expr;
 pub mod jtype;
 pub mod keyword;
 pub mod logger;
-pub mod model;
 pub mod merge_type;
+pub mod model;

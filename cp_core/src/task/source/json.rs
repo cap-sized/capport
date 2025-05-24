@@ -141,7 +141,7 @@ mod tests {
             common::{Source, SourceConfig},
             config::JsonSourceConfig,
         },
-        util::tmp::TempFile,
+        util::{test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::JsonSource;
@@ -182,7 +182,7 @@ mod tests {
         let ctx = Arc::new(DefaultPipelineContext::new());
         let result = json_source.run(ctx).unwrap();
         // TODO: replace with helper method when yx impls it
-        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+        assert_frame_equal(result.collect().unwrap(), expected);
         assert_eq!(json_source.name(), "_sample");
         assert_eq!(json_source.connection_type(), "json");
         // TODO: test async
@@ -205,13 +205,13 @@ mod tests {
         model_reg.insert(example_model());
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_reg));
         let mapping = serde_yaml_ng::Mapping::new();
-        source_config.emplace(ctx.clone(), &mapping);
+        let _ = source_config.emplace(ctx.clone(), &mapping);
         let errors = source_config.validate();
         assert!(errors.is_empty());
         assert_eq!(source_config.model_fields.clone().unwrap(), example_model().fields);
         let actual_node = source_config.transform();
         let result = actual_node.run(ctx.clone()).unwrap();
         // TODO: replace with helper method when yx impls it
-        assert_eq!(result.select(&["a".into(), "b".into()]).collect().unwrap(), expected);
+        assert_frame_equal(result.collect().unwrap(), expected);
     }
 }

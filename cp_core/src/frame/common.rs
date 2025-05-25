@@ -40,6 +40,13 @@ impl FrameUpdateInfo {
             msg_type: FrameUpdateType::Kill,
         }
     }
+    pub fn anon() -> Self {
+        Self {
+            source: "<self>".to_owned(),
+            timestamp: Utc::now(),
+            msg_type: FrameUpdateType::Replace,
+        }
+    }
 }
 
 impl<FrameType> FrameUpdate<FrameType> {
@@ -69,6 +76,7 @@ pub trait FrameAsyncBroadcastHandle<'a, FrameType> {
 /// Trait for listening handles
 pub trait FrameListenHandle<'a, FrameType> {
     fn listen(&'a mut self) -> CpResult<FrameUpdate<FrameType>>;
+    fn force_listen(&'a mut self) -> FrameUpdate<FrameType>;
 }
 
 /// Trait for listening handles

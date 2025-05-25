@@ -56,10 +56,21 @@ impl SourceGroup {
             sources: sources.into_iter().map(BoxedSource).collect::<Vec<BoxedSource>>(),
         }
     }
+
+    pub fn produces(&self) -> Vec<String> {
+        self.sources.iter().map(|x| x.0.name().to_owned()).collect()
+    }
 }
 
 fn run_source(label: &str, bsource: &BoxedSource, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
     let source = &bsource.0;
+    log::info!(
+        "`{}` Fetching frame from {}: {}",
+        label,
+        source.connection_type(),
+        source.name()
+    );
+
     let mut bcast = ctx.get_broadcast(source.name(), label)?;
     log::info!("Fetching frame from {}: {}", source.connection_type(), source.name());
     let result = source.run(ctx.clone())?;
@@ -80,42 +91,34 @@ impl Stage for SourceGroup {
         }
         Ok(())
     }
-    /// WARNING: This method shouldn't be chosen to run concurrently any source tasks
-    /// that might have dependencies on each other: if they are scheduled out of order
-    /// on the same thread execution will definitely be blocked. If any ordering is
-    /// required, use separate source tasks so execution reliably runs.
+    /// WARNING: sync_exec mode only runs EACH STAGE possibly multithreaded.
+    /// It does not run the different stages on multiple threads.
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
             &self.label,
             &self.max_threads
         );
-        if self.max_threads > 1 {
-            let label = self.label.as_str();
-            ctx_run_n_threads!(
-                self.max_threads,
-                self.sources.as_slice(),
-                move |(sources, ictx): (_, Arc<DefaultPipelineContext>)| {
-                    for source in sources {
-                        let s: &BoxedSource = source;
-                        match run_source(label, s, ictx.clone()) {
-                            Ok(_) => {}
-                            Err(e) => log::error!(
-                                "Failed fetch frame `{}` of type `{}`: {:?}",
-                                &s.0.name(),
-                                &s.0.connection_type(),
-                                e
-                            ),
-                        };
-                    }
-                },
-                ctx.clone()
-            );
-        } else {
-            for source in &self.sources {
-                run_source(&self.label, source, ctx.clone())?;
-            }
-        }
+        let label = self.label.as_str();
+        ctx_run_n_threads!(
+            self.max_threads,
+            self.sources.as_slice(),
+            move |(sources, ictx): (_, Arc<DefaultPipelineContext>)| {
+                for source in sources {
+                    let s: &BoxedSource = source;
+                    match run_source(label, s, ictx.clone()) {
+                        Ok(_) => {}
+                        Err(e) => log::error!(
+                            "Failed fetch frame `{}` of type `{}`: {:?}",
+                            &s.0.name(),
+                            &s.0.connection_type(),
+                            e
+                        ),
+                    };
+                }
+            },
+            ctx.clone()
+        );
         Ok(())
     }
     /// async exec should NOT fail if a connection fails. it should just log the error and poll again.
@@ -394,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn success_mock_source_sync_exec() {
+    fn success_mock_source_sync_exec_multi_thread() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let count = [3, 4];
         for thread_count in count {

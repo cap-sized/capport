@@ -39,6 +39,10 @@ pub trait PipelineContext<
     fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
     fn extract_result(&self, label: &str) -> CpResult<FrameType>;
     fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
+    fn initialize_results<I>(self, results_needed: I, bufsize: usize) -> CpResult<Self>
+    where
+        I: IntoIterator<Item = String>,
+        Self: Sized;
 
     /// Model Registry
     fn get_model(&self, model_name: &str) -> CpResult<ModelConfig>;
@@ -290,5 +294,15 @@ impl<'a>
                 Err(errors) => Err(config_validation_error("sink", errors)),
             },
         }
+    }
+    fn initialize_results<I>(self, results_needed: I, bufsize: usize) -> CpResult<DefaultPipelineContext>
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let mut results = PipelineResults::<PolarsPipelineFrame>::new();
+        results_needed.into_iter().for_each(|label| {
+            results.insert(&label, bufsize);
+        });
+        Ok(Self { results, ..self })
     }
 }

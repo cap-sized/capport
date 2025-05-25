@@ -6,7 +6,10 @@ use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     ctx_run_n_async, ctx_run_n_threads,
-    frame::common::{FrameListenHandle, FrameUpdate, FrameUpdateType},
+    frame::{
+        common::{FrameAsyncListenHandle, FrameListenHandle, FrameUpdate, FrameUpdateType},
+        polars::PolarsAsyncListenHandle,
+    },
     parser::{keyword::Keyword, merge_type::MergeTypeEnum},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
@@ -66,16 +69,9 @@ impl SinkGroup {
 impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
-        let mut listen = ctx.get_listener(&self.result_name, &self.label)?;
-        let update = listen.listen()?;
-        let mut dataframe: Option<DataFrame> = None;
-        {
-            let fread = update.frame.read()?;
-            let _ = dataframe.insert(fread.clone().collect()?);
-        }
+        let dataframe = ctx.extract_clone_result(&self.result_name)?;
         for sink in &self.sinks {
-            sink.0
-                .run(dataframe.clone().expect("must have dataframe"), ctx.clone())?;
+            sink.0.run(dataframe.clone(), ctx.clone())?;
             log::info!(
                 "Success pushing frame update via {}: {}",
                 sink.0.connection_type(),
@@ -84,17 +80,18 @@ impl Stage for SinkGroup {
         }
         Ok(())
     }
-
+    /// WARNING: sync_exec mode only runs EACH STAGE possibly multithreaded.
+    /// It does not run the different stages on multiple threads.
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
             &self.label,
             &self.max_threads
         );
-        let label = self.label.as_str();
         let result_name = self.result_name.as_str();
+        let label = self.label.as_str();
         let mut listen = ctx.get_listener(result_name, label)?;
-        let update = listen.listen()?;
+        let update = listen.force_listen();
         let mut dataframe: Option<DataFrame> = None;
         {
             let fread = update.frame.read()?;
@@ -107,7 +104,7 @@ impl Stage for SinkGroup {
                 for sink in sinks {
                     let s: &BoxedSink = sink;
                     let sink = &s.0;
-                    match sink.run(dfh.clone().expect("dataframe"), ictx.clone()) {
+                    match sink.run(dfh.clone().expect("sink.df"), ictx.clone()) {
                         Ok(_) => log::info!(
                             "pushed frame `{}` on connection `{}`",
                             result_name,
@@ -132,23 +129,13 @@ impl Stage for SinkGroup {
         log::info!("Stage initialized [async fetch]: {}", &self.label);
         let label = self.label.as_str();
         let result_name = self.result_name.as_str();
-        let listen = ctx.get_async_listener(result_name, label)?;
-        // TODO: Resolve this HACK to avoid loop mut borrow_checker error without unsafe
-        let mut rcv = listen.receiver.new_receiver();
+        let mut listen = ctx.get_async_listener(result_name, label)?;
+        let lp: *mut PolarsAsyncListenHandle = &mut listen;
         let mut loops: u64 = 0;
         let terminations = AtomicUsize::new(0);
         loop {
-            // annoying thing to get past the borrow checker
-            let info = match rcv.recv().await {
-                Ok(x) => x,
-                Err(e) => {
-                    return Err(CpError::PipelineError(
-                        "Bad frame receiver:",
-                        format!("{} could not receive {}: {:?}", &listen.handle_name, listen.result_label, e),
-                    ));
-                }
-            };
-            let update: FrameUpdate<LazyFrame> = FrameUpdate { info, frame: listen.lf.clone() };
+            // unsafe hack to get past the borrow checker
+            let update: FrameUpdate<LazyFrame> = unsafe { (*lp).listen().await? };
             ctx_run_n_async!(label, &self.sinks, ctx.clone(), async |bsink: &BoxedSink,
                                                                      ctx: Arc<
                 DefaultPipelineContext,

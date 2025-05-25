@@ -99,14 +99,16 @@ mod tests {
 pipeline:
   players:
     - label: load_player_ids
-      task: load_sources # default
+      task_type: source
+      task_name: load_sources
       emplace: 
         fp_player_ids: nhl_player_ids.csv
         fp_state_province: state_province.csv
         df_state_province: STATE_PROVINCE
 
     - label: nhl_urls
-      task: player_ids_to_urls # user defined
+      task_type: transform
+      task_name: player_ids_to_urls # user defined
       emplace:
         input: PLAYER_IDS
         output: NHL_URLS
@@ -119,14 +121,16 @@ irrelevant_node:
 pipeline:
   player_data:
     - label: load_full_data
-      task: http_json_get_batch_request # user defined
+      task_type: source
+      task_name: http_json_get_batch_request # user defined
       emplace:
         input: NHL_URLS
         url_column: nhl_url
         output: NHL_PLAYER_DATA_RAW
 
     - label: nhl_player_data
-      task: transform_nhl_player_data # default
+      task_type: transform
+      task_name: transform_nhl_player_data # default
       emplace:
         input: NHL_PLAYER_DATA_RAW
         state_province_df: STATE_PROVINCE
@@ -142,7 +146,8 @@ pipeline:
                 stages: vec![
                     StageConfig {
                         label: "load_player_ids".to_owned(),
-                        task: "load_sources".to_owned(),
+                        task_type: "source".to_owned(),
+                        task_name: "load_sources".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
 fp_player_ids: nhl_player_ids.csv
@@ -154,7 +159,8 @@ df_state_province: STATE_PROVINCE
                     },
                     StageConfig {
                         label: "nhl_urls".to_owned(),
-                        task: "player_ids_to_urls".to_owned(),
+                        task_type: "transform".to_owned(),
+                        task_name: "player_ids_to_urls".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
 input: PLAYER_IDS
@@ -174,7 +180,8 @@ url_column: nhl_url
                 stages: vec![
                     StageConfig {
                         label: "load_full_data".to_owned(),
-                        task: "http_json_get_batch_request".to_owned(),
+                        task_type: "source".to_owned(),
+                        task_name: "http_json_get_batch_request".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
 input: NHL_URLS
@@ -186,7 +193,8 @@ output: NHL_PLAYER_DATA_RAW
                     },
                     StageConfig {
                         label: "nhl_player_data".to_owned(),
-                        task: "transform_nhl_player_data".to_owned(),
+                        task_type: "transform".to_owned(),
+                        task_name: "transform_nhl_player_data".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
 input: NHL_PLAYER_DATA_RAW

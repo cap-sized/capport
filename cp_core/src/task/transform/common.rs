@@ -1,14 +1,13 @@
 use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
-use crate::frame::common::FrameUpdate;
+use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
+use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
 use crate::try_deserialize_stage;
 use crate::{
-    frame::common::{
-        FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
-    },
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
     util::error::{CpError, CpResult},
@@ -42,6 +41,10 @@ impl RootTransform {
             subtransforms,
         }
     }
+
+    pub fn produces(&self) -> Vec<String> {
+        vec![self.output.clone()]
+    }
 }
 
 impl Stage for RootTransform {
@@ -69,21 +72,11 @@ impl Stage for RootTransform {
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         let mut loops = 0;
         log::info!("Stage initialized: {}", &self.label);
-        let listen = ctx.get_async_listener(&self.input, &self.label)?;
-        let mut rcv = listen.receiver.new_receiver();
+        let mut listen = ctx.get_async_listener(&self.input, &self.label)?;
+        let lp: *mut PolarsAsyncListenHandle = &mut listen;
         let mut output_broadcast = ctx.get_async_broadcast(&self.output, &self.label)?;
         loop {
-            log::trace!("AWAIT RootTransform handle {}", &self.label);
-            let info = match rcv.recv().await {
-                Ok(x) => x,
-                Err(e) => {
-                    return Err(CpError::PipelineError(
-                        "Bad frame receiver:",
-                        format!("{} could not receive {}: {:?}", &listen.handle_name, listen.result_label, e),
-                    ));
-                }
-            };
-            let update: FrameUpdate<LazyFrame> = FrameUpdate { info, frame: listen.lf.clone() };
+            let update: FrameUpdate<LazyFrame> = unsafe { (*lp).listen().await? };
             log::trace!("{} Received update: {:?}", &self.label, update.info);
             match update.info.msg_type {
                 FrameUpdateType::Replace => {
@@ -161,11 +154,21 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
                 Err(e) => errors.push(e),
             }
         }
+        let mut input = self.input.clone();
+        let mut output = self.output.clone();
+        match input.insert_value_from_context(context) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
+        }
+        match output.insert_value_from_context(context) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
+        }
         if errors.is_empty() {
             Ok(RootTransform {
                 label: self.label.clone(),
-                input: self.input.value().expect("input").clone(),
-                output: self.output.value().expect("output").clone(),
+                input: input.value().expect("input").clone(),
+                output: output.value().expect("output").clone(),
                 subtransforms,
             })
         } else {

@@ -1,10 +1,12 @@
-
 use std::collections::HashMap;
 
-use crate::{parser::common::YamlRead, task::{stage::StageTaskConfig, source::{common::SourceGroup, config::SourceGroupConfig}}, util::error::{CpError, CpResult}};
+use crate::{
+    parser::common::YamlRead,
+    task::source::config::SourceGroupConfig,
+    util::error::{CpError, CpResult},
+};
 
 use super::common::Configurable;
-
 
 #[derive(Debug)]
 pub struct SourceRegistry {
@@ -52,8 +54,8 @@ impl Configurable for SourceRegistry {
         let mut errors = vec![];
         for (label, mut fields) in configs {
             fields.add_to_map(
-                serde_yaml_ng::Value::String("label".to_owned()), 
-                serde_yaml_ng::Value::String(label.clone()), 
+                serde_yaml_ng::Value::String("label".to_owned()),
+                serde_yaml_ng::Value::String(label.clone()),
             )?;
             match serde_yaml_ng::from_value::<SourceGroupConfig>(fields) {
                 Ok(source) => {
@@ -80,14 +82,14 @@ impl Configurable for SourceRegistry {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::keyword::{Keyword, StrKeyword}, task::source::config::SourceGroupConfig, util::common::create_config_pack};
+    use crate::{task::source::config::SourceGroupConfig, util::common::create_config_pack};
 
     use super::SourceRegistry;
 
-
     #[test]
     fn valid_unpack_source_registry() {
-        let configs = ["
+        let configs = [
+            "
 source:
     empty: 
         max_threads: 1
@@ -96,7 +98,7 @@ irrelevant_node:
     for_testing:
         a: b
         ",
-        "
+            "
 source:
     source_a: 
         max_threads: 3
@@ -111,20 +113,25 @@ source:
                 filepath: $fp
                 output: B
                 model: MAIN
-"];
+",
+        ];
         let mut config_pack = create_config_pack(configs);
         let actual = SourceRegistry::from(&mut config_pack).unwrap();
-        assert_eq!(actual.get_source_config("empty").unwrap(), SourceGroupConfig {
-            label: "empty".to_owned(),
-            max_threads: 1,
-            sources: vec![]
-
-        });
-        assert_eq!(actual.get_source_config("source_a").unwrap(), SourceGroupConfig {
-            label: "source_a".to_owned(),
-            max_threads: 3,
-            sources: 
-                serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>("
+        assert_eq!(
+            actual.get_source_config("empty").unwrap(),
+            SourceGroupConfig {
+                label: "empty".to_owned(),
+                max_threads: 1,
+                sources: vec![]
+            }
+        );
+        assert_eq!(
+            actual.get_source_config("source_a").unwrap(),
+            SourceGroupConfig {
+                label: "source_a".to_owned(),
+                max_threads: 3,
+                sources: serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(
+                    "
 - json:
     filepath: $fp
     output: A
@@ -135,9 +142,10 @@ source:
     filepath: $fp
     output: B
     model: MAIN
-").unwrap(),
-        });
-
+"
+                )
+                .unwrap(),
+            }
+        );
     }
-
 }

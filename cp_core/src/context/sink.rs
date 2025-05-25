@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{parser::common::YamlRead, task::{stage::StageTaskConfig, sink::{common::SinkGroup, config::SinkGroupConfig}}, util::error::{CpError, CpResult}};
+use crate::{
+    parser::common::YamlRead,
+    task::sink::config::SinkGroupConfig,
+    util::error::{CpError, CpResult},
+};
 
 use super::common::Configurable;
-
 
 #[derive(Debug)]
 pub struct SinkRegistry {
@@ -51,18 +54,15 @@ impl Configurable for SinkRegistry {
         let mut errors = vec![];
         for (label, mut fields) in configs {
             fields.add_to_map(
-                serde_yaml_ng::Value::String("label".to_owned()), 
-                serde_yaml_ng::Value::String(label.clone()), 
+                serde_yaml_ng::Value::String("label".to_owned()),
+                serde_yaml_ng::Value::String(label.clone()),
             )?;
             match serde_yaml_ng::from_value::<SinkGroupConfig>(fields) {
                 Ok(sink) => {
                     self.configs.insert(label, sink);
                 }
                 Err(e) => {
-                    errors.push(CpError::ConfigError(
-                        "Sink",
-                        format!("{}: {:?}", label, e.to_string()),
-                    ));
+                    errors.push(CpError::ConfigError("Sink", format!("{}: {:?}", label, e.to_string())));
                 }
             };
         }
@@ -79,14 +79,18 @@ impl Configurable for SinkRegistry {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::keyword::{Keyword, StrKeyword}, task::sink::config::SinkGroupConfig, util::common::create_config_pack};
+    use crate::{
+        parser::keyword::{Keyword, StrKeyword},
+        task::sink::config::SinkGroupConfig,
+        util::common::create_config_pack,
+    };
 
     use super::SinkRegistry;
 
-
     #[test]
     fn valid_unpack_sink_registry() {
-        let configs = ["
+        let configs = [
+            "
 sink:
     empty: 
         input: $input
@@ -96,7 +100,7 @@ irrelevant_node:
     for_testing:
         a: b
         ",
-        "
+            "
 sink:
     sink_a: 
         input: input
@@ -106,29 +110,35 @@ sink:
                 filepath: $fp
             - json:
                 filepath: fp
-"];
+",
+        ];
         let mut config_pack = create_config_pack(configs);
         let actual = SinkRegistry::from(&mut config_pack).unwrap();
-        assert_eq!(actual.get_sink_config("empty").unwrap(), SinkGroupConfig {
-            label: "empty".to_owned(),
-            input: StrKeyword::with_symbol("input"),
-            max_threads: 1,
-            sinks: vec![]
-
-        });
-        assert_eq!(actual.get_sink_config("sink_a").unwrap(), SinkGroupConfig {
-            label: "sink_a".to_owned(),
-            input: StrKeyword::with_value("input".to_owned()),
-            max_threads: 3,
-            sinks: 
-                serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>("
+        assert_eq!(
+            actual.get_sink_config("empty").unwrap(),
+            SinkGroupConfig {
+                label: "empty".to_owned(),
+                input: StrKeyword::with_symbol("input"),
+                max_threads: 1,
+                sinks: vec![]
+            }
+        );
+        assert_eq!(
+            actual.get_sink_config("sink_a").unwrap(),
+            SinkGroupConfig {
+                label: "sink_a".to_owned(),
+                input: StrKeyword::with_value("input".to_owned()),
+                max_threads: 3,
+                sinks: serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(
+                    "
 - json:
     filepath: $fp
 - json:
     filepath: fp
-").unwrap(),
-        });
-
+"
+                )
+                .unwrap(),
+            }
+        );
     }
-
 }

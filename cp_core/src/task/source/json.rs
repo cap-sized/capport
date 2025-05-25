@@ -7,7 +7,10 @@ use crate::{
     model::common::ModelConfig,
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::error::{CpError, CpResult},
+    util::{
+        common::get_full_path,
+        error::{CpError, CpResult},
+    },
     valid_or_insert_error,
 };
 
@@ -17,7 +20,7 @@ use super::{
 };
 
 pub struct JsonSource {
-    filepath: String,
+    filepath: PathBuf,
     output: String,
     schema: Option<Schema>,
 }
@@ -25,7 +28,7 @@ pub struct JsonSource {
 impl JsonSource {
     pub fn new(filepath: &str, output: &str) -> Self {
         Self {
-            filepath: filepath.to_owned(),
+            filepath: std::path::PathBuf::from_str(filepath).expect("bad filepath"),
             output: output.to_owned(),
             schema: None,
         }
@@ -53,13 +56,15 @@ impl Source for JsonSource {
 
     fn run(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         // Reopens files every run
-        let filepath = PathBuf::from_str(&self.filepath).unwrap(); // infallible
-        if !filepath.exists() {
-            return Err(CpError::ConfigError("File not found", self.filepath.clone()));
+        if !self.filepath.exists() {
+            return Err(CpError::ConfigError(
+                "File not found",
+                self.filepath.to_str().unwrap().to_owned(),
+            ));
         }
         let reader = match &self.schema {
-            Some(schema) => LazyJsonLineReader::new(filepath).with_schema(Some(Arc::new(schema.clone()))),
-            None => LazyJsonLineReader::new(filepath).with_infer_schema_length(None),
+            Some(schema) => LazyJsonLineReader::new(&self.filepath).with_schema(Some(Arc::new(schema.clone()))),
+            None => LazyJsonLineReader::new(&self.filepath).with_infer_schema_length(None),
         };
         let lf = reader.finish()?;
         Ok(lf)
@@ -112,8 +117,10 @@ impl SourceConfig for JsonSourceConfig {
             .expect("failed to build schema")
         });
 
+        let filepath = get_full_path(self.json.filepath.value().expect("filepath"), true).expect("bad filepath");
+
         Box::new(JsonSource {
-            filepath: self.json.filepath.value().expect("filepath").to_owned(),
+            filepath,
             output: self.json.output.value().expect("output").to_owned(),
             schema,
         })
@@ -229,7 +236,7 @@ mod tests {
         model_reg.insert(example_model());
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_reg));
         let mapping = serde_yaml_ng::Mapping::new();
-        let _ = source_config.emplace(ctx.clone(), &mapping);
+        let _ = source_config.emplace(&ctx, &mapping);
         let errors = source_config.validate();
         assert!(errors.is_empty());
         assert_eq!(source_config.json.model_fields.clone().unwrap(), example_model().fields);

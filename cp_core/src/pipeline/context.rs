@@ -2,13 +2,19 @@ use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
-    context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry}, frame::{
+    context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry},
+    frame::{
         common::{FrameUpdateInfo, PipelineFrame},
         polars::{
             PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
             PolarsPipelineFrame,
         },
-    }, model::common::{ModelConfig, ModelFields}, task::{sink::{common::SinkGroup, config::SinkGroupConfig}, source::{common::SourceGroup, config::SourceGroupConfig}, stage::StageTaskConfig, transform::{common::RootTransform, config::RootTransformConfig}}, util::error::{config_validation_error, CpError, CpResult}
+    },
+    model::common::{ModelConfig, ModelFields},
+    task::{
+        sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig, transform::common::RootTransform,
+    },
+    util::error::{CpError, CpResult, config_validation_error},
 };
 
 use super::{results::PipelineResults, signal::SignalState};
@@ -72,11 +78,13 @@ impl Default for DefaultPipelineContext {
 
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
-    pub fn from(results: PipelineResults<PolarsPipelineFrame>, 
-        model_registry: ModelRegistry, 
+    pub fn from(
+        results: PipelineResults<PolarsPipelineFrame>,
+        model_registry: ModelRegistry,
         transform_registry: TransformRegistry,
-        source_registry: SourceRegistry, 
-        sink_registry: SinkRegistry) -> Self {
+        source_registry: SourceRegistry,
+        sink_registry: SinkRegistry,
+    ) -> Self {
         Self {
             results,
             model_registry,
@@ -98,11 +106,11 @@ impl DefaultPipelineContext {
     }
     pub fn new() -> Self {
         Self::from(
-            PipelineResults::<PolarsPipelineFrame>::new(), 
+            PipelineResults::<PolarsPipelineFrame>::new(),
             ModelRegistry::new(),
             TransformRegistry::new(),
             SourceRegistry::new(),
-            SinkRegistry::new()
+            SinkRegistry::new(),
         )
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
@@ -255,8 +263,8 @@ impl<'a>
             )),
             Some(x) => match x.parse(self, context) {
                 Ok(trf) => Ok(trf),
-                Err(errors) => Err(config_validation_error("transform", errors))
-            }
+                Err(errors) => Err(config_validation_error("transform", errors)),
+            },
         }
     }
     fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup> {
@@ -267,8 +275,8 @@ impl<'a>
             )),
             Some(x) => match x.parse(self, context) {
                 Ok(trf) => Ok(trf),
-                Err(errors) => Err(config_validation_error("source", errors))
-            }
+                Err(errors) => Err(config_validation_error("source", errors)),
+            },
         }
     }
     fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup> {
@@ -279,8 +287,8 @@ impl<'a>
             )),
             Some(x) => match x.parse(self, context) {
                 Ok(trf) => Ok(trf),
-                Err(errors) => Err(config_validation_error("sink", errors))
-            }
+                Err(errors) => Err(config_validation_error("sink", errors)),
+            },
         }
     }
 }

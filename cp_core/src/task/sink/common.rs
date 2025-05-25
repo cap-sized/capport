@@ -196,11 +196,7 @@ impl SinkGroupConfig {
 }
 
 impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
-    fn parse(
-        &self,
-        ctx: &DefaultPipelineContext,
-        context: &serde_yaml_ng::Mapping,
-    ) -> Result<SinkGroup, Vec<CpError>> {
+    fn parse(&self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Result<SinkGroup, Vec<CpError>> {
         let mut subsinks = vec![];
         let mut errors = vec![];
         for result in self.parse_subsinks() {
@@ -405,13 +401,13 @@ mod tests {
     fn create_sink_group_good_config() {
         let configs_str = "
 - csv:
-    filepath: fp
+    filepath: /fp
 - csv:
     filepath: $replace
 ";
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
         let context =
-            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: filepaaath, input: SAMPLE}").unwrap();
+            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: /filepaaath, input: SAMPLE}").unwrap();
         let sgconfig = SinkGroupConfig {
             label: "".to_owned(),
             input: StrKeyword::with_symbol("input"),
@@ -433,7 +429,7 @@ mod tests {
         [
             "
 - bad:
-    filepath: fp
+    filepath: /fp
 ",
             "
 - csv:

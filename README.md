@@ -29,9 +29,12 @@ We are drastically changing the structure of capport to support
     - [x] Results
     - [ ] ConnectionRegistry
     - [x] ModelRegistry
-    - [ ] Runner
+    - [x] PipelineRegistry
+    - [x] TransformRegistry
+    - [x] SourceRegistry
+    - [x] SinkRegistry
+    - [ ] RunnerRegistry
     - [x] SignalState
-    - [ ] Pipeline
 - [x] Trait with execution modes
     - [x] Linear execution
     - [x] Sync concurrent execution

@@ -27,7 +27,11 @@ pub enum CpError {
 }
 
 pub fn config_validation_error(config_type: &'static str, errors: Vec<CpError>) -> CpError {
-    let err_str = errors.iter().map(|x| format!("* {}", x)).collect::<Vec<String>>().join("\n");
+    let err_str = errors
+        .iter()
+        .map(|x| format!("* {}", x))
+        .collect::<Vec<String>>()
+        .join("\n");
     CpError::ConfigValidationError(config_type, err_str)
 }
 

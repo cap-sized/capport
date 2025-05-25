@@ -467,20 +467,21 @@ mod tests {
 
     #[test]
     fn create_source_group_good_config() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let configs_str = "
 - json:
-    filepath: fp
+    filepath: /fp
     output: SAMPLE3
 - json:
-    filepath: fp
+    filepath: /fp
     output: SAMPLE
     model: test
 - json:
-    filepath: fp
+    filepath: /fp
     output: $output
     model: test
 - json:
-    filepath: fp
+    filepath: /fp
     output: $output
     model: test
     model_fields: 
@@ -509,19 +510,19 @@ mod tests {
         [
             "
 - bad:
-    filepath: fp
+    filepath: /fp
     output: $output
     model: test
 ",
             "
 - csv:
-    filepath: fp
+    filepath: /fp
     output: output
     model: not_a_test
 ",
             "
 - json:
-    filepath: fp
+    filepath: /fp
     output: $output2
     model: not_a_test
 ",

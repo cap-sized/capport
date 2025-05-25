@@ -50,10 +50,10 @@ pub struct PolarsAsyncBroadcastHandle<'a> {
 
 #[derive(Clone)]
 pub struct PolarsAsyncListenHandle<'a> {
-    pub handle_name: String,
-    pub result_label: &'a str,
-    pub receiver: async_broadcast::Receiver<FrameUpdateInfo>,
-    pub lf: Arc<RwLock<LazyFrame>>,
+    handle_name: String,
+    result_label: &'a str,
+    receiver: async_broadcast::Receiver<FrameUpdateInfo>,
+    lf: Arc<RwLock<LazyFrame>>,
 }
 
 impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {

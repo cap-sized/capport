@@ -20,8 +20,19 @@ pub enum CpError {
     ConnectionError(String),
     #[error("ERROR [SYMBOL NOT REPLACED]: {0}(${1})")]
     SymbolMissingValueError(&'static str, String),
+    #[error("error [validation]: {0}\n{1}")]
+    ConfigValidationError(&'static str, String),
     #[error("ERROR [_raw_]: {0}")]
     RawError(std::io::Error),
+}
+
+pub fn config_validation_error(config_type: &'static str, errors: Vec<CpError>) -> CpError {
+    let err_str = errors
+        .iter()
+        .map(|x| format!("* {}", x))
+        .collect::<Vec<String>>()
+        .join("\n");
+    CpError::ConfigValidationError(config_type, err_str)
 }
 
 impl From<polars::error::PolarsError> for CpError {

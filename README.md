@@ -29,9 +29,12 @@ We are drastically changing the structure of capport to support
     - [x] Results
     - [ ] ConnectionRegistry
     - [x] ModelRegistry
-    - [ ] Runner
+    - [x] PipelineRegistry
+    - [x] TransformRegistry
+    - [x] SourceRegistry
+    - [x] SinkRegistry
+    - [ ] RunnerRegistry
     - [x] SignalState
-    - [ ] Pipeline
 - [x] Trait with execution modes
     - [x] Linear execution
     - [x] Sync concurrent execution
@@ -61,7 +64,6 @@ We are drastically changing the structure of capport to support
     - [ ] BsonSource (cp_ext)
     - [ ] PostgresSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
-    - [ ] FromArrowAdapter
 - [x] RootSink, method of writing data, and types
     - [x] Running RootSink as a Sink
     - [ ] JsonSink
@@ -69,7 +71,6 @@ We are drastically changing the structure of capport to support
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)
-    - [ ] ToArrowAdapter
 - [ ] PipelineRegistry
 - [ ] RunnerRegistry
 - [ ] Synchronous schedule (per-pipeline)

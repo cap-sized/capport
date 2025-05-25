@@ -4,6 +4,7 @@ use std::{
 };
 
 use log::info;
+use polars::{frame::DataFrame, io::SerWriter, prelude::JsonWriter};
 
 use super::{
     common::rng_str,
@@ -36,6 +37,18 @@ impl TempFile {
     }
     pub fn get_mut(&self) -> Result<File, std::io::Error> {
         File::create(&self.filepath)
+    }
+    pub fn write_json(&self, frame: &mut DataFrame) -> CpResult<File> {
+        let file = File::create(&self.filepath)?;
+        let mut writer = JsonWriter::new(file);
+        writer.finish(frame)?;
+        Ok(File::open(&self.filepath)?)
+    }
+    pub fn write_csv(&self, frame: &mut DataFrame) -> CpResult<File> {
+        let file = File::create(&self.filepath)?;
+        let mut writer = JsonWriter::new(file);
+        writer.finish(frame)?;
+        Ok(File::open(&self.filepath)?)
     }
 }
 

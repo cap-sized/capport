@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use serde::Deserialize;
 
@@ -21,12 +21,13 @@ pub trait Stage {
 }
 
 pub trait StageTaskConfig<T> {
-    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
+    fn parse(&self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct StageConfig {
     pub label: String,
-    pub task: String,
-    pub emplace: HashMap<String, serde_yaml_ng::Value>,
+    pub task_type: String,
+    pub task_name: String,
+    pub emplace: serde_yaml_ng::Mapping,
 }

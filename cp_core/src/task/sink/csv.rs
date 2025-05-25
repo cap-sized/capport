@@ -1,4 +1,4 @@
-use std::{fs::File, sync::Arc};
+use std::{fs::File, path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
 use polars::{frame::DataFrame, io::SerWriter, prelude::CsvWriter};
@@ -6,7 +6,10 @@ use polars::{frame::DataFrame, io::SerWriter, prelude::CsvWriter};
 use crate::{
     parser::keyword::Keyword,
     pipeline::context::DefaultPipelineContext,
-    util::error::{CpError, CpResult},
+    util::{
+        common::get_full_path,
+        error::{CpError, CpResult},
+    },
 };
 
 use super::{
@@ -15,13 +18,13 @@ use super::{
 };
 
 pub struct CsvSink {
-    filepath: String,
+    filepath: PathBuf,
 }
 
 impl CsvSink {
     pub fn new(filepath: &str) -> Self {
         Self {
-            filepath: filepath.to_owned(),
+            filepath: std::path::PathBuf::from_str(filepath).expect("bad filepath"),
         }
     }
 }
@@ -46,7 +49,7 @@ impl Sink for CsvSink {
 }
 
 impl SinkConfig for CsvSinkConfig {
-    fn emplace(&mut self, _ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+    fn emplace(&mut self, _ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
         self.csv.filepath.insert_value_from_context(context)
     }
 
@@ -63,9 +66,8 @@ impl SinkConfig for CsvSinkConfig {
     }
 
     fn transform(&self) -> Box<dyn Sink> {
-        Box::new(CsvSink {
-            filepath: self.csv.filepath.value().expect("filepath").to_owned(),
-        })
+        let fp = get_full_path(self.csv.filepath.value().expect("filepath"), true).expect("bad filepath");
+        Box::new(CsvSink { filepath: fp })
     }
 }
 
@@ -140,7 +142,7 @@ mod tests {
         let ctx = Arc::new(DefaultPipelineContext::new());
         let config = format!("sample: {}", &tmp.filepath);
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(config.as_str()).unwrap();
-        let _ = source_config.emplace(ctx.clone(), &context);
+        let _ = source_config.emplace(&ctx, &context);
         let errors = source_config.validate();
         assert!(errors.is_empty());
         let actual_node = source_config.transform();

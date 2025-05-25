@@ -34,7 +34,7 @@ pub trait Sink {
 pub struct BoxedSink(Box<dyn Sink>);
 
 pub trait SinkConfig {
-    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
+    fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
     fn validate(&self) -> Vec<CpError>;
     fn transform(&self) -> Box<dyn Sink>;
 }
@@ -69,16 +69,9 @@ impl SinkGroup {
 impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
-        let mut listen = ctx.get_listener(&self.result_name, &self.label)?;
-        let update = listen.listen()?;
-        let mut dataframe: Option<DataFrame> = None;
-        {
-            let fread = update.frame.read()?;
-            let _ = dataframe.insert(fread.clone().collect()?);
-        }
+        let dataframe = ctx.extract_clone_result(&self.result_name)?;
         for sink in &self.sinks {
-            sink.0
-                .run(dataframe.clone().expect("must have dataframe"), ctx.clone())?;
+            sink.0.run(dataframe.clone(), ctx.clone())?;
             log::info!(
                 "Success pushing frame update via {}: {}",
                 sink.0.connection_type(),
@@ -87,17 +80,18 @@ impl Stage for SinkGroup {
         }
         Ok(())
     }
-
+    /// WARNING: sync_exec mode only runs EACH STAGE possibly multithreaded.
+    /// It does not run the different stages on multiple threads.
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
             &self.label,
             &self.max_threads
         );
-        let label = self.label.as_str();
         let result_name = self.result_name.as_str();
+        let label = self.label.as_str();
         let mut listen = ctx.get_listener(result_name, label)?;
-        let update = listen.listen()?;
+        let update = listen.force_listen();
         let mut dataframe: Option<DataFrame> = None;
         {
             let fread = update.frame.read()?;
@@ -110,7 +104,7 @@ impl Stage for SinkGroup {
                 for sink in sinks {
                     let s: &BoxedSink = sink;
                     let sink = &s.0;
-                    match sink.run(dfh.clone().expect("dataframe"), ictx.clone()) {
+                    match sink.run(dfh.clone().expect("sink.df"), ictx.clone()) {
                         Ok(_) => log::info!(
                             "pushed frame `{}` on connection `{}`",
                             result_name,
@@ -136,12 +130,12 @@ impl Stage for SinkGroup {
         let label = self.label.as_str();
         let result_name = self.result_name.as_str();
         let mut listen = ctx.get_async_listener(result_name, label)?;
-        let listen_ptr: *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let lp: *mut PolarsAsyncListenHandle = &mut listen;
         let mut loops: u64 = 0;
         let terminations = AtomicUsize::new(0);
         loop {
-            // annoying thing to get past the borrow checker
-            let update: FrameUpdate<LazyFrame> = unsafe { (*listen_ptr).listen().await }?;
+            // unsafe hack to get past the borrow checker
+            let update: FrameUpdate<LazyFrame> = unsafe { (*lp).listen().await? };
             ctx_run_n_async!(label, &self.sinks, ctx.clone(), async |bsink: &BoxedSink,
                                                                      ctx: Arc<
                 DefaultPipelineContext,
@@ -196,17 +190,13 @@ impl SinkGroupConfig {
 }
 
 impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
-    fn parse(
-        &self,
-        ctx: Arc<DefaultPipelineContext>,
-        context: &serde_yaml_ng::Mapping,
-    ) -> Result<SinkGroup, Vec<CpError>> {
+    fn parse(&self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Result<SinkGroup, Vec<CpError>> {
         let mut subsinks = vec![];
         let mut errors = vec![];
         for result in self.parse_subsinks() {
             match result {
                 Ok(mut config) => {
-                    if let Err(e) = config.emplace(ctx.clone(), context) {
+                    if let Err(e) = config.emplace(ctx, context) {
                         errors.push(e);
                     }
                     let errs = config.validate();
@@ -405,13 +395,13 @@ mod tests {
     fn create_sink_group_good_config() {
         let configs_str = "
 - csv:
-    filepath: fp
+    filepath: /fp
 - csv:
     filepath: $replace
 ";
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
         let context =
-            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: filepaaath, input: SAMPLE}").unwrap();
+            serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{replace: /filepaaath, input: SAMPLE}").unwrap();
         let sgconfig = SinkGroupConfig {
             label: "".to_owned(),
             input: StrKeyword::with_symbol("input"),
@@ -424,7 +414,7 @@ mod tests {
             fields: HashMap::new(),
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-        let actual = sgconfig.parse(ctx, &context);
+        let actual = sgconfig.parse(&ctx, &context);
         actual.unwrap();
     }
 
@@ -433,7 +423,7 @@ mod tests {
         [
             "
 - bad:
-    filepath: fp
+    filepath: /fp
 ",
             "
 - csv:
@@ -456,7 +446,7 @@ mod tests {
                 fields: HashMap::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-            let actual = sgconfig.parse(ctx, &context);
+            let actual = sgconfig.parse(&ctx, &context);
             assert!(actual.is_err());
         });
     }
@@ -490,7 +480,7 @@ fp2: {}
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE"], 1));
         let mut bcast = ctx.get_broadcast("SAMPLE", "main").unwrap();
         bcast.broadcast(default_next().lazy()).unwrap();
-        let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
+        let actual = sgconfig.parse(&ctx, &context).unwrap();
         actual.linear(ctx.clone()).unwrap();
         for tmp in [tmp1, tmp2] {
             let buffer = tmp.get().unwrap();

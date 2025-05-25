@@ -143,6 +143,20 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
         let update = FrameUpdate::new(info, self.lf.clone());
         Ok(update)
     }
+    fn force_listen(&'a mut self) -> FrameUpdate<LazyFrame> {
+        match self.receiver.recv() {
+            Ok(info) => {
+                log::debug!(
+                    "Frame `{}` read by {} after update from: {:?}",
+                    self.result_label,
+                    self.handle_name,
+                    &info
+                );
+                FrameUpdate::new(info, self.lf.clone())
+            }
+            Err(_) => FrameUpdate::new(FrameUpdateInfo::anon(), self.lf.clone()),
+        }
+    }
 }
 
 impl PolarsPipelineFrame {

@@ -27,7 +27,12 @@ pub struct JoinTransform {
 
 impl Transform for JoinTransform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-        let right_join = ctx.extract_clone_result(&self.right_label)?.lazy();
+        let _right_join = ctx.extract_clone_result(&self.right_label)?.lazy();
+        let right_join = if self.right_select.is_empty() {
+            _right_join
+        } else {
+            _right_join.select(&self.right_select)
+        };
         let left: LazyFrame = self
             .left_prefix
             .as_ref()
@@ -36,16 +41,7 @@ impl Transform for JoinTransform {
             .right_prefix
             .as_ref()
             .map_or_else(|| right_join.clone(), |x| right_join.clone().with_columns(x));
-        let joined = left.join(
-            if self.right_select.is_empty() {
-                right
-            } else {
-                right.select(&self.right_select)
-            },
-            &self.left_on,
-            &self.right_on,
-            self.join_args.clone(),
-        );
+        let joined = left.join(right, &self.left_on, &self.right_on, self.join_args.clone());
         Ok(joined)
     }
 }
@@ -68,6 +64,7 @@ impl TransformConfig for JoinTransformConfig {
         for on in &mut self.join.right_on {
             on.insert_value_from_context(context)?;
         }
+        self.join.right.insert_value_from_context(context)?;
         Ok(())
     }
     fn validate(&self) -> Vec<CpError> {

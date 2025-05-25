@@ -1,15 +1,13 @@
 use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
-use crate::frame::common::FrameUpdate;
+use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
 use crate::try_deserialize_stage;
 use crate::{
-    frame::common::{
-        FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
-    },
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
     util::error::{CpError, CpResult},
@@ -43,6 +41,10 @@ impl RootTransform {
             subtransforms,
         }
     }
+
+    pub fn produces(&self) -> Vec<String> {
+        vec![self.output.clone()]
+    }
 }
 
 impl Stage for RootTransform {
@@ -71,11 +73,10 @@ impl Stage for RootTransform {
         let mut loops = 0;
         log::info!("Stage initialized: {}", &self.label);
         let mut listen = ctx.get_async_listener(&self.input, &self.label)?;
-        let listen_ptr: *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let lp: *mut PolarsAsyncListenHandle = &mut listen;
         let mut output_broadcast = ctx.get_async_broadcast(&self.output, &self.label)?;
         loop {
-            log::trace!("AWAIT RootTransform handle {}", &self.label);
-            let update: FrameUpdate<LazyFrame> = unsafe { (*listen_ptr).listen().await }?;
+            let update: FrameUpdate<LazyFrame> = unsafe { (*lp).listen().await? };
             log::trace!("{} Received update: {:?}", &self.label, update.info);
             match update.info.msg_type {
                 FrameUpdateType::Replace => {
@@ -132,7 +133,7 @@ impl RootTransformConfig {
 impl StageTaskConfig<RootTransform> for RootTransformConfig {
     fn parse(
         &self,
-        _ctx: Arc<DefaultPipelineContext>,
+        _ctx: &DefaultPipelineContext,
         context: &serde_yaml_ng::Mapping,
     ) -> Result<RootTransform, Vec<CpError>> {
         let mut subtransforms = vec![];
@@ -153,11 +154,21 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
                 Err(e) => errors.push(e),
             }
         }
+        let mut input = self.input.clone();
+        let mut output = self.output.clone();
+        match input.insert_value_from_context(context) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
+        }
+        match output.insert_value_from_context(context) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
+        }
         if errors.is_empty() {
             Ok(RootTransform {
                 label: self.label.clone(),
-                input: self.input.value().expect("input").clone(),
-                output: self.output.value().expect("output").clone(),
+                input: input.value().expect("input").clone(),
+                output: output.value().expect("output").clone(),
                 subtransforms,
             })
         } else {
@@ -291,7 +302,7 @@ join:
         };
         let context = serde_yaml_ng::Mapping::new();
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let errs = config.parse(ctx, &context);
+        let errs = config.parse(&ctx, &context);
 
         assert!(errs.is_ok());
     }
@@ -318,7 +329,7 @@ purr_transform:
         };
         let context = serde_yaml_ng::Mapping::new();
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let errs = config.parse(ctx, &context);
+        let errs = config.parse(&ctx, &context);
 
         assert!(errs.is_err());
     }
@@ -348,7 +359,7 @@ select:
         let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{input: one, output: three}").unwrap();
         let ctx = Arc::new(DefaultPipelineContext::new());
 
-        let root_transform = config.parse(ctx.clone(), &mapping).unwrap();
+        let root_transform = config.parse(&ctx, &mapping).unwrap();
         let main = df!(
             "two" => [1, 2, 3]
         )

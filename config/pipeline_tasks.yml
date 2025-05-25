@@ -1,96 +1,131 @@
 pipeline:
   players:
     - label: load_player_ids
-      task: load_csv # default
-      args: 
-        mapping: 
-          PLAYER_IDS: "nhl_player_ids.csv"
-          STATE_PROVINCE: "state_province.csv"
+      task: load_sources # default
+      emplace: 
+        fp_player_ids: "nhl_player_ids.csv"
+        fp_state_province: "state_province.csv"
+        df_state_province: STATE_PROVINCE
 
     - label: nhl_urls
       task: player_ids_to_urls # user defined
-      args:
+      emplace:
         input: PLAYER_IDS
         output: NHL_URLS
+        url_column: nhl_url
 
     - label: load_full_data
       task: http_json_get_batch_request # user defined
-      args:
+      emplace:
         input: NHL_URLS
         url_column: nhl_url
         output: NHL_PLAYER_DATA_RAW
 
     - label: nhl_player_data
       task: transform_nhl_player_data # default
-      args:
+      emplace:
         input: NHL_PLAYER_DATA_RAW
         state_province_df: STATE_PROVINCE
         output: NHL_PLAYER_DATA
 
     - label: save_player_data_to_local
       task: save_csv # default
-      args:
-        mapping:
-          NHL_PLAYER_DATA: "nhl_player_data.csv"
+      emplace:
+        NHL_PLAYER_DATA: "nhl_player_data.csv"
 
 sources:
-  load_csv: default
+  load_sources: 
+    max_threads: 1
+    sources:
+      - csv: 
+          filepath: $fp_player_ids
+          output: PLAYER_IDS
+          model_fields:
+            id: uint64
+      - csv: 
+          filepath: $fp_state_province
+          output: $df_state_province
+          model_fields:
+            name: str
+            code: str
+            
 
   http_json_get_batch_request:
-    base: http_batch_request 
-    method: get
-    content_type: application/json
-    input: $input
-    url_column: $url_column
-    output: $output
+    max_threads: 1
+    sources:
+      - http_batch:
+          method: get
+          content_type: application/json
+          input: $input
+          url_column: $url_column
+          output: $output
 
   http_json_get_single_request:
-    base: http_batch_request 
-    method: get
-    content_type: application/json
-    url_column: $url_column
-    output: $output
-    template: "https://api-web.nhle.com/v1/meta"
-    url_params:
-      - input: $input
-        param_column: player
-        template: "players={}" # optional, default shown
-        separator: ","         # optional, default shown
+    max_threads: 1
+    sources:
+      - http_single:
+          method: get
+          content_type: application/json
+          url_column: $url_column
+          output: $output
+          template: "https://api-web.nhle.com/v1/meta"
+          url_params:
+            - input: $input
+              param_column: player
+              template: "players={}" # optional, default shown
+              separator: ","         # optional, default shown
 
 sinks:
-  save_csv: default
+  save_csv: 
+    max_threads: 1
+    sources:
+      - csv: 
+          filepath: $fp_player_ids
+          output: PLAYER_IDS
+          model_fields:
+            id: uint64
+      - csv: 
+          filepath: $fp_state_province
+          output: $output
+          model_fields:
+            name: str
+            code: str
 
 transforms:
   player_ids_to_urls:
-    - input: $input
-    - select:
-        nhl_url: 
-          format: 
-            template: "https://api-web.nhle.com/v1/player/{}/landing"
-            columns: [ "id" ]
+    input: $input
+    output: $output
+    steps:
+      - select:
+          $url_column: 
+            format: 
+              template: "https://api-web.nhle.com/v1/player/{}/landing"
+              columns: [ "id" ]
 
   transform_nhl_player_data:
-    - input: $input
-    - select:
-        id: csid # from the previous step
-        first_name: firstName.default # handle subpaths
-        last_name: lastName.default # handle subpaths
-        full_name: 
-          concat: 
-            cols: [ "firstName.default", "lastName.default" ] 
-            separator : " "
-        birthdate: birthDate
-        birth_city: birthCity.default
-        birth_state_province_name: birthStateProvince.default
-        birth_state_country_code: birthCountry.default
-        is_nhl: { lit: true }
-    - join:
-        right: $state_province_df #  << named df
-        right_select: 
-          birth_state_province_code: code
-          birth_state_province_name: name
-        left_on: birth_state_province_name
-        right_on: birth_state_province_name
-        how: left
-    - drop:
-        birth_state_province_name: True
+    input: $input
+    output: $output
+    steps:
+      - select:
+          id: csid # from the previous step
+          first_name: firstName.default # handle subpaths
+          last_name: lastName.default # handle subpaths
+          full_name: 
+            concat: 
+              columns: [ "firstName.default", "lastName.default" ] 
+              separator : " "
+          birthdate: birthDate
+          birth_city: birthCity.default
+          birth_state_province_name: birthStateProvince.default
+          birth_state_country_code: birthCountry.default
+          is_nhl: { bool: true }
+      - join:
+          right: $state_province_df #  << named df
+          right_select: 
+            birth_state_province_code: code
+            birth_state_province_name: name
+          left_on: [birth_state_province_name]
+          right_on: [birth_state_province_name]
+          how: left
+      - drop:
+        - birth_state_province_name

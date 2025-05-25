@@ -6,10 +6,7 @@ use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     ctx_run_n_async, ctx_run_n_threads,
-    frame::{
-        common::{FrameAsyncListenHandle, FrameListenHandle, FrameUpdate, FrameUpdateType},
-        polars::PolarsAsyncListenHandle,
-    },
+    frame::common::{FrameListenHandle, FrameUpdate, FrameUpdateType},
     parser::{keyword::Keyword, merge_type::MergeTypeEnum},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
@@ -135,13 +132,23 @@ impl Stage for SinkGroup {
         log::info!("Stage initialized [async fetch]: {}", &self.label);
         let label = self.label.as_str();
         let result_name = self.result_name.as_str();
-        let mut listen = ctx.get_async_listener(result_name, label)?;
-        let listen_ptr: *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let listen = ctx.get_async_listener(result_name, label)?;
+        // TODO: Resolve this HACK to avoid loop mut borrow_checker error without unsafe
+        let mut rcv = listen.receiver.new_receiver();
         let mut loops: u64 = 0;
         let terminations = AtomicUsize::new(0);
         loop {
             // annoying thing to get past the borrow checker
-            let update: FrameUpdate<LazyFrame> = unsafe { (*listen_ptr).listen().await }?;
+            let info = match rcv.recv().await {
+                Ok(x) => x,
+                Err(e) => {
+                    return Err(CpError::PipelineError(
+                        "Bad frame receiver:",
+                        format!("{} could not receive {}: {:?}", &listen.handle_name, listen.result_label, e),
+                    ));
+                }
+            };
+            let update: FrameUpdate<LazyFrame> = FrameUpdate { info, frame: listen.lf.clone() };
             ctx_run_n_async!(label, &self.sinks, ctx.clone(), async |bsink: &BoxedSink,
                                                                      ctx: Arc<
                 DefaultPipelineContext,

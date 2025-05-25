@@ -2,13 +2,12 @@ use polars::prelude::*;
 
 use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
 use crate::frame::common::FrameUpdate;
-use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
 use crate::try_deserialize_stage;
 use crate::{
     frame::common::{
-        FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
+        FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType,
     },
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::Stage,
@@ -70,12 +69,21 @@ impl Stage for RootTransform {
     async fn async_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<u64> {
         let mut loops = 0;
         log::info!("Stage initialized: {}", &self.label);
-        let mut listen = ctx.get_async_listener(&self.input, &self.label)?;
-        let listen_ptr: *mut PolarsAsyncListenHandle<'_> = &mut listen;
+        let listen = ctx.get_async_listener(&self.input, &self.label)?;
+        let mut rcv = listen.receiver.new_receiver();
         let mut output_broadcast = ctx.get_async_broadcast(&self.output, &self.label)?;
         loop {
             log::trace!("AWAIT RootTransform handle {}", &self.label);
-            let update: FrameUpdate<LazyFrame> = unsafe { (*listen_ptr).listen().await }?;
+            let info = match rcv.recv().await {
+                Ok(x) => x,
+                Err(e) => {
+                    return Err(CpError::PipelineError(
+                        "Bad frame receiver:",
+                        format!("{} could not receive {}: {:?}", &listen.handle_name, listen.result_label, e),
+                    ));
+                }
+            };
+            let update: FrameUpdate<LazyFrame> = FrameUpdate { info, frame: listen.lf.clone() };
             log::trace!("{} Received update: {:?}", &self.label, update.info);
             match update.info.msg_type {
                 FrameUpdateType::Replace => {

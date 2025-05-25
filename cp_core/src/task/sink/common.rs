@@ -34,7 +34,7 @@ pub trait Sink {
 pub struct BoxedSink(Box<dyn Sink>);
 
 pub trait SinkConfig {
-    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
+    fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
     fn validate(&self) -> Vec<CpError>;
     fn transform(&self) -> Box<dyn Sink>;
 }
@@ -198,7 +198,7 @@ impl SinkGroupConfig {
 impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
     fn parse(
         &self,
-        ctx: Arc<DefaultPipelineContext>,
+        ctx: &DefaultPipelineContext,
         context: &serde_yaml_ng::Mapping,
     ) -> Result<SinkGroup, Vec<CpError>> {
         let mut subsinks = vec![];
@@ -206,7 +206,7 @@ impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
         for result in self.parse_subsinks() {
             match result {
                 Ok(mut config) => {
-                    if let Err(e) = config.emplace(ctx.clone(), context) {
+                    if let Err(e) = config.emplace(ctx, context) {
                         errors.push(e);
                     }
                     let errs = config.validate();
@@ -424,7 +424,7 @@ mod tests {
             fields: HashMap::new(),
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-        let actual = sgconfig.parse(ctx, &context);
+        let actual = sgconfig.parse(&ctx, &context);
         actual.unwrap();
     }
 
@@ -456,7 +456,7 @@ mod tests {
                 fields: HashMap::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-            let actual = sgconfig.parse(ctx, &context);
+            let actual = sgconfig.parse(&ctx, &context);
             assert!(actual.is_err());
         });
     }
@@ -490,7 +490,7 @@ fp2: {}
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE"], 1));
         let mut bcast = ctx.get_broadcast("SAMPLE", "main").unwrap();
         bcast.broadcast(default_next().lazy()).unwrap();
-        let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
+        let actual = sgconfig.parse(&ctx, &context).unwrap();
         actual.linear(ctx.clone()).unwrap();
         for tmp in [tmp1, tmp2] {
             let buffer = tmp.get().unwrap();

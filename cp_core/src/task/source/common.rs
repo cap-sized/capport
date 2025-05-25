@@ -29,7 +29,7 @@ pub trait Source {
 pub struct BoxedSource(Box<dyn Source>);
 
 pub trait SourceConfig {
-    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
+    fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()>;
     fn validate(&self) -> Vec<CpError>;
     fn transform(&self) -> Box<dyn Source>;
 }
@@ -205,7 +205,7 @@ impl SourceGroupConfig {
 impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
     fn parse(
         &self,
-        ctx: Arc<DefaultPipelineContext>,
+        ctx: &DefaultPipelineContext,
         context: &serde_yaml_ng::Mapping,
     ) -> Result<SourceGroup, Vec<CpError>> {
         let mut subsources = vec![];
@@ -213,7 +213,7 @@ impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
         for result in self.parse_subsources() {
             match result {
                 Ok(mut config) => {
-                    if let Err(e) = config.emplace(ctx.clone(), context) {
+                    if let Err(e) = config.emplace(ctx, context) {
                         errors.push(e);
                     }
                     let errs = config.validate();
@@ -500,7 +500,7 @@ mod tests {
             fields: HashMap::new(),
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-        let actual = sgconfig.parse(ctx, &context).unwrap();
+        let actual = sgconfig.parse(&ctx, &context).unwrap();
         assert_eq!(actual.sources.len(), 4);
     }
 
@@ -541,7 +541,7 @@ mod tests {
                 fields: HashMap::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
-            let actual = sgconfig.parse(ctx, &context);
+            let actual = sgconfig.parse(&ctx, &context);
             assert!(actual.is_err());
         });
     }
@@ -588,7 +588,7 @@ mod tests {
             DefaultPipelineContext::with_results(&["SAMPLE1", "SAMPLE2", "SAMPLE3"], 1)
                 .with_model_registry(model_registry),
         );
-        let actual = sgconfig.parse(ctx.clone(), &context).unwrap();
+        let actual = sgconfig.parse(&ctx, &context).unwrap();
         actual.linear(ctx.clone()).unwrap();
         assert_frame_equal(ctx.clone().extract_clone_result("SAMPLE1").unwrap(), default_next());
         assert_frame_equal(

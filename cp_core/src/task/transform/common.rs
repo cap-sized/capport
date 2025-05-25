@@ -132,7 +132,7 @@ impl RootTransformConfig {
 impl StageTaskConfig<RootTransform> for RootTransformConfig {
     fn parse(
         &self,
-        _ctx: Arc<DefaultPipelineContext>,
+        _ctx: &DefaultPipelineContext,
         context: &serde_yaml_ng::Mapping,
     ) -> Result<RootTransform, Vec<CpError>> {
         let mut subtransforms = vec![];
@@ -291,7 +291,7 @@ join:
         };
         let context = serde_yaml_ng::Mapping::new();
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let errs = config.parse(ctx, &context);
+        let errs = config.parse(&ctx, &context);
 
         assert!(errs.is_ok());
     }
@@ -318,7 +318,7 @@ purr_transform:
         };
         let context = serde_yaml_ng::Mapping::new();
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let errs = config.parse(ctx, &context);
+        let errs = config.parse(&ctx, &context);
 
         assert!(errs.is_err());
     }
@@ -348,7 +348,7 @@ select:
         let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{input: one, output: three}").unwrap();
         let ctx = Arc::new(DefaultPipelineContext::new());
 
-        let root_transform = config.parse(ctx.clone(), &mapping).unwrap();
+        let root_transform = config.parse(&ctx, &mapping).unwrap();
         let main = df!(
             "two" => [1, 2, 3]
         )

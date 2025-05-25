@@ -67,7 +67,7 @@ impl Source for JsonSource {
 }
 
 impl SourceConfig for JsonSourceConfig {
-    fn emplace(&mut self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+    fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
         self.json.filepath.insert_value_from_context(context)?;
         self.json.output.insert_value_from_context(context)?;
         if let Some(mut model_name) = self.json.model.take() {

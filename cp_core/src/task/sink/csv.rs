@@ -46,7 +46,7 @@ impl Sink for CsvSink {
 }
 
 impl SinkConfig for CsvSinkConfig {
-    fn emplace(&mut self, _ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
+    fn emplace(&mut self, _ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
         self.csv.filepath.insert_value_from_context(context)
     }
 
@@ -140,7 +140,7 @@ mod tests {
         let ctx = Arc::new(DefaultPipelineContext::new());
         let config = format!("sample: {}", &tmp.filepath);
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(config.as_str()).unwrap();
-        let _ = source_config.emplace(ctx.clone(), &context);
+        let _ = source_config.emplace(&ctx, &context);
         let errors = source_config.validate();
         assert!(errors.is_empty());
         let actual_node = source_config.transform();

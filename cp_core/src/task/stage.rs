@@ -21,7 +21,7 @@ pub trait Stage {
 }
 
 pub trait StageTaskConfig<T> {
-    fn parse(&self, ctx: Arc<DefaultPipelineContext>, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
+    fn parse(&self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> Result<T, Vec<CpError>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

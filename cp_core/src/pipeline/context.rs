@@ -2,16 +2,13 @@ use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
-    context::model::ModelRegistry,
-    frame::{
+    context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry}, frame::{
         common::{FrameUpdateInfo, PipelineFrame},
         polars::{
             PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
             PolarsPipelineFrame,
         },
-    },
-    model::common::{ModelConfig, ModelFields},
-    util::error::{CpError, CpResult},
+    }, model::common::{ModelConfig, ModelFields}, task::{sink::{common::SinkGroup, config::SinkGroupConfig}, source::{common::SourceGroup, config::SourceGroupConfig}, stage::StageTaskConfig, transform::{common::RootTransform, config::RootTransformConfig}}, util::error::{config_validation_error, CpError, CpResult}
 };
 
 use super::{results::PipelineResults, signal::SignalState};
@@ -41,6 +38,9 @@ pub trait PipelineContext<
     fn get_model(&self, model_name: &str) -> CpResult<ModelConfig>;
     fn get_substituted_model_fields(&self, model_name: &str, context: &serde_yaml_ng::Mapping)
     -> CpResult<ModelFields>;
+    fn get_transform(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RootTransform>;
+    fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup>;
+    fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup>;
 
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
@@ -53,6 +53,9 @@ pub trait PipelineContext<
 pub struct DefaultPipelineContext {
     results: PipelineResults<PolarsPipelineFrame>,
     model_registry: ModelRegistry,
+    transform_registry: TransformRegistry,
+    source_registry: SourceRegistry,
+    sink_registry: SinkRegistry,
     signal_state: Option<SignalState>,
 }
 
@@ -69,10 +72,17 @@ impl Default for DefaultPipelineContext {
 
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
 impl DefaultPipelineContext {
-    pub fn from(results: PipelineResults<PolarsPipelineFrame>, model_registry: ModelRegistry) -> Self {
+    pub fn from(results: PipelineResults<PolarsPipelineFrame>, 
+        model_registry: ModelRegistry, 
+        transform_registry: TransformRegistry,
+        source_registry: SourceRegistry, 
+        sink_registry: SinkRegistry) -> Self {
         Self {
             results,
             model_registry,
+            transform_registry,
+            source_registry,
+            sink_registry,
             signal_state: None,
         }
     }
@@ -87,14 +97,23 @@ impl DefaultPipelineContext {
         self
     }
     pub fn new() -> Self {
-        Self::from(PipelineResults::<PolarsPipelineFrame>::new(), ModelRegistry::new())
+        Self::from(
+            PipelineResults::<PolarsPipelineFrame>::new(), 
+            ModelRegistry::new(),
+            TransformRegistry::new(),
+            SourceRegistry::new(),
+            SinkRegistry::new()
+        )
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
         let mut results = PipelineResults::<PolarsPipelineFrame>::new();
         labels.iter().for_each(|label| {
             results.insert(label.to_owned(), bufsize);
         });
-        Self::from(results, ModelRegistry::new())
+        Self {
+            results,
+            ..Default::default()
+        }
     }
     pub fn signal(&self) -> &SignalState {
         self.signal_state
@@ -227,5 +246,41 @@ impl<'a>
         context: &serde_yaml_ng::Mapping,
     ) -> CpResult<ModelFields> {
         self.model_registry.get_substituted_model_fields(model_name, context)
+    }
+    fn get_transform(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RootTransform> {
+        match self.transform_registry.get_transform_config(label) {
+            None => Err(CpError::ConfigError(
+                "Missing config for transform",
+                format!("Config required: {}", label),
+            )),
+            Some(x) => match x.parse(self, context) {
+                Ok(trf) => Ok(trf),
+                Err(errors) => Err(config_validation_error("transform", errors))
+            }
+        }
+    }
+    fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup> {
+        match self.source_registry.get_source_config(label) {
+            None => Err(CpError::ConfigError(
+                "Missing config for source",
+                format!("Config required: {}", label),
+            )),
+            Some(x) => match x.parse(self, context) {
+                Ok(trf) => Ok(trf),
+                Err(errors) => Err(config_validation_error("source", errors))
+            }
+        }
+    }
+    fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup> {
+        match self.sink_registry.get_sink_config(label) {
+            None => Err(CpError::ConfigError(
+                "Missing config for sink",
+                format!("Config required: {}", label),
+            )),
+            Some(x) => match x.parse(self, context) {
+                Ok(trf) => Ok(trf),
+                Err(errors) => Err(config_validation_error("sink", errors))
+            }
+        }
     }
 }

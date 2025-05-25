@@ -3,9 +3,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::{
-    ctx_run_n_async,
-    task::stage::{Stage, StageConfig},
-    util::error::{CpError, CpResult},
+    ctx_run_n_async, parser::task_type::TaskTypeEnum, task::stage::{Stage, StageConfig}, util::error::CpResult
 };
 
 use super::context::{DefaultPipelineContext, PipelineContext};
@@ -34,25 +32,16 @@ impl Pipeline {
             let label = &stage.task_name;
             let context = &stage.emplace;
             let ictx = &ctx;
-            match stage.task_type.as_str() {
-                "transform" => {
+            match stage.task_type {
+                TaskTypeEnum::Transform => {
                     let transform = ictx.get_transform(label, context)?;
                     results_needed.extend(transform.produces());
                 }
-                "source" => {
+                TaskTypeEnum::Source => {
                     let source = ictx.get_source(label, context)?;
                     results_needed.extend(source.produces());
                 }
-                "sink" => {}
-                invalid => {
-                    return Err(CpError::ConfigError(
-                        "Invalid task type",
-                        format!(
-                            "Task has to be one of `transform`, `source`, `sink`, found: {}",
-                            invalid
-                        ),
-                    ));
-                }
+                TaskTypeEnum::Sink => {}
             }
         }
         Ok(Arc::new(ctx.initialize_results(results_needed, bufsize)?))
@@ -63,27 +52,18 @@ impl Pipeline {
             let label = &stage.task_name;
             let context = &stage.emplace;
             let ictx = ctx.clone();
-            match stage.task_type.as_str() {
-                "transform" => {
+            match stage.task_type {
+                TaskTypeEnum::Transform => {
                     let transform = ictx.get_transform(label, context)?;
                     actions.push(Box::new(move || transform.linear(ictx)));
                 }
-                "source" => {
+                TaskTypeEnum::Source => {
                     let source = ictx.get_source(label, context)?;
                     actions.push(Box::new(move || source.linear(ictx)));
                 }
-                "sink" => {
+                TaskTypeEnum::Sink => {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.linear(ictx)));
-                }
-                invalid => {
-                    return Err(CpError::ConfigError(
-                        "Invalid task type",
-                        format!(
-                            "Task has to be one of `transform`, `source`, `sink`, found: {}",
-                            invalid
-                        ),
-                    ));
                 }
             }
         }
@@ -98,27 +78,18 @@ impl Pipeline {
             let label = &stage.task_name;
             let context = &stage.emplace;
             let ictx = ctx.clone();
-            match stage.task_type.as_str() {
-                "transform" => {
+            match stage.task_type {
+                TaskTypeEnum::Transform => {
                     let transform = ictx.get_transform(label, context)?;
                     actions.push(Box::new(move || transform.sync_exec(ictx)));
                 }
-                "source" => {
+                TaskTypeEnum::Source => {
                     let source = ictx.get_source(label, context)?;
                     actions.push(Box::new(move || source.sync_exec(ictx)));
                 }
-                "sink" => {
+                TaskTypeEnum::Sink => {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.sync_exec(ictx)));
-                }
-                invalid => {
-                    return Err(CpError::ConfigError(
-                        "Invalid task type",
-                        format!(
-                            "Task has to be one of `transform`, `source`, `sink`, found: {}",
-                            invalid
-                        ),
-                    ));
                 }
             }
         }
@@ -138,26 +109,19 @@ impl Pipeline {
             &config.stages,
             ctx.clone(),
             async |stage: &StageConfig, ictx: Arc<DefaultPipelineContext>| {
-                match stage.task_type.as_str() {
-                    "transform" => {
+                match stage.task_type {
+                    TaskTypeEnum::Transform => {
                         let stage = ictx.get_transform(&stage.task_name, &stage.emplace)?;
                         stage.async_exec(ictx).await
                     }
-                    "source" => {
+                    TaskTypeEnum::Source => {
                         let stage = ictx.get_source(&stage.task_name, &stage.emplace)?;
                         stage.async_exec(ictx).await
                     }
-                    "sink" => {
+                    TaskTypeEnum::Sink => {
                         let stage = ictx.get_sink(&stage.task_name, &stage.emplace)?;
                         stage.async_exec(ictx).await
                     }
-                    invalid => Err(CpError::ConfigError(
-                        "Invalid task type",
-                        format!(
-                            "Task has to be one of `transform`, `source`, `sink`, found: {}",
-                            invalid
-                        ),
-                    )),
                 }
             }
         );

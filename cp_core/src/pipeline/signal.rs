@@ -1,6 +1,6 @@
 use async_broadcast::{Receiver, Sender};
 use chrono::Utc;
-use tokio::signal::unix::{Signal, SignalKind, signal};
+use tokio::signal::unix::{SignalKind, signal};
 
 use crate::{
     frame::common::{FrameUpdateInfo, FrameUpdateType},
@@ -16,8 +16,6 @@ pub enum SignalStateType {
 pub struct SignalState {
     pub sig_sender: Sender<FrameUpdateInfo>,
     pub sig_recver: Receiver<FrameUpdateInfo>,
-    sigterm_stream: Signal,
-    state_type: SignalStateType,
 }
 
 impl Default for SignalState {
@@ -29,12 +27,9 @@ impl Default for SignalState {
 impl SignalState {
     pub fn new() -> Self {
         let (sig_sender, sig_recver) = async_broadcast::broadcast(2);
-        let sigterm_stream = signal(SignalKind::terminate()).expect("Failed to initialize SIGTERM stream");
         Self {
             sig_sender,
             sig_recver,
-            sigterm_stream,
-            state_type: SignalStateType::Alive,
         }
     }
 
@@ -68,17 +63,18 @@ impl SignalState {
         }
     }
 
-    pub async fn sigterm_listen(&mut self) {
+    pub async fn sigterm_listen(&self) {
         loop {
             // Its ok to use expect here, these results should never yield Err
-            self.sigterm_stream.recv().await.expect("Bad SIGTERM signal received");
-            let curr_state = self.state_type;
-            match curr_state {
+            let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to initialize SIGTERM stream");
+            sigterm_stream.recv().await.expect("Bad SIGTERM signal received");
+            let mut curr_state = Some(SignalStateType::Alive);
+            match curr_state.as_ref().unwrap() {
                 SignalStateType::Alive => {
                     log::warn!(
                         "Stages will terminate after completing their current event cycle. Ctrl-C again to force-kill"
                     );
-                    self.state_type = SignalStateType::RequestedKill;
+                    let _ = curr_state.insert(SignalStateType::RequestedKill);
                     self.send_terminate_signal()
                         .await
                         .expect("Failed to send termination signal to stages");

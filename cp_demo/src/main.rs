@@ -1,5 +1,17 @@
-use cp_core::util::args::get_args;
+use cp_core::{runner::common::Runner, util::{args::get_args, error::CpResult}};
+
+fn exec() -> CpResult<()> {
+    let mut runner = Runner::init(get_args())?;
+    runner.start_log()?;
+    runner.run()
+}
 
 fn main() {
-    let _args = get_args();
+    match exec() {
+        Ok(_) => {},
+        Err(e) => {
+            log::error!("Failed on building runner:\n{}", e)
+        }
+    }
 }
+

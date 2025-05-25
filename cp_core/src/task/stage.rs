@@ -3,8 +3,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::{
-    pipeline::context::DefaultPipelineContext,
-    util::error::{CpError, CpResult},
+    parser::task_type::TaskTypeEnum, pipeline::context::DefaultPipelineContext, util::error::{CpError, CpResult}
 };
 
 pub trait Stage {
@@ -27,7 +26,7 @@ pub trait StageTaskConfig<T> {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct StageConfig {
     pub label: String,
-    pub task_type: String,
+    pub task_type: TaskTypeEnum,
     pub task_name: String,
     pub emplace: serde_yaml_ng::Mapping,
 }

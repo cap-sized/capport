@@ -88,7 +88,7 @@ impl Configurable for PipelineRegistry {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pipeline::common::PipelineConfig, task::stage::StageConfig, util::common::create_config_pack};
+    use crate::{parser::task_type::TaskTypeEnum, pipeline::common::PipelineConfig, task::stage::StageConfig, util::common::create_config_pack};
 
     use super::PipelineRegistry;
 
@@ -146,7 +146,7 @@ pipeline:
                 stages: vec![
                     StageConfig {
                         label: "load_player_ids".to_owned(),
-                        task_type: "source".to_owned(),
+                        task_type: TaskTypeEnum::Source,
                         task_name: "load_sources".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
@@ -159,7 +159,7 @@ df_state_province: STATE_PROVINCE
                     },
                     StageConfig {
                         label: "nhl_urls".to_owned(),
-                        task_type: "transform".to_owned(),
+                        task_type: TaskTypeEnum::Transform,
                         task_name: "player_ids_to_urls".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
@@ -180,7 +180,7 @@ url_column: nhl_url
                 stages: vec![
                     StageConfig {
                         label: "load_full_data".to_owned(),
-                        task_type: "source".to_owned(),
+                        task_type: TaskTypeEnum::Source,
                         task_name: "http_json_get_batch_request".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "
@@ -193,7 +193,7 @@ output: NHL_PLAYER_DATA_RAW
                     },
                     StageConfig {
                         label: "nhl_player_data".to_owned(),
-                        task_type: "transform".to_owned(),
+                        task_type: TaskTypeEnum::Transform,
                         task_name: "transform_nhl_player_data".to_owned(),
                         emplace: serde_yaml_ng::from_str(
                             "

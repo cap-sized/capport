@@ -33,7 +33,6 @@ pub trait PipelineContext<
     fn get_broadcast(&'a self, label: &str, handler: &str) -> CpResult<BroadcastHandle>;
     fn get_async_listener(&'a self, label: &str, handler: &str) -> CpResult<AsyncListenHandle>;
     fn get_async_broadcast(&'a self, label: &str, handler: &str) -> CpResult<AsyncBroadcastHandle>;
-    fn get_labels(&self) -> CpResult<Vec<String>>;
     fn extract_clone_result(&self, label: &str) -> CpResult<MaterializedType>;
     fn extract_result(&self, label: &str) -> CpResult<FrameType>;
     fn insert_result(&self, label: &str, frame: FrameType) -> CpResult<()>;
@@ -167,9 +166,6 @@ impl<'a>
                 ),
             )),
         }
-    }
-    fn get_labels(&self) -> CpResult<Vec<String>> {
-        Ok(self.results.keys())
     }
     fn extract_clone_result(&self, label: &str) -> CpResult<DataFrame> {
         match self.results.get(label) {

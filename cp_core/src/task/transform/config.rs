@@ -45,6 +45,7 @@ pub struct DropTransformConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SqlTransformConfig {
     pub sql: String,
+    pub sql_context: Option<Vec<String>>,
 }
 
 #[cfg(test)]
@@ -257,6 +258,7 @@ join:
             actual,
             SqlTransformConfig {
                 sql: "select col from data".to_string(),
+                sql_context: None
             }
         );
     }

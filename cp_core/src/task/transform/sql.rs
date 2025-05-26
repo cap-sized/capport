@@ -9,15 +9,16 @@ use std::sync::Arc;
 
 pub struct SqlTransform {
     sql: String,
+    sql_context: Option<Vec<String>>,
 }
 
 impl Transform for SqlTransform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let mut context = SQLContext::new();
 
-        for df_name in ctx.get_labels()? {
-            let df = ctx.extract_result(&df_name)?;
-            context.register(&df_name, df);
+        for df_name in self.sql_context.as_ref().unwrap_or(&vec![]) {
+            let df = ctx.extract_result(df_name)?;
+            context.register(df_name, df);
         }
 
         context.register("self", main);
@@ -45,7 +46,10 @@ impl TransformConfig for SqlTransformConfig {
     }
 
     fn transform(&self) -> Box<dyn Transform> {
-        Box::new(SqlTransform { sql: self.sql.clone() })
+        Box::new(SqlTransform {
+            sql: self.sql.clone(),
+            sql_context: self.sql_context.clone(),
+        })
     }
 }
 
@@ -63,6 +67,7 @@ mod tests {
     fn valid_sql_transform_basic() {
         let config = SqlTransformConfig {
             sql: "select * from self join BASIC on self.col = BASIC.my_col".to_owned(),
+            sql_context: Some(vec!["BASIC".to_owned()]),
         };
 
         assert!(config.validate().is_empty());
@@ -97,7 +102,10 @@ mod tests {
 
     #[test]
     fn invalid_sql_transform_basic() {
-        let config = SqlTransformConfig { sql: "".to_owned() };
+        let config = SqlTransformConfig {
+            sql: "".to_owned(),
+            sql_context: None,
+        };
         assert_eq!(config.validate().len(), 1);
     }
 }

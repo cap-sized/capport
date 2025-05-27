@@ -1,5 +1,10 @@
 use crate::util::error::{CpError, CpResult};
-use std::{collections::HashMap, fs::File, io::BufReader, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
 pub trait YamlRead {
     fn add_to_map(&mut self, key: serde_yaml_ng::Value, value: serde_yaml_ng::Value) -> CpResult<()>;

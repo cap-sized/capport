@@ -20,6 +20,8 @@ pub enum CpError {
     ConnectionError(String),
     #[error("ERROR [SYMBOL NOT REPLACED]: {0}(${1})")]
     SymbolMissingValueError(&'static str, String),
+    #[error("ERROR [RESULT NOT INITIALIZED]: {0}")]
+    SymbolResultError(String),
     #[error("error [validation]: {0}\n{1}")]
     ConfigValidationError(&'static str, String),
     #[error("ERROR [_raw_]: {0}")]
@@ -33,6 +35,12 @@ pub fn config_validation_error(config_type: &'static str, errors: Vec<CpError>) 
         .collect::<Vec<String>>()
         .join("\n");
     CpError::ConfigValidationError(config_type, err_str)
+}
+
+impl From<reqwest::Error> for CpError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::ConnectionError(value.to_string())
+    }
 }
 
 impl From<polars::error::PolarsError> for CpError {

@@ -1,6 +1,7 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 use log::{debug, trace};
-use std::collections::HashMap;
+use polars::{frame::DataFrame, io::SerReader, prelude::JsonReader};
+use std::{collections::HashMap, io::Cursor};
 
 use rand::{Rng, distr::Alphanumeric};
 
@@ -75,6 +76,12 @@ pub fn get_full_path(abs_or_rel_path_str: &str, is_config: bool) -> CpResult<std
     Ok(full_path)
 }
 
+pub fn vec_str_json_to_df(vecstr: &[String]) -> CpResult<DataFrame> {
+    let input = format!("[{}]", vecstr.join(", "));
+    let reader = JsonReader::new(Cursor::new(input.trim()));
+    Ok(reader.finish()?)
+}
+
 pub fn create_config_pack<I>(yaml_strs: I) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>>
 where
     I: IntoIterator,
@@ -116,12 +123,11 @@ pub fn rng_str(len: usize) -> String {
 /// This macro allows us to run n async tasks and gather the results
 #[macro_export]
 macro_rules! ctx_run_n_async {
-    ($label:expr, $tasks:expr, $ctx:expr, $action:expr) => {
+    ($label:expr, $tasks:expr, $action:expr, $($i:expr),*) => {
         let tasks = ($tasks);
-        let ctx = ($ctx).clone();
         let mut handles = Vec::with_capacity(tasks.len());
         for task in tasks {
-            handles.push(async || ($action)(task, ctx.clone()).await);
+            handles.push(async || ($action)(task, $($i.clone()),*).await);
         }
 
         let results = futures::future::join_all(handles.into_iter().map(|h| h())).await;
@@ -144,7 +150,7 @@ macro_rules! ctx_run_n_threads {
         log::trace!("Started {} threads", n);
         let (quo, rem) = (len / n, len % n);
         let split = (quo + 1) * rem;
-        match thread::scope(|scope| {
+        match crossbeam::thread::scope(|scope| {
             let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
             for chunk in chunks {
                 let items = (chunk, $($i.clone()),*);
@@ -171,6 +177,17 @@ macro_rules! valid_or_insert_error {
                 ($keyword).symbol().unwrap_or("?").to_owned(),
             )),
         }
+    };
+}
+
+#[macro_export]
+macro_rules! result_or_insert_error {
+    ($errors:expr, $optkey:expr, $ctx:expr) => {
+        ($optkey).map(|j| {
+            if ($ctx).extract_result(j).is_err() {
+                ($errors).push(CpError::SymbolResultError(j.to_owned()));
+            }
+        });
     };
 }
 

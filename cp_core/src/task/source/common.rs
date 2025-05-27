@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use crossbeam::thread;
 use polars::prelude::LazyFrame;
 
 use crate::{
@@ -136,45 +135,49 @@ impl Stage for SourceGroup {
                 Ok(x) => match x.msg_type {
                     FrameUpdateType::Kill => {
                         log::info!("Terminating source stage `{}`...", self.label);
-                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource,
-                                                                                   ctx: Arc<
-                            DefaultPipelineContext,
-                        >| {
-                            let ictx = ctx.clone();
-                            let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
-                                Ok(x) => x,
-                                Err(e) => {
-                                    return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
-                                }
-                            };
-                            bcast.kill().await?;
-                            log::info!("Sent termination signal for frame {}", source.0.name());
-                            Ok(())
-                        });
+                        ctx_run_n_async!(
+                            label,
+                            &self.sources,
+                            async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                                let ictx = ctx.clone();
+                                let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
+                                    Ok(x) => x,
+                                    Err(e) => {
+                                        return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                                    }
+                                };
+                                bcast.kill().await?;
+                                log::info!("Sent termination signal for frame {}", source.0.name());
+                                Ok(())
+                            },
+                            ctx.clone()
+                        );
                         loops += 1;
                         break;
                     }
                     FrameUpdateType::Replace => {
-                        ctx_run_n_async!(label, &self.sources, ctx.clone(), async |source: &BoxedSource,
-                                                                                   ctx: Arc<
-                            DefaultPipelineContext,
-                        >| {
-                            let ictx = ctx.clone();
-                            let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
-                                Ok(x) => x,
-                                Err(e) => {
-                                    return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                        ctx_run_n_async!(
+                            label,
+                            &self.sources,
+                            async |source: &BoxedSource, ctx: Arc<DefaultPipelineContext>| {
+                                let ictx = ctx.clone();
+                                let mut bcast = match ictx.get_async_broadcast(source.0.name(), label) {
+                                    Ok(x) => x,
+                                    Err(e) => {
+                                        return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                                    }
+                                };
+                                match source.0.fetch(ctx.clone()).await {
+                                    Ok(lf) => {
+                                        bcast.broadcast(lf).await?;
+                                        log::info!("Sent update for frame {}", source.0.name());
+                                        Ok(())
+                                    }
+                                    Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
                                 }
-                            };
-                            match source.0.fetch(ctx.clone()).await {
-                                Ok(lf) => {
-                                    bcast.broadcast(lf).await?;
-                                    log::info!("Sent update for frame {}", source.0.name());
-                                    Ok(())
-                                }
-                                Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
-                            }
-                        });
+                            },
+                            ctx.clone()
+                        );
                         loops += 1;
                     }
                 },
@@ -256,7 +259,7 @@ mod tests {
 
     use crate::{
         context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle},
+        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
         model::common::{ModelConfig, ModelFieldInfo},
         parser::{
             dtype::DType,
@@ -314,9 +317,7 @@ mod tests {
             } else {
                 let mut collected: Vec<LazyFrame> = vec![];
                 for x in &self.dep {
-                    let mut x = ctx.get_listener(x, self.name()).unwrap();
-                    let update = x.listen().unwrap();
-                    let frame = update.frame.read()?;
+                    let frame = ctx.extract_result(x)?;
                     collected.push(frame.clone());
                 }
                 let result = concat_lf_horizontal(
@@ -336,9 +337,7 @@ mod tests {
             } else {
                 let mut collected: Vec<LazyFrame> = vec![];
                 for x in &self.dep {
-                    let mut x = ctx.get_async_listener(x, self.name()).unwrap();
-                    let update = x.listen().await.unwrap();
-                    let frame = update.frame.read()?;
+                    let frame = ctx.extract_result(x)?;
                     collected.push(frame.clone());
                 }
                 let result = concat_lf_horizontal(
@@ -359,7 +358,7 @@ mod tests {
         let ctx = Arc::new(DefaultPipelineContext::new());
         let src = MockSource::new("mock");
         let expected = src.run(ctx.clone());
-        assert_eq!(expected.unwrap().collect().unwrap(), default_df());
+        assert_frame_equal(expected.unwrap().collect().unwrap(), default_df());
     }
 
     #[test]
@@ -374,7 +373,7 @@ mod tests {
         let src = SourceGroup::new("root", 1, vec![Box::new(mock_src)]);
         src.linear(ctx.clone()).unwrap();
         let actual = concat_df_horizontal(&[default_df(), default_next()], true).unwrap();
-        assert_eq!(ctx.extract_clone_result("mock_source").unwrap(), actual);
+        assert_frame_equal(ctx.extract_clone_result("mock_source").unwrap(), actual);
     }
 
     #[test]
@@ -387,13 +386,10 @@ mod tests {
         next_handle.broadcast(default_next().lazy()).unwrap();
         let mock_src_next = MockSource::from("test_next", &["next"]);
         let mock_src = MockSource::new("df");
-        // mock_src depends on mock_src_df. If max_threads is any less than 3,
-        // there is a chance this blocks.
         let src = SourceGroup::new("root", 1, vec![Box::new(mock_src_next), Box::new(mock_src)]);
-        // This will NOT work with linear! mock_src depends on mock_src_df
         src.sync_exec(ctx.clone()).unwrap();
-        assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
-        assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
+        assert_frame_equal(ctx.extract_clone_result("df").unwrap(), default_df());
+        assert_frame_equal(ctx.extract_clone_result("test_next").unwrap(), default_next());
     }
 
     #[test]
@@ -402,14 +398,15 @@ mod tests {
         let count = [3, 4];
         for thread_count in count {
             let ctx = Arc::new(DefaultPipelineContext::with_results(
-                &["df", "next", "test_df", "test_next"],
+                &["df", "next", "test_df", "test_next", "simple"],
                 1,
             ));
             let mut next_handle = ctx.get_broadcast("next", "orig").unwrap();
             next_handle.broadcast(default_next().lazy()).unwrap();
+            ctx.insert_result("df", default_df().lazy()).unwrap();
             let mock_src_df = MockSource::from("test_df", &["df"]);
             let mock_src_next = MockSource::from("test_next", &["next"]);
-            let mock_src = MockSource::new("df");
+            let mock_src = MockSource::new("simple");
             // mock_src depends on mock_src_df. If max_threads is any less than 3,
             // there is a chance this blocks.
             let src = SourceGroup::new(
@@ -419,9 +416,9 @@ mod tests {
             );
             // This will NOT work with linear! mock_src depends on mock_src_df
             src.sync_exec(ctx.clone()).unwrap();
-            assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
-            assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
-            assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
+            assert_frame_equal(ctx.extract_clone_result("simple").unwrap(), default_df());
+            assert_frame_equal(ctx.extract_clone_result("test_next").unwrap(), default_next());
+            assert_frame_equal(ctx.extract_clone_result("test_df").unwrap(), default_df());
         }
     }
 
@@ -436,6 +433,7 @@ mod tests {
                 DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(),
             );
             let ictx = ctx.clone();
+            ctx.insert_result("df", default_df().lazy()).unwrap();
             let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
             next_handle.broadcast(default_next().lazy()).await.unwrap();
             let mock_src_df = MockSource::from("test_df", &["df"]);
@@ -447,11 +445,10 @@ mod tests {
                 vec![Box::new(mock_src_df), Box::new(mock_src_next), Box::new(mock_src)],
             );
             let action_path = async move || {
-                // This will NOT work with linear! mock_src depends on mock_src_df
                 src.async_exec(ctx.clone()).await.unwrap();
-                assert_eq!(ctx.extract_clone_result("df").unwrap(), default_df());
-                assert_eq!(ctx.extract_clone_result("test_next").unwrap(), default_next());
-                assert_eq!(ctx.extract_clone_result("test_df").unwrap(), default_df());
+                assert_frame_equal(ctx.extract_clone_result("df").unwrap(), default_df());
+                assert_frame_equal(ctx.extract_clone_result("test_next").unwrap(), default_next());
+                assert_frame_equal(ctx.extract_clone_result("test_df").unwrap(), default_df());
             };
             let terminator = async move || {
                 match ictx.signal_replace().await {

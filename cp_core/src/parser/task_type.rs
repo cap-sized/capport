@@ -5,6 +5,7 @@ pub enum TaskTypeEnum {
     Transform,
     Source,
     Sink,
+    Request,
 }
 
 impl<'de> Deserialize<'de> for TaskTypeEnum {
@@ -17,6 +18,8 @@ impl<'de> Deserialize<'de> for TaskTypeEnum {
             "transform" => Ok(TaskTypeEnum::Transform),
             "source" => Ok(TaskTypeEnum::Source),
             "sink" => Ok(TaskTypeEnum::Sink),
+            "req" => Ok(TaskTypeEnum::Request),
+            "request" => Ok(TaskTypeEnum::Request),
             // TODO: Handle parsing of list[xxx] types, more datetime regions
             s => Err(de::Error::custom(format!("Unknown task_type: {}", s))),
         }
@@ -32,18 +35,29 @@ mod tests {
             TaskTypeEnum::Transform,
             TaskTypeEnum::Source,
             TaskTypeEnum::Sink,
+            TaskTypeEnum::Request,
             TaskTypeEnum::Transform,
             TaskTypeEnum::Source,
             TaskTypeEnum::Sink,
+            TaskTypeEnum::Request,
         ]
         .into_iter()
         .collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<&'static str> {
-        ["transforM", "source", "Sink", "transform", "SOURCE", "sink"]
-            .into_iter()
-            .collect::<Vec<_>>()
+        [
+            "transforM",
+            "source",
+            "Sink",
+            "request",
+            "transform",
+            "SOURCE",
+            "sink",
+            "Request",
+        ]
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     #[test]

@@ -3,7 +3,10 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::{
-    ctx_run_n_async, parser::task_type::TaskTypeEnum, task::stage::{Stage, StageConfig}, util::error::CpResult
+    ctx_run_n_async,
+    parser::task_type::TaskTypeEnum,
+    task::stage::{Stage, StageConfig},
+    util::error::CpResult,
 };
 
 use super::context::{DefaultPipelineContext, PipelineContext};
@@ -42,6 +45,10 @@ impl Pipeline {
                     results_needed.extend(source.produces());
                 }
                 TaskTypeEnum::Sink => {}
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    results_needed.extend(request.produces());
+                }
             }
         }
         Ok(Arc::new(ctx.initialize_results(results_needed, bufsize)?))
@@ -64,6 +71,10 @@ impl Pipeline {
                 TaskTypeEnum::Sink => {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.linear(ictx)));
+                }
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    actions.push(Box::new(move || request.linear(ictx)));
                 }
             }
         }
@@ -91,6 +102,10 @@ impl Pipeline {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.sync_exec(ictx)));
                 }
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    actions.push(Box::new(move || request.sync_exec(ictx)));
+                }
             }
         }
         for action in actions {
@@ -107,7 +122,6 @@ impl Pipeline {
         ctx_run_n_async!(
             "async_pipe",
             &config.stages,
-            ctx.clone(),
             async |stage: &StageConfig, ictx: Arc<DefaultPipelineContext>| {
                 match stage.task_type {
                     TaskTypeEnum::Transform => {
@@ -122,8 +136,13 @@ impl Pipeline {
                         let stage = ictx.get_sink(&stage.task_name, &stage.emplace)?;
                         stage.async_exec(ictx).await
                     }
+                    TaskTypeEnum::Request => {
+                        let stage = ictx.get_request(&stage.task_name, &stage.emplace)?;
+                        stage.async_exec(ictx).await
+                    }
                 }
-            }
+            },
+            ctx.clone()
         );
     }
 }
@@ -135,7 +154,10 @@ mod tests {
     use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
 
     use crate::{
-        context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry},
+        context::{
+            model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry,
+            transform::TransformRegistry,
+        },
         model::common::ModelConfig,
         parser::keyword::{Keyword, StrKeyword},
         pipeline::{
@@ -229,12 +251,14 @@ mod tests {
             )
             .unwrap(),
         });
+        let request_registry = RequestRegistry::new();
         DefaultPipelineContext::from(
             results,
             model_registry,
             transform_registry,
             source_registry,
             sink_registry,
+            request_registry,
         )
     }
 

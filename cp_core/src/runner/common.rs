@@ -2,7 +2,23 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use crate::{context::{logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry}, logger::common::DEFAULT_CONSOLE_LOGGER_NAME, parser::{common::{pack_configs_from_files, read_configs}, run_mode::RunModeEnum}, pipeline::{common::{Pipeline, PipelineConfig}, context::DefaultPipelineContext, results::PipelineResults}, util::{args::RunPipelineArgs, error::CpResult}};
+use crate::{
+    context::{
+        logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry, request::RequestRegistry,
+        sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry,
+    },
+    logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
+    parser::{
+        common::{pack_configs_from_files, read_configs},
+        run_mode::RunModeEnum,
+    },
+    pipeline::{
+        common::{Pipeline, PipelineConfig},
+        context::DefaultPipelineContext,
+        results::PipelineResults,
+    },
+    util::{args::RunPipelineArgs, error::CpResult},
+};
 
 const CHANNEL_BUFSIZE: usize = 1000;
 
@@ -17,7 +33,7 @@ pub struct Runner {
     logger_registry: LoggerRegistry,
     pipeline_context: DefaultPipelineContext,
     pipeline_config: PipelineConfig,
-    cli_args: RunPipelineArgs
+    cli_args: RunPipelineArgs,
 }
 
 impl Runner {
@@ -30,26 +46,43 @@ impl Runner {
         let transform_registry = TransformRegistry::from(&mut pack)?;
         let source_registry = SourceRegistry::from(&mut pack)?;
         let sink_registry = SinkRegistry::from(&mut pack)?;
-        let runner_raw = pack.get("runner").map(|runners| runners.get(&cli_args.runner)).unwrap_or(None);
+        let request_registry = RequestRegistry::from(&mut pack)?;
+        let runner_raw = pack
+            .get("runner")
+            .map(|runners| runners.get(&cli_args.runner))
+            .unwrap_or(None);
         let runner = if let Some(config) = runner_raw {
             serde_yaml_ng::from_value::<RunnerConfig>(config.clone())?
         } else {
-            return Err(crate::util::error::CpError::ComponentError("Input CLI Args", format!("runner `{}` not found", &cli_args.runner)));
+            return Err(crate::util::error::CpError::ComponentError(
+                "Input CLI Args",
+                format!("runner `{}` not found", &cli_args.runner),
+            ));
         };
         let results = PipelineResults::new();
-        let pipeline_context = DefaultPipelineContext::from(results, model_registry, transform_registry, source_registry, sink_registry);
+        let pipeline_context = DefaultPipelineContext::from(
+            results,
+            model_registry,
+            transform_registry,
+            source_registry,
+            sink_registry,
+            request_registry,
+        );
         let pipeline_config = match pipeline_registry.get_pipeline_config(&cli_args.pipeline) {
             Some(x) => x,
             None => {
-                return Err(crate::util::error::CpError::ComponentError("Input CLI Args", format!("pipeline `{}` not found", &cli_args.pipeline)));
+                return Err(crate::util::error::CpError::ComponentError(
+                    "Input CLI Args",
+                    format!("pipeline `{}` not found", &cli_args.pipeline),
+                ));
             }
         };
         Ok(Runner {
-            config: runner, 
+            config: runner,
             logger_registry,
             pipeline_context,
             pipeline_config,
-            cli_args
+            cli_args,
         })
     }
     pub fn start_log(&mut self) -> CpResult<()> {
@@ -60,7 +93,8 @@ impl Runner {
             DEFAULT_CONSOLE_LOGGER_NAME
         };
         let pipeline_name = &self.pipeline_config.label;
-        self.logger_registry.start_logger(console_logger_name, pipeline_name, self.cli_args.print)
+        self.logger_registry
+            .start_logger(console_logger_name, pipeline_name, self.cli_args.print)
     }
     pub fn run(self) -> CpResult<()> {
         let mode = self.config.mode;

@@ -1,5 +1,7 @@
 use argh::FromArgs;
 
+pub const KEYWORD_RUN_MODE: &str = "RUN_MODE";
+
 #[derive(FromArgs)]
 #[argh(description = "default args for running pipeline")]
 pub struct RunPipelineArgs {

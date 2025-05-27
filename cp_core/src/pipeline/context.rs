@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
-    context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry},
+    context::{
+        model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry,
+        transform::TransformRegistry,
+    },
     frame::{
         common::{FrameUpdateInfo, PipelineFrame},
         polars::{
@@ -12,7 +15,8 @@ use crate::{
     },
     model::common::{ModelConfig, ModelFields},
     task::{
-        sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig, transform::common::RootTransform,
+        request::common::RequestGroup, sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig,
+        transform::common::RootTransform,
     },
     util::error::{CpError, CpResult, config_validation_error},
 };
@@ -51,6 +55,7 @@ pub trait PipelineContext<
     fn get_transform(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RootTransform>;
     fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup>;
     fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup>;
+    fn get_request(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RequestGroup>;
 
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
@@ -66,6 +71,7 @@ pub struct DefaultPipelineContext {
     transform_registry: TransformRegistry,
     source_registry: SourceRegistry,
     sink_registry: SinkRegistry,
+    request_registry: RequestRegistry,
     signal_state: Option<SignalState>,
 }
 
@@ -88,6 +94,7 @@ impl DefaultPipelineContext {
         transform_registry: TransformRegistry,
         source_registry: SourceRegistry,
         sink_registry: SinkRegistry,
+        request_registry: RequestRegistry,
     ) -> Self {
         Self {
             results,
@@ -95,6 +102,7 @@ impl DefaultPipelineContext {
             transform_registry,
             source_registry,
             sink_registry,
+            request_registry,
             signal_state: None,
         }
     }
@@ -115,6 +123,7 @@ impl DefaultPipelineContext {
             TransformRegistry::new(),
             SourceRegistry::new(),
             SinkRegistry::new(),
+            RequestRegistry::new(),
         )
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
@@ -292,6 +301,18 @@ impl<'a>
             Some(x) => match x.parse(self, context) {
                 Ok(trf) => Ok(trf),
                 Err(errors) => Err(config_validation_error("sink", errors)),
+            },
+        }
+    }
+    fn get_request(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RequestGroup> {
+        match self.request_registry.get_request_config(label) {
+            None => Err(CpError::ConfigError(
+                "Missing config for request",
+                format!("Config required: {}", label),
+            )),
+            Some(x) => match x.parse(self, context) {
+                Ok(trf) => Ok(trf),
+                Err(errors) => Err(config_validation_error("request", errors)),
             },
         }
     }

@@ -158,7 +158,7 @@ mod tests {
     use crate::{
         context::{
             model::ModelRegistry,
-            request::{self, RequestRegistry},
+            request::{RequestRegistry},
             sink::SinkRegistry,
             source::SourceRegistry,
             transform::TransformRegistry,

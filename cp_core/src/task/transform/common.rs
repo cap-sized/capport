@@ -52,7 +52,9 @@ impl Stage for RootTransform {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized: {}", &self.label);
         let input = ctx.extract_result(&self.input)?;
+        log::info!("INPUT `{}`: {:?}", &self.label, input.clone().collect());
         let output = self.run(input, ctx.clone())?;
+        log::info!("OUTPUT `{}`: {:?}", &self.label, output.clone().collect());
         ctx.insert_result(&self.output, output)
     }
     /// The synchronous, concurrent execution listens to input for the initial frame, and broadcasts to output
@@ -63,7 +65,7 @@ impl Stage for RootTransform {
         log::info!("Stage initialized: {}", &self.label);
         let mut input_listener = lctx.get_listener(&self.input, &self.label)?;
         let mut output_broadcast = bctx.get_broadcast(&self.output, &self.label)?;
-        let update = input_listener.listen()?;
+        let update = input_listener.force_listen();
         let input = update.frame.read()?.clone();
         let output = self.run(input, ctx)?;
         output_broadcast.broadcast(output)

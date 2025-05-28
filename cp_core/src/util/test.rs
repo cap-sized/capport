@@ -74,6 +74,35 @@ impl DummyData {
         .lazy()
     }
 
+    pub fn df_instrument_prices() -> DataFrame {
+        df![
+            "id" => 0..7,
+            "price" => [50.1, 62.3, 69.10, 88.8, 30.2, 29.2, 40.3],
+        ]
+        .unwrap()
+    }
+
+    pub fn df_instruments() -> DataFrame {
+        df![
+            "ric" => ["AAPL", "AMZN", "GOOG", "NVDA", "NOVA", "BABA", "SPOT"],
+            "mkt" => ["amer", "amer", "amer", "amer", "emea", "apac", "emea"],
+            "id" => 0..7,
+        ]
+        .unwrap()
+    }
+
+    pub fn json_instrument_prices() -> Vec<String> {
+        vec![
+            String::from(r#"{ "id": 0, "price": 50.1 }"#),
+            String::from(r#"{ "id": 1, "price": 62.3 }"#),
+            String::from(r#"{ "id": 2, "price": 69.10 }"#),
+            String::from(r#"{ "id": 3, "price": 88.8 }"#),
+            String::from(r#"{ "id": 4, "price": 30.2 }"#),
+            String::from(r#"{ "id": 5, "price": 29.2 }"#),
+            String::from(r#"{ "id": 6, "price": 40.3 }"#),
+        ]
+    }
+
     pub fn json_colors() -> Vec<String> {
         "
 { \"color\": \"red\", \"value\": \"#f00\" },

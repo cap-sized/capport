@@ -69,6 +69,7 @@ impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         let dataframe = ctx.extract_clone_result(&self.result_name)?;
+        log::info!("INPUT `{}`: {:?}", &self.label, dataframe);
         for sink in &self.sinks {
             sink.0.run(dataframe.clone(), ctx.clone())?;
             log::info!(
@@ -146,14 +147,21 @@ impl Stage for SinkGroup {
                             let mut dataframe: Option<DataFrame> = None;
                             {
                                 let fread = update.frame.read()?;
-                                let _ = dataframe.insert(fread.clone().collect()?);
+                                match fread.clone().collect() {
+                                    Ok(x) => {
+                                        let _ = dataframe.insert(x);
+                                    }
+                                    Err(e) => log::error!("{}", e),
+                                }
                             }
-                            sink.fetch(dataframe.expect("must have dataframe"), ctx.clone()).await?;
-                            log::info!(
-                                "Success pushing frame update via {}: {}",
-                                sink.connection_type(),
-                                result_name
-                            );
+                            if let Some(frame) = dataframe.take() {
+                                sink.fetch(frame, ctx.clone()).await?;
+                                log::info!(
+                                    "Success pushing frame update via {}: {}",
+                                    sink.connection_type(),
+                                    result_name
+                                );
+                            }
                         }
                         FrameUpdateType::Kill => {
                             terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

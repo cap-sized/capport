@@ -66,7 +66,10 @@ impl SinkConfig for CsvSinkConfig {
     }
 
     fn transform(&self) -> Box<dyn Sink> {
-        let fp = get_full_path(self.csv.filepath.value().expect("filepath"), true).expect("bad filepath");
+        let fp = match get_full_path(self.csv.filepath.value().expect("filepath"), true) {
+            Ok(x) => x,
+            Err(e) => panic!("bad filepath `{:?}`: {}", self.csv.filepath.value(), e),
+        };
         Box::new(CsvSink { filepath: fp })
     }
 }

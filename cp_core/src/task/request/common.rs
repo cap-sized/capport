@@ -70,8 +70,10 @@ impl Stage for RequestGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         let lf = ctx.extract_result(&self.input)?;
+        log::info!("INPUT `{}`: {:?}", &self.label, lf.clone().collect());
         for req in &self.requests {
             req.0.run(lf.clone(), ctx.clone())?;
+            log::info!("OUTPUT `{}`: {:?}", &self.label, ctx.extract_clone_result(req.0.name()));
             log::info!(
                 "Success pushing frame update to {}: {}",
                 req.0.connection_type(),

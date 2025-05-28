@@ -87,6 +87,11 @@ impl Stage for SourceGroup {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         for source in &self.sources {
             run_source(&self.label, source, ctx.clone())?;
+            log::info!(
+                "OUTPUT `{}`: {:?}",
+                &self.label,
+                ctx.extract_clone_result(source.0.name())
+            );
         }
         Ok(())
     }

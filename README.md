@@ -33,7 +33,7 @@ We are drastically changing the structure of capport to support
     - [x] TransformRegistry
     - [x] SourceRegistry
     - [x] SinkRegistry
-    - [ ] RunnerRegistry
+    - [x] RequestRegistry
     - [x] SignalState
 - [x] Trait with execution modes
     - [x] Linear execution
@@ -45,6 +45,7 @@ We are drastically changing the structure of capport to support
         - [x] Concat
         - [x] Format
         - [x] Literals (u64, i64, str)
+        - [ ] Casting (any dtype)
     - [x] deserialize field `DTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsDtype` from "uint64")
     - [x] deserialize field `JTypeKeyword` (provides `.symbol()` from "$varname" and `.value(): PolarsJoinType` from "left")
 - [x] RootTransform and sub-transforms (config and impl)
@@ -57,22 +58,25 @@ We are drastically changing the structure of capport to support
     - [ ] OrderTransform
     - [ ] SortTransform
     - [ ] SqlTransform (for all other operations)
-- [x] RootSource, method of pulling data, and types
-    - [x] Running RootSource as a Source
+- [x] SourceGroup, method of pulling data, and types
+    - [x] Running SourceGroup as a stage
     - [x] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
     - [ ] PostgresSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
-- [x] RootSink, method of writing data, and types
-    - [x] Running RootSink as a Sink
+- [x] SinkGroup, method of writing data, and types
+    - [x] Running SinkGroup as a stage
     - [ ] JsonSink
     - [x] CsvSink
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)
-- [ ] PipelineRegistry
-- [ ] RunnerRegistry
+- [x] RequestGroup, method of writing data, and types
+    - [x] Running RequestGroup as a stage
+    - [x] HttpBatchRequest
+    - [ ] HttpSingleRequest
+- [x] PipelineRegistry
 - [ ] Synchronous schedule (per-pipeline)
 - [ ] Asynchronous schedule (per-stage)
 

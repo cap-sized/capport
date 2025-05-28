@@ -1,13 +1,15 @@
 pipeline:
   players:
     - label: load_player_ids
-      task: load_sources # default
+      task_type: source
+      task_name: load_sources
       emplace: 
         fp_player_ids: "nhl_player_ids.csv"
         fp_state_province: "state_province.csv"
         df_state_province: STATE_PROVINCE
 
     - label: nhl_urls
+      task_type: transform
       task: player_ids_to_urls # user defined
       emplace:
         input: PLAYER_IDS
@@ -15,21 +17,24 @@ pipeline:
         url_column: nhl_url
 
     - label: load_full_data
-      task: http_json_get_batch_request # user defined
+      task_type: request
+      task_name: http_json_get_batch_request # user defined
       emplace:
         input: NHL_URLS
         url_column: nhl_url
         output: NHL_PLAYER_DATA_RAW
 
     - label: nhl_player_data
-      task: transform_nhl_player_data # default
+      task_type: transform
+      task_name: transform_nhl_player_data # default
       emplace:
         input: NHL_PLAYER_DATA_RAW
         state_province_df: STATE_PROVINCE
         output: NHL_PLAYER_DATA
 
     - label: save_player_data_to_local
-      task: save_csv # default
+      task_type: sink
+      task_name: save_csv # default
       emplace:
         NHL_PLAYER_DATA: "nhl_player_data.csv"
 
@@ -51,18 +56,19 @@ sources:
             
 
   http_json_get_batch_request:
+    input: $input
     max_threads: 1
-    sources:
+    requests:
       - http_batch:
           method: get
           content_type: application/json
-          input: $input
           url_column: $url_column
           output: $output
 
   http_json_get_single_request:
+    input: $input
     max_threads: 1
-    sources:
+    requests:
       - http_single:
           method: get
           content_type: application/json
@@ -77,8 +83,9 @@ sources:
 
 sinks:
   save_csv: 
+    input: $input
     max_threads: 1
-    sources:
+    sinks:
       - csv: 
           filepath: $fp_player_ids
           output: PLAYER_IDS

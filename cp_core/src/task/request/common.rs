@@ -217,8 +217,10 @@ impl StageTaskConfig<RequestGroup> for RequestGroupConfig {
                 Err(e) => errors.push(e),
             }
         }
-        let input = self.input.clone();
-        valid_or_insert_error!(errors, input, "request.input");
+        let mut input = self.input.clone();
+        if input.insert_value_from_context(context).is_err() {
+            valid_or_insert_error!(errors, input, "request.input");
+        }
         if errors.is_empty() {
             Ok(RequestGroup {
                 label: self.label.clone(),
@@ -235,21 +237,33 @@ impl StageTaskConfig<RequestGroup> for RequestGroupConfig {
 #[cfg(test)]
 mod tests {
 
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     use async_trait::async_trait;
+    use httpmock::{Method::GET, Mock, MockServer};
     use polars::{
         df,
         frame::DataFrame,
         functions::concat_df_horizontal,
         prelude::{IntoLazy, LazyFrame, UnionArgs, concat_lf_horizontal},
     };
+    use serde::{Deserialize, Serialize};
 
     use crate::{
+        context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+        model::common::ModelConfig,
+        parser::keyword::{Keyword, StrKeyword},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::stage::Stage,
-        util::{error::CpResult, test::assert_frame_equal},
+        task::{
+            request::config::RequestGroupConfig,
+            stage::{Stage, StageTaskConfig},
+        },
+        util::{
+            common::vec_str_json_to_df,
+            error::CpResult,
+            test::{DummyData, assert_frame_equal},
+        },
     };
 
     use super::{Request, RequestGroup};
@@ -437,5 +451,147 @@ mod tests {
             tokio::join!(action_path(), terminator());
         };
         rt.block_on(event());
+    }
+
+    #[test]
+    fn create_request_group_good_config() {
+        let configs_str = r#"
+- http_batch:
+    method: get
+    content_type: application/json
+    output: $output
+    url_column: url
+    options:
+        max_retry: 1
+        init_retry_interval_ms: 1000
+#- http_single:
+#   method: GET
+#   content_type: application/json
+#   output: WEB_PLAYERS
+#   url_column: 
+#       str: https://api-web.nhle.com/v1/meta
+#   url_params:
+#       - col: player
+#         template: players={}
+#         separator: ","
+#   model_fields:
+#       test: str
+"#;
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{input: SIN, output: SAMPLE}").unwrap();
+        let sgconfig = RequestGroupConfig {
+            label: "".to_owned(),
+            input: StrKeyword::with_symbol("input"),
+            max_threads: 1,
+            requests: configs,
+        };
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SIN", "SAMPLE"], 2));
+        let actual = sgconfig.parse(&ctx, &context);
+        actual.unwrap();
+    }
+
+    #[test]
+    fn create_request_group_bad_configs() {
+        [
+            "
+- http_batch:
+    method: get
+    content_type: application/json
+    output: $missing
+    url_column: url
+    model: player
+",
+            "
+- bad:
+    method: get
+    content_type: application/json
+    output: $output
+    url_column: url
+    model: player
+",
+        ]
+        .iter()
+        .for_each(|configs_str| {
+            let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+            let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{input: SIN, output: SAMPLE}").unwrap();
+            let sgconfig = RequestGroupConfig {
+                label: "".to_owned(),
+                input: StrKeyword::with_value("input".to_owned()),
+                max_threads: 1,
+                requests: configs,
+            };
+            let mut model_registry = ModelRegistry::new();
+            model_registry.insert(ModelConfig {
+                label: "input".to_owned(),
+                fields: HashMap::new(),
+            });
+            let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
+            let actual = sgconfig.parse(&ctx, &context);
+            assert!(actual.is_err());
+        });
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct SampleAct {
+        id: String,
+        label: Option<String>,
+    }
+
+    #[test]
+    fn valid_request_group_basic() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        let configs_str = r#"
+- http_batch:
+    method: get
+    content_type: application/json
+    output: $output
+    url_column: url
+#- http_single:
+#   method: GET
+#   content_type: application/json
+#   output: WEB_PLAYERS
+#   url_column: 
+#       str: https://api-web.nhle.com/v1/meta
+#   url_params:
+#       - col: player
+#         template: players={}
+#         separator: ","
+#   model_fields:
+#       test: str
+"#;
+        let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: OUTPUT").unwrap();
+        let sgconfig = RequestGroupConfig {
+            label: "".to_owned(),
+            input: StrKeyword::with_value("URLS".to_owned()),
+            max_threads: 1,
+            requests: configs,
+        };
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["OUTPUT", "URLS"], 1));
+        let mut bcast = ctx.get_broadcast("URLS", "main").unwrap();
+        let server = MockServer::start();
+        let _mocks = DummyData::json_actions()
+            .iter()
+            .map(|j| {
+                let act: SampleAct = serde_yaml_ng::from_str(j).unwrap();
+                server.mock(|when, then| {
+                    when.method(GET).path("/actions").query_param("id", act.id);
+                    then.status(200).header("content-type", "application/json").body(j);
+                })
+            })
+            .collect::<Vec<Mock>>();
+        let urls = DummyData::json_actions()
+            .iter()
+            .map(|j| {
+                let act: SampleAct = serde_yaml_ng::from_str(j).unwrap();
+                server.url(format!("/actions?id={}", act.id))
+            })
+            .collect::<Vec<String>>();
+        let expected = vec_str_json_to_df(&DummyData::json_actions()).unwrap();
+        bcast.broadcast(df!( "url" => urls ).unwrap().lazy()).unwrap();
+        let actual_stage = sgconfig.parse(&ctx, &context).unwrap();
+        actual_stage.linear(ctx.clone()).unwrap();
+        let actual = ctx.clone().extract_clone_result("OUTPUT").unwrap();
+        assert_frame_equal(actual, expected);
     }
 }

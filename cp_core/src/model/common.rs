@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use polars::prelude::{Expr, Schema, col};
+use polars::prelude::{Expr, Null, Schema, coalesce, col, lit};
 use serde::Deserialize;
 
 use crate::{
@@ -62,7 +62,7 @@ impl ModelConfig {
                 .expect("value not present for model field_name")
                 .as_str();
             let detail = field_detail.value().expect("value not present for model field_detail");
-            cols.push(col(name).cast(detail.dtype.0.clone()));
+            cols.push(coalesce(&[col(format!("^{}$", name)), lit(Null {}).alias(name)]).cast(detail.dtype.0.clone()));
         }
         Ok(cols)
     }

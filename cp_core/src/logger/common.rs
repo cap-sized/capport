@@ -15,6 +15,10 @@ pub const DEFAULT_KEYWORD_REF_DATETIME: &str = "REF_DATETIME";
 pub const DEFAULT_KEYWORD_REF_DATE: &str = "REF_DATE";
 pub const DEFAULT_KEYWORD_OUTPUT_DIR: &str = "OUTPUT_DIR";
 pub const DEFAULT_KEYWORD_CONFIG_DIR: &str = "CONFIG_DIR";
+pub const DEFAULT_KEYWORD_PIPELINE: &str = "CURR_PIPELINE";
+pub const DEFAULT_KEYWORD_RUNNER: &str = "CURR_RUNNER";
+pub const DEFAULT_KEYWORD_IS_EXECUTING: &str = "IS_EXECUTING";
+pub const DEFAULT_KEYWORD_IS_CONSOLE: &str = "IS_CONSOLE";
 
 const COLOR_DEBUG: Color = Color::Magenta;
 const COLOR_INFO: Color = Color::BrightGreen;

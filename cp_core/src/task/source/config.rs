@@ -29,6 +29,20 @@ pub struct CsvSourceConfig {
     pub csv: LocalFileSourceConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SqlConnection {
+    pub url: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub db: Option<StrKeyword>,
+    pub env_connection: Option<String>, // use a preset
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ClickhouseSourceConfig {
+    pub clickhouse: SqlConnection,
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -41,10 +55,10 @@ mod tests {
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         },
-        task::source::config::{CsvSourceConfig, JsonSourceConfig},
+        task::source::config::{ClickhouseSourceConfig, CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::LocalFileSourceConfig;
+    use super::{LocalFileSourceConfig, SqlConnection};
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -90,6 +104,25 @@ mod tests {
         ]
     }
 
+    fn get_connections() -> [SqlConnection; 2] {
+        [
+            SqlConnection {
+                db: Some(StrKeyword::with_symbol("defdb")),
+                env_connection: None,
+                password: None,
+                url: None,
+                username: None,
+            },
+            SqlConnection {
+                db: None,
+                env_connection: Some("env_conn".to_owned()),
+                password: Some("alt-password".to_owned()),
+                url: None,
+                username: None,
+            },
+        ]
+    }
+
     fn get_configs() -> [&'static str; 5] {
         [
             "
@@ -128,6 +161,20 @@ mod tests {
         ]
     }
 
+    fn get_connection_configs() -> [&'static str; 2] {
+        [
+            "
+{}:
+    db: $defdb
+",
+            "
+{}:
+    env_connection: env_conn
+    password: alt-password
+",
+        ]
+    }
+
     #[test]
     fn valid_source_config_json() {
         let configs = get_configs()
@@ -156,6 +203,23 @@ mod tests {
             assert_eq!(
                 CsvSourceConfig { csv: locals[i].clone() },
                 serde_yaml_ng::from_str::<CsvSourceConfig>(&configs[i]).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn valid_connection_config_clickhouse() {
+        let configs = get_connection_configs()
+            .iter()
+            .map(|c| c.replace("{}", "clickhouse"))
+            .collect::<Vec<String>>();
+        let locals = get_connections();
+        for i in 0..2 {
+            assert_eq!(
+                ClickhouseSourceConfig {
+                    clickhouse: locals[i].clone()
+                },
+                serde_yaml_ng::from_str::<ClickhouseSourceConfig>(&configs[i]).unwrap()
             );
         }
     }

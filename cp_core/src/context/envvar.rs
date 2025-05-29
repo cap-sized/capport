@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     logger::common::{
-        DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATE, DEFAULT_KEYWORD_REF_DATETIME,
+        DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_IS_CONSOLE, DEFAULT_KEYWORD_IS_EXECUTING,
+        DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_PIPELINE, DEFAULT_KEYWORD_REF_DATE, DEFAULT_KEYWORD_REF_DATETIME,
+        DEFAULT_KEYWORD_RUNNER,
     },
     util::{
         args::RunPipelineArgs,
@@ -69,6 +71,10 @@ impl EnvironmentVariableRegistry {
             let dt = parse_date_str(args.date.as_ref().unwrap())?;
             ev.set::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE, &dt)?;
         }
+        ev.set_str(DEFAULT_KEYWORD_PIPELINE, args.pipeline.clone())?;
+        ev.set_str(DEFAULT_KEYWORD_RUNNER, args.runner.clone())?;
+        ev.set::<bool>(DEFAULT_KEYWORD_IS_EXECUTING, &args.execute)?;
+        ev.set::<bool>(DEFAULT_KEYWORD_IS_CONSOLE, &args.console)?;
         Ok(ev)
     }
 
@@ -137,8 +143,9 @@ mod tests {
     use crate::{
         context::envvar::{get_env_var, get_env_var_str},
         logger::common::{
-            DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_REF_DATE,
-            DEFAULT_KEYWORD_REF_DATETIME,
+            DEFAULT_KEYWORD_CONFIG_DIR, DEFAULT_KEYWORD_IS_CONSOLE, DEFAULT_KEYWORD_IS_EXECUTING,
+            DEFAULT_KEYWORD_OUTPUT_DIR, DEFAULT_KEYWORD_PIPELINE, DEFAULT_KEYWORD_REF_DATE,
+            DEFAULT_KEYWORD_REF_DATETIME, DEFAULT_KEYWORD_RUNNER,
         },
         util::args::RunPipelineArgs,
     };
@@ -213,8 +220,8 @@ mod tests {
                     runner: "".to_string(),
                     datetime: Some(dt_str.to_string()),
                     pipeline: "ignore".to_owned(),
-                    execute: true,
-                    print: true,
+                    execute: false,
+                    console: false,
                 };
                 let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
                 assert_eq!(get_env_var::<DateTime<Utc>>(DEFAULT_KEYWORD_REF_DATETIME).unwrap(), dt);
@@ -225,6 +232,19 @@ mod tests {
                 assert_eq!(
                     get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(),
                     args.output.to_owned()
+                );
+                assert_eq!(
+                    get_env_var_str(DEFAULT_KEYWORD_PIPELINE).unwrap(),
+                    args.pipeline.to_owned()
+                );
+                assert_eq!(get_env_var_str(DEFAULT_KEYWORD_RUNNER).unwrap(), args.runner.to_owned());
+                assert_eq!(
+                    get_env_var::<bool>(DEFAULT_KEYWORD_IS_EXECUTING).unwrap(),
+                    args.execute.to_owned()
+                );
+                assert_eq!(
+                    get_env_var::<bool>(DEFAULT_KEYWORD_IS_CONSOLE).unwrap(),
+                    args.console.to_owned()
                 );
                 ev.drop_all().unwrap();
             }
@@ -237,10 +257,10 @@ mod tests {
                     output: "/tmp/output".to_owned(),
                     date: Some(dt_str.to_string()),
                     datetime: None,
-                    runner: "".to_string(),
+                    runner: "runner".to_string(),
                     pipeline: "ignore".to_owned(),
                     execute: false,
-                    print: true,
+                    console: true,
                 };
                 let mut ev = EnvironmentVariableRegistry::from_args(&args).unwrap();
                 assert_eq!(get_env_var::<NaiveDate>(DEFAULT_KEYWORD_REF_DATE).unwrap(), dt);
@@ -251,6 +271,19 @@ mod tests {
                 assert_eq!(
                     get_env_var_str(DEFAULT_KEYWORD_OUTPUT_DIR).unwrap(),
                     args.output.to_owned()
+                );
+                assert_eq!(
+                    get_env_var_str(DEFAULT_KEYWORD_PIPELINE).unwrap(),
+                    args.pipeline.to_owned()
+                );
+                assert_eq!(get_env_var_str(DEFAULT_KEYWORD_RUNNER).unwrap(), args.runner.to_owned());
+                assert_eq!(
+                    get_env_var::<bool>(DEFAULT_KEYWORD_IS_EXECUTING).unwrap(),
+                    args.execute.to_owned()
+                );
+                assert_eq!(
+                    get_env_var::<bool>(DEFAULT_KEYWORD_IS_CONSOLE).unwrap(),
+                    args.console.to_owned()
                 );
                 ev.drop_all().unwrap();
             }

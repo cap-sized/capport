@@ -8,6 +8,7 @@ argh = "0.1.13"
 async-trait = "0.1.88"
 async-broadcast = "0.7.2"
 chrono = { version = "0.4", features = ['serde'] }
+connectorx = "0.4.3"
 crossbeam = "0.8.4"
 fern = { version = "0.7.1", features = ['date-based', 'colored'] }
 futures = "0.3.31"

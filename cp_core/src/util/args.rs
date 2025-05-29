@@ -27,7 +27,7 @@ pub struct RunPipelineArgs {
     pub execute: bool,
 
     #[argh(switch, short = 'C', description = "print output to console")]
-    pub print: bool,
+    pub console: bool,
 }
 
 pub fn get_args() -> RunPipelineArgs {

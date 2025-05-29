@@ -20,6 +20,13 @@ pub type YamlValue = serde_yaml_ng::Value;
 pub const RECOGNIZED_DATE_PATTERNS: [&str; 2] = ["%Y-%m-%d", "%Y.%m.%d"];
 pub const RECOGNIZED_TIME_PATTERNS: [&str; 2] = ["%H:%M:%S", "%H.%M.%S"];
 
+pub enum EnvKeyType {
+    Url,
+    User,
+    Password,
+    DbName,
+}
+
 pub fn parse_date_str(datetime_str: &str) -> CpResult<NaiveDate> {
     for &pattern in &RECOGNIZED_DATE_PATTERNS {
         match NaiveDate::parse_from_str(datetime_str, pattern) {

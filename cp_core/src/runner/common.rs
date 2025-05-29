@@ -94,7 +94,7 @@ impl Runner {
         };
         let pipeline_name = &self.pipeline_config.label;
         self.logger_registry
-            .start_logger(console_logger_name, pipeline_name, self.cli_args.print)
+            .start_logger(console_logger_name, pipeline_name, self.cli_args.console)
     }
     pub fn run(self) -> CpResult<()> {
         let mode = self.config.mode;

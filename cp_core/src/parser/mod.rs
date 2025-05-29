@@ -1,5 +1,6 @@
 pub mod action;
 pub mod common;
+pub mod connection;
 pub mod dtype;
 pub mod expr;
 pub mod http;

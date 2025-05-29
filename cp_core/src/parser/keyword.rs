@@ -138,11 +138,17 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                 };
                 let expr: CpResult<Expr> = match action {
                     Ok(x) => x,
-                    Err(e) => return Err(de::Error::custom(format!("Bad action: {:?}", e))),
+                    Err(e) => {
+                        log::error!("Error parsing action: {:?}", e);
+                        return Err(de::Error::custom(format!("Bad action: {:?}", e)));
+                    }
                 };
                 match expr {
                     Ok(x) => Ok(PolarsExprKeyword::with_value(x)),
-                    Err(e) => Err(de::Error::custom(format!("Bad action: {:?}", e))),
+                    Err(e) => {
+                        log::error!("Error deriving expr from action: {:?}", e);
+                        Err(de::Error::custom(format!("Bad action: {:?}", e)))
+                    }
                 }
             }
         }

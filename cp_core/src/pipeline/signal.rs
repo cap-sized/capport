@@ -27,10 +27,7 @@ impl Default for SignalState {
 impl SignalState {
     pub fn new() -> Self {
         let (sig_sender, sig_recver) = async_broadcast::broadcast(2);
-        Self {
-            sig_sender,
-            sig_recver,
-        }
+        Self { sig_sender, sig_recver }
     }
 
     pub async fn send_replace_signal(&self) -> CpResult<()> {

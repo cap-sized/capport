@@ -41,10 +41,10 @@ mod tests {
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         },
-        task::source::config::CsvSourceConfig,
+        task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{JsonSourceConfig, LocalFileSourceConfig};
+    use super::LocalFileSourceConfig;
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [

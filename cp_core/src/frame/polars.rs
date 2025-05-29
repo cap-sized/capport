@@ -144,7 +144,7 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
         Ok(update)
     }
     fn force_listen(&'a mut self) -> FrameUpdate<LazyFrame> {
-        match self.receiver.recv() {
+        match self.receiver.try_recv() {
             Ok(info) => {
                 log::debug!(
                     "Frame `{}` read by {} after update from: {:?}",

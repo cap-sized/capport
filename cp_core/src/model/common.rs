@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use polars::prelude::Schema;
+use polars::prelude::{Expr, Null, Schema, coalesce, col, lit};
 use serde::Deserialize;
 
 use crate::{
@@ -53,6 +53,18 @@ impl ModelConfig {
             schema.insert(name.into(), detail.dtype.0.clone());
         }
         Ok(schema)
+    }
+    pub fn columns(&self) -> CpResult<Vec<Expr>> {
+        let mut cols = vec![];
+        for (field_name, field_detail) in &self.fields {
+            let name = field_name
+                .value()
+                .expect("value not present for model field_name")
+                .as_str();
+            let detail = field_detail.value().expect("value not present for model field_detail");
+            cols.push(coalesce(&[col(format!("^{}$", name)), lit(Null {}).alias(name)]).cast(detail.dtype.0.clone()));
+        }
+        Ok(cols)
     }
     pub fn substitute_model_fields(&self, context: &serde_yaml_ng::Mapping) -> CpResult<ModelFields> {
         let mut fields = HashMap::new();

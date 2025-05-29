@@ -88,7 +88,10 @@ impl Configurable for PipelineRegistry {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::task_type::TaskTypeEnum, pipeline::common::PipelineConfig, task::stage::StageConfig, util::common::create_config_pack};
+    use crate::{
+        parser::task_type::TaskTypeEnum, pipeline::common::PipelineConfig, task::stage::StageConfig,
+        util::common::create_config_pack,
+    };
 
     use super::PipelineRegistry;
 

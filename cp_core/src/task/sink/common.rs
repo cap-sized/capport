@@ -1,7 +1,6 @@
 use std::sync::{Arc, atomic::AtomicUsize};
 
 use async_trait::async_trait;
-use crossbeam::thread;
 use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
@@ -70,6 +69,7 @@ impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         let dataframe = ctx.extract_clone_result(&self.result_name)?;
+        log::info!("INPUT `{}`: {:?}", &self.label, dataframe);
         for sink in &self.sinks {
             sink.0.run(dataframe.clone(), ctx.clone())?;
             log::info!(
@@ -136,32 +136,41 @@ impl Stage for SinkGroup {
         loop {
             // unsafe hack to get past the borrow checker
             let update: FrameUpdate<LazyFrame> = unsafe { (*lp).listen().await? };
-            ctx_run_n_async!(label, &self.sinks, ctx.clone(), async |bsink: &BoxedSink,
-                                                                     ctx: Arc<
-                DefaultPipelineContext,
-            >| {
-                let sink = &bsink.0;
-                let upd = update.clone();
-                match upd.info.msg_type {
-                    FrameUpdateType::Replace => {
-                        let mut dataframe: Option<DataFrame> = None;
-                        {
-                            let fread = update.frame.read()?;
-                            let _ = dataframe.insert(fread.clone().collect()?);
+            ctx_run_n_async!(
+                label,
+                &self.sinks,
+                async |bsink: &BoxedSink, ctx: Arc<DefaultPipelineContext>| {
+                    let sink = &bsink.0;
+                    let upd = update.clone();
+                    match upd.info.msg_type {
+                        FrameUpdateType::Replace => {
+                            let mut dataframe: Option<DataFrame> = None;
+                            {
+                                let fread = update.frame.read()?;
+                                match fread.clone().collect() {
+                                    Ok(x) => {
+                                        let _ = dataframe.insert(x);
+                                    }
+                                    Err(e) => log::error!("{}", e),
+                                }
+                            }
+                            if let Some(frame) = dataframe.take() {
+                                sink.fetch(frame, ctx.clone()).await?;
+                                log::info!(
+                                    "Success pushing frame update via {}: {}",
+                                    sink.connection_type(),
+                                    result_name
+                                );
+                            }
                         }
-                        sink.fetch(dataframe.expect("must have dataframe"), ctx.clone()).await?;
-                        log::info!(
-                            "Success pushing frame update via {}: {}",
-                            sink.connection_type(),
-                            result_name
-                        );
+                        FrameUpdateType::Kill => {
+                            terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        }
                     }
-                    FrameUpdateType::Kill => {
-                        terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    }
-                }
-                Ok::<(), CpError>(())
-            });
+                    Ok::<(), CpError>(())
+                },
+                ctx.clone()
+            );
             if terminations.load(std::sync::atomic::Ordering::Relaxed) >= self.sinks.len() {
                 log::info!("Stage killed after {} iterations: {}", loops, &self.label);
                 break;

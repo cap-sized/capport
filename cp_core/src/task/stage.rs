@@ -3,7 +3,9 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::{
-    parser::task_type::TaskTypeEnum, pipeline::context::DefaultPipelineContext, util::error::{CpError, CpResult}
+    parser::task_type::TaskTypeEnum,
+    pipeline::context::DefaultPipelineContext,
+    util::error::{CpError, CpResult},
 };
 
 pub trait Stage {

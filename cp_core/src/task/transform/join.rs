@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use polars::prelude::{Expr, IntoLazy, JoinArgs, LazyFrame, all, col};
+use polars::{
+    frame::DataFrame,
+    prelude::{Expr, IntoLazy, JoinArgs, LazyFrame, Null, all, coalesce, col, lit},
+};
 
 use crate::{
     parser::keyword::Keyword,
@@ -27,11 +30,21 @@ pub struct JoinTransform {
 
 impl Transform for JoinTransform {
     fn run(&self, main: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-        let _right_join = ctx.extract_clone_result(&self.right_label)?.lazy();
+        let _right_join = match ctx.extract_clone_result(&self.right_label) {
+            Ok(x) => x,
+            Err(e) => {
+                log::warn!("failed to extract right_join `{}`: {}", self.right_label, e);
+                DataFrame::empty()
+            }
+        };
+        if _right_join.is_empty() {
+            log::warn!("empty join to table `{}`. skipping...", self.right_label);
+            return Ok(main);
+        }
         let right_join = if self.right_select.is_empty() {
-            _right_join
+            _right_join.lazy()
         } else {
-            _right_join.select(&self.right_select)
+            _right_join.lazy().select(&self.right_select)
         };
         let left: LazyFrame = self
             .left_prefix
@@ -90,19 +103,6 @@ impl TransformConfig for JoinTransformConfig {
     }
 
     fn transform(&self) -> Box<dyn Transform> {
-        let right_select = if let Some(selects) = &self.join.right_select {
-            selects
-                .iter()
-                .map(|(alias_kw, expr_kw)| {
-                    let alias = alias_kw.value().expect("alias").clone();
-                    let expr = expr_kw.value().expect("expr").clone();
-                    expr.alias(alias)
-                })
-                .collect()
-        } else {
-            vec![]
-        };
-
         let right_label = self.join.right.value().expect("right").clone();
         let left_prefix = self.join.left_prefix.as_ref().map_or_else(
             || None,
@@ -112,6 +112,19 @@ impl TransformConfig for JoinTransformConfig {
             || None,
             |x| Some(vec![all().name().prefix(x.value().expect("right_prefix"))]),
         );
+
+        let right_select = if let Some(selects) = &self.join.right_select {
+            selects
+                .iter()
+                .map(|(alias_kw, expr_kw)| {
+                    let alias = alias_kw.value().expect("alias").clone();
+                    let expr = expr_kw.value().expect("expr").clone();
+                    coalesce(&[expr, col(format!("^{}$", alias)), lit(Null {})]).alias(alias)
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         let left_on = self
             .join

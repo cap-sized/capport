@@ -3,7 +3,10 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::{
-    ctx_run_n_async, parser::task_type::TaskTypeEnum, task::stage::{Stage, StageConfig}, util::error::CpResult
+    ctx_run_n_async,
+    parser::task_type::TaskTypeEnum,
+    task::stage::{Stage, StageConfig},
+    util::error::CpResult,
 };
 
 use super::context::{DefaultPipelineContext, PipelineContext};
@@ -42,6 +45,10 @@ impl Pipeline {
                     results_needed.extend(source.produces());
                 }
                 TaskTypeEnum::Sink => {}
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    results_needed.extend(request.produces());
+                }
             }
         }
         Ok(Arc::new(ctx.initialize_results(results_needed, bufsize)?))
@@ -64,6 +71,10 @@ impl Pipeline {
                 TaskTypeEnum::Sink => {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.linear(ictx)));
+                }
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    actions.push(Box::new(move || request.linear(ictx)));
                 }
             }
         }
@@ -91,6 +102,10 @@ impl Pipeline {
                     let sink = ictx.get_sink(label, context)?;
                     actions.push(Box::new(move || sink.sync_exec(ictx)));
                 }
+                TaskTypeEnum::Request => {
+                    let request = ictx.get_request(label, context)?;
+                    actions.push(Box::new(move || request.sync_exec(ictx)));
+                }
             }
         }
         for action in actions {
@@ -107,7 +122,6 @@ impl Pipeline {
         ctx_run_n_async!(
             "async_pipe",
             &config.stages,
-            ctx.clone(),
             async |stage: &StageConfig, ictx: Arc<DefaultPipelineContext>| {
                 match stage.task_type {
                     TaskTypeEnum::Transform => {
@@ -122,8 +136,13 @@ impl Pipeline {
                         let stage = ictx.get_sink(&stage.task_name, &stage.emplace)?;
                         stage.async_exec(ictx).await
                     }
+                    TaskTypeEnum::Request => {
+                        let stage = ictx.get_request(&stage.task_name, &stage.emplace)?;
+                        stage.async_exec(ictx).await
+                    }
                 }
-            }
+            },
+            ctx.clone()
         );
     }
 }
@@ -132,10 +151,18 @@ impl Pipeline {
 mod tests {
     use std::collections::HashMap;
 
+    use httpmock::{Method::GET, Mock, MockServer};
     use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
+    use serde::{Deserialize, Serialize};
 
     use crate::{
-        context::{model::ModelRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry},
+        context::{
+            model::ModelRegistry,
+            request::{RequestRegistry},
+            sink::SinkRegistry,
+            source::SourceRegistry,
+            transform::TransformRegistry,
+        },
         model::common::ModelConfig,
         parser::keyword::{Keyword, StrKeyword},
         pipeline::{
@@ -143,9 +170,13 @@ mod tests {
             results::PipelineResults,
         },
         task::{
-            sink::config::SinkGroupConfig, source::config::SourceGroupConfig, transform::config::RootTransformConfig,
+            request::config::RequestGroupConfig, sink::config::SinkGroupConfig, source::config::SourceGroupConfig,
+            transform::config::RootTransformConfig,
         },
-        util::{test::assert_frame_equal, tmp::TempFile},
+        util::{
+            test::{DummyData, assert_frame_equal},
+            tmp::TempFile,
+        },
     };
 
     use super::Pipeline;
@@ -181,15 +212,32 @@ mod tests {
     id: id
     code: ric
     region: mkt
+    url: $base_url
 - join:
     right: $joiner
-    right_prefix: R_
+    right_prefix: local_
     left_on: [id]
-    right_on: [R_id]
+    right_on: [local_id]
+    how: left
+",
+            )
+            .unwrap(),
+        });
+        transform_registry.insert(RootTransformConfig {
+            label: "merge_px".to_owned(),
+            input: StrKeyword::with_symbol("input"),
+            output: StrKeyword::with_symbol("output"),
+            steps: serde_yaml_ng::from_str(
+                "
+- join:
+    right: $joiner
+    left_on: [id]
+    right_on: [id]
     how: left
 - select:
     code: code
-    price: R_price
+    local_price: local_price
+    live_price: price
 ",
             )
             .unwrap(),
@@ -229,16 +277,42 @@ mod tests {
             )
             .unwrap(),
         });
+        let mut request_registry = RequestRegistry::new();
+        request_registry.insert(RequestGroupConfig {
+            label: "fetch_px".to_owned(),
+            input: StrKeyword::with_symbol("urls"),
+            max_threads,
+            requests: serde_yaml_ng::from_str(
+                "
+- http_batch:
+    method: get
+    content_type: application/json
+    output: $output
+    url_column: url
+    model_fields:
+        id: uint64
+        price: double
+",
+            )
+            .unwrap(),
+        });
         DefaultPipelineContext::from(
             results,
             model_registry,
             transform_registry,
             source_registry,
             sink_registry,
+            request_registry,
         )
     }
 
-    fn get_pipeline(left_fp: &str, right_fp: &str, output_fp1: &str, output_fp2: &str) -> Pipeline {
+    fn get_pipeline(
+        left_fp: &str,
+        right_fp: &str,
+        mock_server_root: &str,
+        output_fp1: &str,
+        output_fp2: &str,
+    ) -> Pipeline {
         let config = format!(
             "
 label: something
@@ -259,67 +333,94 @@ stages:
         input: INSTRUMENTS
         joiner: PRICES
         output: PXINST
+        base_url: 
+            format: 
+                template: {}/price?id={{}}
+                columns: [id]
+    - label: fetch_foreign_px
+      task_type: request
+      task_name: fetch_px
+      emplace:
+        urls: PXINST
+        output: FOREIGNPX
+    - label: merge_px
+      task_type: transform
+      task_name: merge_px
+      emplace:
+        input: FOREIGNPX
+        joiner: PXINST
+        output: FIN
     - label: final_sinks
       task_type: sink
       task_name: snk
       emplace:
-        input: PXINST
+        input: FIN
         fp1: {}
         fp2: {}
 ",
-            left_fp, right_fp, output_fp1, output_fp2
+            left_fp, right_fp, mock_server_root, output_fp1, output_fp2
         );
         Pipeline {
             config: serde_yaml_ng::from_str(&config).unwrap(),
         }
     }
 
-    fn get_prices() -> DataFrame {
-        df![
-            "id" => 0..7,
-            "price" => [50.1, 62.3, 69.10, 88.8, 30.2, 29.2, 40.3],
-        ]
-        .unwrap()
-    }
-
-    fn get_instruments() -> DataFrame {
-        df![
-            "ric" => ["AAPL", "AMZN", "GOOG", "NVDA", "NOVA", "BABA", "SPOT"],
-            "mkt" => ["amer", "amer", "amer", "amer", "emea", "apac", "emea"],
-            "id" => 0..7,
-        ]
-        .unwrap()
-    }
-
     fn get_expected() -> DataFrame {
         df![
             "code" => ["AAPL", "AMZN", "GOOG", "NVDA", "NOVA", "BABA", "SPOT"],
-            "price" => [50.1, 62.3, 69.10, 88.8, 30.2, 29.2, 40.3],
+            "local_price" => [50.1, 62.3, 69.10, 88.8, 30.2, 29.2, 40.3],
+            "live_price" => [50.1, 62.3, 69.10, 88.8, 30.2, 29.2, 40.3],
         ]
         .unwrap()
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct InstrPrice {
+        id: u64,
+        price: f64,
+    }
+
+    fn mock_server(server: &MockServer) -> Vec<Mock> {
+        DummyData::json_instrument_prices()
+            .iter()
+            .map(|j| {
+                let px: InstrPrice = serde_yaml_ng::from_str(j).unwrap();
+                server.mock(|when, then| {
+                    when.method(GET).path("/price").query_param("id", px.id.to_string());
+                    then.status(200).header("content-type", "application/json").body(j);
+                })
+            })
+            .collect()
     }
 
     #[test]
     fn basic_linear_pipeline() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut prices = get_prices();
-        let mut instruments = get_instruments();
+        let mut prices = DummyData::df_instrument_prices();
+        let mut instruments = DummyData::df_instruments();
         let price_file = TempFile::default();
         price_file.write_json(&mut prices).unwrap();
         let inst_file = TempFile::default();
         inst_file.write_json(&mut instruments).unwrap();
         let output_fp1 = TempFile::default();
         let output_fp2 = TempFile::default();
+        let server = MockServer::start();
+        let mocks = mock_server(&server);
+        let base_url = server.base_url();
         let pipeline = get_pipeline(
             &inst_file.filepath,
             &price_file.filepath,
+            &base_url,
             &output_fp1.filepath,
             &output_fp2.filepath,
         );
         let pctx = get_ctx(1);
         let ctx = pipeline.prepare_results(pctx, 2).unwrap();
         pipeline.linear(ctx.clone()).unwrap();
-        let pxinst = ctx.extract_clone_result("PXINST").unwrap();
+        mocks.iter().for_each(|m| {
+            m.assert();
+        });
+        let pxinst = ctx.extract_clone_result("FIN").unwrap();
 
         let fp1 = output_fp1.get().unwrap();
         let csv_fp1 = CsvReader::new(fp1);
@@ -333,24 +434,31 @@ stages:
     #[test]
     fn basic_sync_exec_pipeline() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut prices = get_prices();
-        let mut instruments = get_instruments();
+        let mut prices = DummyData::df_instrument_prices();
+        let mut instruments = DummyData::df_instruments();
         let price_file = TempFile::default();
         price_file.write_json(&mut prices).unwrap();
         let inst_file = TempFile::default();
         inst_file.write_json(&mut instruments).unwrap();
         let output_fp1 = TempFile::default();
         let output_fp2 = TempFile::default();
+        let server = MockServer::start();
+        let mocks = mock_server(&server);
+        let base_url = server.base_url();
         let pipeline = get_pipeline(
             &inst_file.filepath,
             &price_file.filepath,
+            &base_url,
             &output_fp1.filepath,
             &output_fp2.filepath,
         );
         let pctx = get_ctx(3);
         let ctx = pipeline.prepare_results(pctx, 2).unwrap();
         pipeline.sync_exec(ctx.clone()).unwrap();
-        let pxinst = ctx.extract_clone_result("PXINST").unwrap();
+        mocks.iter().for_each(|m| {
+            m.assert();
+        });
+        let pxinst = ctx.extract_clone_result("FIN").unwrap();
 
         let fp1 = output_fp1.get().unwrap();
         let csv_fp1 = CsvReader::new(fp1);
@@ -363,22 +471,26 @@ stages:
 
     #[test]
     fn basic_async_exec_pipeline() {
-        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
+        // fern::Dispatch::new().level(log::LevelFilter::Warn).chain(std::io::stdout()).apply().unwrap();
         let mut rt_builder = tokio::runtime::Builder::new_current_thread();
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
         let event = async move || {
-            let mut prices = get_prices();
-            let mut instruments = get_instruments();
+            let mut prices = DummyData::df_instrument_prices();
+            let mut instruments = DummyData::df_instruments();
             let price_file = TempFile::default();
             price_file.write_json(&mut prices).unwrap();
             let inst_file = TempFile::default();
             inst_file.write_json(&mut instruments).unwrap();
             let output_fp1 = TempFile::default();
             let output_fp2 = TempFile::default();
+            let server = MockServer::start();
+            let base_url = server.base_url();
+            let mocks = mock_server(&server);
             let pipeline = get_pipeline(
                 &inst_file.filepath,
                 &price_file.filepath,
+                &base_url,
                 &output_fp1.filepath,
                 &output_fp2.filepath,
             );
@@ -389,7 +501,10 @@ stages:
             let iictx = ictx.clone();
             let action_path = async move || {
                 pipeline.async_exec(ictx).await;
-                let pxinst = ctx.extract_clone_result("PXINST").unwrap();
+                mocks.iter().for_each(|m| {
+                    m.assert();
+                });
+                let pxinst = ctx.extract_clone_result("FIN").unwrap();
 
                 let fp1 = output_fp1.get().unwrap();
                 let csv_fp1 = CsvReader::new(fp1);

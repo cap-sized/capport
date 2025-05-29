@@ -3,12 +3,11 @@ use std::collections::HashMap;
 use crate::{
     parser::{common::YamlRead, connection::ConnectionConfig},
     util::{
-        common::EnvKeyType,
         error::{CpError, CpResult},
     },
 };
 
-use super::{common::Configurable, envvar::get_env_var_str};
+use super::common::Configurable;
 
 #[derive(Debug)]
 pub struct ConnectionRegistry {
@@ -43,20 +42,6 @@ impl ConnectionRegistry {
     }
     pub fn get_connection_config(&self, conn_name: &str) -> Option<ConnectionConfig> {
         self.configs.get(conn_name).map(|x| x.to_owned())
-    }
-    pub fn get_key_from_env(&self, conn_name: &str, env_key_type: EnvKeyType) -> Option<String> {
-        self.get_connection_config(conn_name)
-            .map(|config| {
-                let env_key = match env_key_type {
-                    EnvKeyType::DbName => config.db_env.as_ref(),
-                    EnvKeyType::Password => config.password_env.as_ref(),
-                    EnvKeyType::Url => config.url_env.as_ref(),
-                    EnvKeyType::User => config.user_env.as_ref(),
-                };
-                env_key?;
-                get_env_var_str(env_key.unwrap()).ok()
-            })
-            .unwrap_or(None)
     }
 }
 
@@ -105,7 +90,7 @@ mod tests {
     use crate::{
         context::envvar::EnvironmentVariableRegistry,
         parser::connection::ConnectionConfig,
-        util::common::{EnvKeyType, create_config_pack},
+        util::common::create_config_pack,
     };
 
     use super::ConnectionRegistry;
@@ -155,18 +140,5 @@ connection:
                 db_env: None,
             }
         );
-        assert_eq!(
-            actual.get_key_from_env("test", EnvKeyType::Url).unwrap(),
-            "postgres:5432".to_owned()
-        );
-        assert_eq!(
-            actual.get_key_from_env("test", EnvKeyType::User).unwrap(),
-            "myuser".to_owned()
-        );
-        assert_eq!(
-            actual.get_key_from_env("pwonly", EnvKeyType::Password).unwrap(),
-            "mypass".to_owned()
-        );
-        assert!(actual.get_key_from_env("test", EnvKeyType::DbName).is_none());
     }
 }

@@ -8,7 +8,7 @@ argh = "0.1.13"
 async-trait = "0.1.88"
 async-broadcast = "0.7.2"
 chrono = { version = "0.4", features = ['serde'] }
-connectorx = "0.4.3"
+connectorx = { version = "0.4.3", features = ['src_mysql'] }
 crossbeam = "0.8.4"
 fern = { version = "0.7.1", features = ['date-based', 'colored'] }
 futures = "0.3.31"
@@ -22,6 +22,7 @@ serde_yaml_ng = "0.10.0"
 thiserror = "2.0.12"
 tokio = { version = "1.44.2", features = ['rt', 'net', 'rt-multi-thread', 'signal', 'macros'] }
 reqwest = { version = "0.12.15", features = ['blocking'] }
+clickhouse = "0.13.2"
 
 [dev-dependencies]
 httpmock = "0.7.0-rc.1"

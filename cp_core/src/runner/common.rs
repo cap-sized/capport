@@ -4,8 +4,7 @@ use serde::Deserialize;
 
 use crate::{
     context::{
-        logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry, request::RequestRegistry,
-        sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry,
+        connection::ConnectionRegistry, logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry
     },
     logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
     parser::{
@@ -47,6 +46,7 @@ impl Runner {
         let source_registry = SourceRegistry::from(&mut pack)?;
         let sink_registry = SinkRegistry::from(&mut pack)?;
         let request_registry = RequestRegistry::from(&mut pack)?;
+        let connection_registry = ConnectionRegistry::from(&mut pack)?;
         let runner_raw = pack
             .get("runner")
             .map(|runners| runners.get(&cli_args.runner))
@@ -67,6 +67,7 @@ impl Runner {
             source_registry,
             sink_registry,
             request_registry,
+            connection_registry,
         );
         let pipeline_config = match pipeline_registry.get_pipeline_config(&cli_args.pipeline) {
             Some(x) => x,

@@ -36,6 +36,9 @@ pub struct SqlConnection {
     pub password: Option<String>,
     pub db: Option<StrKeyword>,
     pub env_connection: Option<String>, // use a preset
+    pub output: StrKeyword,
+    pub model: Option<StrKeyword>,
+    pub model_fields: Option<ModelFields>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -112,6 +115,9 @@ mod tests {
                 password: None,
                 url: None,
                 username: None,
+                model: None,
+                output: StrKeyword::with_value("output".to_owned()),
+                model_fields: None
             },
             SqlConnection {
                 db: None,
@@ -119,6 +125,11 @@ mod tests {
                 password: Some("alt-password".to_owned()),
                 url: None,
                 username: None,
+                model: Some(StrKeyword::with_value("mymod".to_owned())),
+                output: StrKeyword::with_symbol("OUT"),
+                model_fields: Some(HashMap::from([
+                    (StrKeyword::with_symbol("test"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))))
+                ]))
             },
         ]
     }
@@ -129,13 +140,15 @@ mod tests {
 {}:
     filepath: $fp
     output: $output
-    model: test
 ",
             "
 {}:
     filepath: $fp
     output: output
-    model: test
+    model: mymod
+    output: $OUT
+    model_fields:
+        test: int8
 ",
             "
 {}:
@@ -166,6 +179,7 @@ mod tests {
             "
 {}:
     db: $defdb
+    output: output
 ",
             "
 {}:

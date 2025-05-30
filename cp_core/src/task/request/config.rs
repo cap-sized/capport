@@ -25,9 +25,10 @@ pub struct HttpOptionsConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct HttpParamConfig {
+    pub df: StrKeyword,
     pub col: PolarsExprKeyword,
-    pub template: String,
-    pub separator: String,
+    pub template: Option<String>,
+    pub separator: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -82,9 +83,10 @@ mod tests {
                 url_column: serde_yaml_ng::from_str("{str: https://api-web.nhle.com/v1/meta}").unwrap(),
                 output: StrKeyword::with_value("WEB_PLAYERS".to_owned()),
                 url_params: Some(vec![HttpParamConfig {
+                    df: StrKeyword::with_value("PLAYERS_DF".to_owned()),
                     col: serde_yaml_ng::from_str("player").unwrap(),
-                    template: "players={}".to_owned(),
-                    separator: ",".to_owned(),
+                    template: Some("players={}".to_owned()),
+                    separator: Some(",".to_owned()),
                 }]),
                 model: None,
                 model_fields: Some(serde_yaml_ng::from_str("test: str").unwrap()),
@@ -114,7 +116,8 @@ http_single:
     url_column: 
         str: https://api-web.nhle.com/v1/meta
     url_params:
-        - col: player
+        - df: PLAYERS_DF
+          col: player
           template: players={}
           separator: ","
     model_fields:

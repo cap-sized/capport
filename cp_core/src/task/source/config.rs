@@ -129,7 +129,7 @@ mod tests {
                 url: None,
                 username: None,
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
-                output: StrKeyword::with_symbol("OUT"),
+                output: StrKeyword::with_symbol("actual"),
                 model_fields: Some(HashMap::from([(
                     StrKeyword::with_symbol("test"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
@@ -187,8 +187,12 @@ mod tests {
 ",
             "
 {}:
+    output: $actual
     env_connection: env_conn
     password: alt-password
+    model: mymod
+    model_fields: 
+        $test: int8
 ",
         ]
     }

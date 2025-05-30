@@ -3,17 +3,23 @@ use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     context::{
-        connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry
-    }, frame::{
+        connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
+        source::SourceRegistry, transform::TransformRegistry,
+    },
+    frame::{
         common::{FrameUpdateInfo, PipelineFrame},
         polars::{
             PolarsAsyncBroadcastHandle, PolarsAsyncListenHandle, PolarsBroadcastHandle, PolarsListenHandle,
             PolarsPipelineFrame,
         },
-    }, model::common::{ModelConfig, ModelFields}, parser::connection::ConnectionConfig, task::{
+    },
+    model::common::{ModelConfig, ModelFields},
+    parser::connection::ConnectionConfig,
+    task::{
         request::common::RequestGroup, sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig,
         transform::common::RootTransform,
-    }, util::error::{config_validation_error, CpError, CpResult}
+    },
+    util::error::{CpError, CpResult, config_validation_error},
 };
 
 use super::{results::PipelineResults, signal::SignalState};
@@ -92,7 +98,7 @@ impl DefaultPipelineContext {
         source_registry: SourceRegistry,
         sink_registry: SinkRegistry,
         request_registry: RequestRegistry,
-        connection_registry: ConnectionRegistry
+        connection_registry: ConnectionRegistry,
     ) -> Self {
         Self {
             results,

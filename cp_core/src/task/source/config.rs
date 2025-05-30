@@ -75,12 +75,10 @@ mod tests {
                 filepath: StrKeyword::with_symbol("fp"),
                 output: StrKeyword::with_value("OUT".to_string()),
                 model: Some(StrKeyword::with_value("mymod".to_string())),
-                model_fields: Some(HashMap::from([
-                    (
-                        StrKeyword::with_value("test".to_owned()),
-                        ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
-                    ),
-                ])),
+                model_fields: Some(HashMap::from([(
+                    StrKeyword::with_value("test".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
+                )])),
             },
             LocalFileSourceConfig {
                 filepath: StrKeyword::with_value("fp".to_string()),
@@ -122,7 +120,7 @@ mod tests {
                 username: None,
                 model: None,
                 output: StrKeyword::with_value("output".to_owned()),
-                model_fields: None
+                model_fields: None,
             },
             SqlConnection {
                 db: None,
@@ -132,9 +130,10 @@ mod tests {
                 username: None,
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
                 output: StrKeyword::with_symbol("OUT"),
-                model_fields: Some(HashMap::from([
-                    (StrKeyword::with_symbol("test"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))))
-                ]))
+                model_fields: Some(HashMap::from([(
+                    StrKeyword::with_symbol("test"),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
+                )])),
             },
         ]
     }

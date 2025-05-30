@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::{common::YamlRead, connection::ConnectionConfig},
-    util::{
-        error::{CpError, CpResult},
-    },
+    util::error::{CpError, CpResult},
 };
 
 use super::common::Configurable;
@@ -88,8 +86,7 @@ impl Configurable for ConnectionRegistry {
 #[cfg(test)]
 mod tests {
     use crate::{
-        context::envvar::EnvironmentVariableRegistry,
-        parser::connection::ConnectionConfig,
+        context::envvar::EnvironmentVariableRegistry, parser::connection::ConnectionConfig,
         util::common::create_config_pack,
     };
 

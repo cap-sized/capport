@@ -26,9 +26,7 @@ impl ConnectionConfig {
 #[cfg(test)]
 mod tests {
     use crate::{
-        context::envvar::EnvironmentVariableRegistry,
-        parser::connection::ConnectionConfig,
-        util::common::EnvKeyType,
+        context::envvar::EnvironmentVariableRegistry, parser::connection::ConnectionConfig, util::common::EnvKeyType,
     };
 
     #[test]
@@ -42,7 +40,7 @@ mod tests {
             url_env: Some("POSTGRES_URL_ENV".to_owned()),
             user_env: Some("MY_USER_ENV".to_owned()),
             db_env: Some("DB_ENV".to_owned()),
-            password_env: None
+            password_env: None,
         };
         let pwonly = ConnectionConfig {
             label: "pwonly".to_owned(),
@@ -55,10 +53,7 @@ mod tests {
             test.get_key_from_env(EnvKeyType::Url).unwrap(),
             "postgres:5432".to_owned()
         );
-        assert_eq!(
-            test.get_key_from_env(EnvKeyType::User).unwrap(),
-            "myuser".to_owned()
-        );
+        assert_eq!(test.get_key_from_env(EnvKeyType::User).unwrap(), "myuser".to_owned());
         assert_eq!(
             pwonly.get_key_from_env(EnvKeyType::Password).unwrap(),
             "mypass".to_owned()

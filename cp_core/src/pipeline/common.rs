@@ -157,7 +157,8 @@ mod tests {
 
     use crate::{
         context::{
-            connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry
+            connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
+            source::SourceRegistry, transform::TransformRegistry,
         },
         model::common::ModelConfig,
         parser::keyword::{Keyword, StrKeyword},
@@ -170,7 +171,7 @@ mod tests {
             transform::config::RootTransformConfig,
         },
         util::{
-            test::{assert_frame_equal, DummyData},
+            test::{DummyData, assert_frame_equal},
             tmp::TempFile,
         },
     };
@@ -300,7 +301,7 @@ mod tests {
             source_registry,
             sink_registry,
             request_registry,
-            connection_registry
+            connection_registry,
         )
     }
 

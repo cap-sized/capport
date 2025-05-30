@@ -4,7 +4,8 @@ use serde::Deserialize;
 
 use crate::{
     context::{
-        connection::ConnectionRegistry, logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry
+        connection::ConnectionRegistry, logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry,
+        request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry,
     },
     logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
     parser::{

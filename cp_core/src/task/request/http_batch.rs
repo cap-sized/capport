@@ -142,7 +142,7 @@ async fn async_url(
     )))
 }
 
-fn sync_urls(
+pub fn sync_urls(
     urls: Vec<String>,
     max_threads: u8,
     max_retry: u8,
@@ -183,7 +183,7 @@ fn sync_urls(
     }
 }
 
-async fn async_urls(
+pub async fn async_urls(
     urls: Vec<String>,
     max_threads: u8,
     max_retry: u8,
@@ -221,11 +221,11 @@ async fn async_urls(
     }
 }
 
-fn get_urls(base: LazyFrame, url_column: Expr) -> CpResult<Vec<String>> {
+pub fn get_urls(base: LazyFrame, url_column: Expr) -> CpResult<Vec<String>> {
     let df = base.select([url_column.alias("url")]).collect()?;
     let df_type = df.column("url")?.dtype().clone();
     let url_column = df.column("url")?.drop_nulls().unique()?;
-    let url_series = match url_column.as_series().unwrap().try_str() {
+    let url_series = match url_column.try_str() {
         Some(x) => x,
         None => {
             return Err(CpError::ComponentError(

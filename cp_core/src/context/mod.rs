@@ -1,4 +1,5 @@
 pub mod common;
+pub mod connection;
 pub mod envvar;
 pub mod logger;
 pub mod model;

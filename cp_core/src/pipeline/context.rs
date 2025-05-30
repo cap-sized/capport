@@ -3,8 +3,8 @@ use polars::{frame::DataFrame, prelude::LazyFrame};
 
 use crate::{
     context::{
-        model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry,
-        transform::TransformRegistry,
+        connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
+        source::SourceRegistry, transform::TransformRegistry,
     },
     frame::{
         common::{FrameUpdateInfo, PipelineFrame},
@@ -14,6 +14,7 @@ use crate::{
         },
     },
     model::common::{ModelConfig, ModelFields},
+    parser::connection::ConnectionConfig,
     task::{
         request::common::RequestGroup, sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig,
         transform::common::RootTransform,
@@ -56,6 +57,7 @@ pub trait PipelineContext<
     fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup>;
     fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup>;
     fn get_request(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RequestGroup>;
+    fn get_connection(&self, label: &str) -> CpResult<ConnectionConfig>;
 
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
@@ -72,6 +74,7 @@ pub struct DefaultPipelineContext {
     source_registry: SourceRegistry,
     sink_registry: SinkRegistry,
     request_registry: RequestRegistry,
+    connection_registry: ConnectionRegistry,
     signal_state: Option<SignalState>,
 }
 
@@ -95,6 +98,7 @@ impl DefaultPipelineContext {
         source_registry: SourceRegistry,
         sink_registry: SinkRegistry,
         request_registry: RequestRegistry,
+        connection_registry: ConnectionRegistry,
     ) -> Self {
         Self {
             results,
@@ -103,6 +107,7 @@ impl DefaultPipelineContext {
             source_registry,
             sink_registry,
             request_registry,
+            connection_registry,
             signal_state: None,
         }
     }
@@ -124,6 +129,7 @@ impl DefaultPipelineContext {
             SourceRegistry::new(),
             SinkRegistry::new(),
             RequestRegistry::new(),
+            ConnectionRegistry::new(),
         )
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
@@ -325,5 +331,14 @@ impl<'a>
             results.insert(&label, bufsize);
         });
         Ok(Self { results, ..self })
+    }
+    fn get_connection(&self, label: &str) -> CpResult<ConnectionConfig> {
+        match self.connection_registry.get_connection_config(label) {
+            None => Err(CpError::ConfigError(
+                "Missing config for connection",
+                format!("Config required: {}", label),
+            )),
+            Some(x) => Ok(x),
+        }
     }
 }

@@ -219,15 +219,14 @@ mod tests {
 
     #[test]
     fn success_sync_exec_no_subtransforms() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 1));
         let lctx = ctx.clone();
         let bctx = ctx.clone();
         let fctx = ctx.clone();
+        let mut broadcast = bctx.get_broadcast("orig", "source").unwrap();
+        broadcast.broadcast(expected().lazy()).unwrap();
         thread::scope(|s| {
-            let _b = s.spawn(move || {
-                let mut broadcast = bctx.get_broadcast("orig", "source").unwrap();
-                broadcast.broadcast(expected().lazy()).unwrap();
-            });
             let _t = s.spawn(move || {
                 let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
                 trf.sync_exec(lctx).unwrap();

@@ -157,11 +157,8 @@ mod tests {
 
     use crate::{
         context::{
-            model::ModelRegistry,
-            request::{RequestRegistry},
-            sink::SinkRegistry,
-            source::SourceRegistry,
-            transform::TransformRegistry,
+            connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
+            source::SourceRegistry, transform::TransformRegistry,
         },
         model::common::ModelConfig,
         parser::keyword::{Keyword, StrKeyword},
@@ -262,6 +259,7 @@ mod tests {
             )
             .unwrap(),
         });
+        let connection_registry = ConnectionRegistry::new();
         let mut sink_registry = SinkRegistry::new();
         sink_registry.insert(SinkGroupConfig {
             label: "snk".to_owned(),
@@ -303,6 +301,7 @@ mod tests {
             source_registry,
             sink_registry,
             request_registry,
+            connection_registry,
         )
     }
 

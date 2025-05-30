@@ -55,7 +55,7 @@ mod tests {
     use crate::task::transform::common::TransformConfig;
     use crate::task::transform::config::DropTransformConfig;
     use polars::df;
-    use polars::prelude::{col, IntoLazy};
+    use polars::prelude::{IntoLazy, col};
     use std::sync::Arc;
 
     #[test]

@@ -17,14 +17,35 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  MYSQL_DATABASE: data_db
+  MYSQL_USER: root
+  MYSQL_PASSWORD: rsecret
 
 jobs:
   test_core:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgresql-version: ['16', '17']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgresql-version }}
+        env:
+          POSTGRES_USER: defuser
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
+    - name: Set up MySQL
+      run: |
+        sudo /etc/init.d/mysql start
+        mysql -e 'CREATE DATABASE ${{ env.DB_DATABASE }};' -u${{ env.DB_USER }} -p${{ env.DB_PASSWORD }}
+
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

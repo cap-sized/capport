@@ -32,8 +32,6 @@ pub struct CsvSourceConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SqlConnection {
     pub url: Option<String>,
-    pub username: Option<String>,
-    pub password: Option<String>,
     pub db: Option<StrKeyword>,
     pub env_connection: Option<String>, // use a preset
     pub output: StrKeyword,
@@ -115,9 +113,7 @@ mod tests {
             SqlConnection {
                 db: Some(StrKeyword::with_symbol("defdb")),
                 env_connection: None,
-                password: None,
                 url: None,
-                username: None,
                 model: None,
                 output: StrKeyword::with_value("output".to_owned()),
                 model_fields: None,
@@ -125,9 +121,7 @@ mod tests {
             SqlConnection {
                 db: None,
                 env_connection: Some("env_conn".to_owned()),
-                password: Some("alt-password".to_owned()),
                 url: None,
-                username: None,
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
                 output: StrKeyword::with_symbol("actual"),
                 model_fields: Some(HashMap::from([(
@@ -189,7 +183,6 @@ mod tests {
 {}:
     output: $actual
     env_connection: env_conn
-    password: alt-password
     model: mymod
     model_fields: 
         $test: int8

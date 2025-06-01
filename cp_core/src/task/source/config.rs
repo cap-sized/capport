@@ -40,8 +40,13 @@ pub struct SqlConnection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct ClickhouseSourceConfig {
-    pub clickhouse: SqlConnection,
+pub struct PostgresSourceConfig {
+    pub postgres: SqlConnection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct MySqlSourceConfig {
+    pub mysql: SqlConnection,
 }
 
 #[cfg(test)]
@@ -56,7 +61,7 @@ mod tests {
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         },
-        task::source::config::{ClickhouseSourceConfig, CsvSourceConfig, JsonSourceConfig},
+        task::source::config::{CsvSourceConfig, JsonSourceConfig, MySqlSourceConfig, PostgresSourceConfig},
     };
 
     use super::{LocalFileSourceConfig, SqlConnection};
@@ -223,18 +228,35 @@ mod tests {
     }
 
     #[test]
-    fn valid_connection_config_clickhouse() {
+    fn valid_connection_config_postgres() {
         let configs = get_connection_configs()
             .iter()
-            .map(|c| c.replace("{}", "clickhouse"))
+            .map(|c| c.replace("{}", "postgres"))
             .collect::<Vec<String>>();
         let locals = get_connections();
         for i in 0..2 {
             assert_eq!(
-                ClickhouseSourceConfig {
-                    clickhouse: locals[i].clone()
+                PostgresSourceConfig {
+                    postgres: locals[i].clone()
                 },
-                serde_yaml_ng::from_str::<ClickhouseSourceConfig>(&configs[i]).unwrap()
+                serde_yaml_ng::from_str::<PostgresSourceConfig>(&configs[i]).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn valid_connection_config_mysql() {
+        let configs = get_connection_configs()
+            .iter()
+            .map(|c| c.replace("{}", "mysql"))
+            .collect::<Vec<String>>();
+        let locals = get_connections();
+        for i in 0..2 {
+            assert_eq!(
+                MySqlSourceConfig {
+                    mysql: locals[i].clone()
+                },
+                serde_yaml_ng::from_str::<MySqlSourceConfig>(&configs[i]).unwrap()
             );
         }
     }

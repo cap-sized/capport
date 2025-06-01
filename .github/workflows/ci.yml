@@ -10,6 +10,7 @@ on:
       - "d/**" # TODO: Remove
     paths:
       - '**.rs'
+      - '**.yml'
 
 permissions:
   contents: read
@@ -19,7 +20,7 @@ env:
   CARGO_TERM_COLOR: always
   MYSQL_DATABASE: data_db
   MYSQL_USER: root
-  MYSQL_PASSWORD: rsecret
+  MYSQL_PASSWORD: root
 
 jobs:
   test_core:

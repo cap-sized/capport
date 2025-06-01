@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn valid_sql_src_mysql() {
         let sql = SqlSource {
-            uri: "mysql://root:rsecret@localhost:3306/".to_string(),
+            uri: "mysql://root:root@localhost:3306/".to_string(),
             output: "TEST".to_string(),
             queries: vec![CXQuery::naked("show databases;")],
             strict: false,

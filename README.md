@@ -27,7 +27,7 @@ We are drastically changing the structure of capport to support
 - [x] PipelineResults
 - [x] PipelineContext
     - [x] Results
-    - [ ] ConnectionRegistry
+    - [x] ConnectionRegistry
     - [x] ModelRegistry
     - [x] PipelineRegistry
     - [x] TransformRegistry

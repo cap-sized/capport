@@ -125,7 +125,7 @@ mod tests {
                 model: None,
                 output: StrKeyword::with_value("output".to_owned()),
                 model_fields: None,
-                strict: Some(true)
+                strict: Some(true),
             },
             SqlConnection {
                 table: StrKeyword::with_value("table".to_string()),
@@ -138,7 +138,7 @@ mod tests {
                     StrKeyword::with_symbol("test"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),
-                strict: None
+                strict: None,
             },
         ]
     }

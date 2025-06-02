@@ -204,7 +204,7 @@ macro_rules! db_url_emplace {
             let _ = ($val).url.insert(url);
         }
         if let Some(mut ev) = ($val).env_connection.clone() {
-            ev.insert_value_from_context($context)?; 
+            ev.insert_value_from_context($context)?;
             if ($val).url.is_none() {
                 if let Some(label) = ev.value() {
                     let url = format!($urlfmt, ($ctx).get_connection(label)?.to_url());

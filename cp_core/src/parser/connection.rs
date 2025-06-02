@@ -34,11 +34,18 @@ impl ConnectionConfig {
         } else {
             "".to_string()
         };
-        let host = format!("{}{}", self.get_key_from_env(EnvKeyType::Host).unwrap_or("localhost".to_owned()), port);
+        let host = format!(
+            "{}{}",
+            self.get_key_from_env(EnvKeyType::Host)
+                .unwrap_or("localhost".to_owned()),
+            port
+        );
         let user = self.get_key_from_env(EnvKeyType::User);
         let pw = self.get_key_from_env(EnvKeyType::Password);
         let userpw = if let Some(u) = user {
-            format!("{}{}{}@", u, 
+            format!(
+                "{}{}{}@",
+                u,
                 if pw.is_some() { ":" } else { "" },
                 pw.unwrap_or("".to_string())
             )
@@ -48,7 +55,6 @@ impl ConnectionConfig {
 
         format!("{}{}/{}", userpw, host, dbname)
     }
-
 }
 
 #[cfg(test)]
@@ -100,13 +106,13 @@ mod tests {
         );
         assert!(test.get_key_from_env(EnvKeyType::DbName).is_none());
         assert_eq!(test.to_url(), "myuser:mypass@postgres:5432/".to_owned());
-        assert_eq!(
-            hostport.get_key_from_env(EnvKeyType::Host).unwrap(),
-            "mysql".to_owned()
-        );
+        assert_eq!(hostport.get_key_from_env(EnvKeyType::Host).unwrap(), "mysql".to_owned());
         assert!(hostport.get_key_from_env(EnvKeyType::User).is_none());
         assert!(hostport.get_key_from_env(EnvKeyType::Password).is_none());
-        assert_eq!(hostport.get_key_from_env(EnvKeyType::DbName).unwrap(), "altdb".to_owned());
+        assert_eq!(
+            hostport.get_key_from_env(EnvKeyType::DbName).unwrap(),
+            "altdb".to_owned()
+        );
         assert_eq!(test.to_url(), "myuser:mypass@postgres:5432/".to_owned());
         assert_eq!(hostport.to_url(), "mysql:3306/altdb".to_owned());
         assert_eq!(all_defaults.to_url(), "localhost/".to_owned());

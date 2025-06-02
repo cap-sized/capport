@@ -4,10 +4,19 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 
 use crate::{
-    db_url_emplace, model::common::ModelConfig, model_emplace, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::error::{CpError, CpResult}, valid_or_insert_error
+    db_url_emplace,
+    model::common::ModelConfig,
+    model_emplace,
+    parser::keyword::{Keyword, StrKeyword},
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    util::error::{CpError, CpResult},
+    valid_or_insert_error,
 };
 
-use super::{common::{Source, SourceConfig}, config::{MySqlSourceConfig, PostgresSourceConfig}};
+use super::{
+    common::{Source, SourceConfig},
+    config::{MySqlSourceConfig, PostgresSourceConfig},
+};
 
 pub struct SqlSource {
     uri: String,
@@ -39,7 +48,11 @@ impl Source for SqlSource {
         let destination = match get_arrow(&source_conn, None, self.queries.as_slice(), None) {
             Ok(x) => x,
             Err(e) => {
-                return Err(CpError::ConnectionError(format!("SqlSource {} failed: {}", self.uri.as_str(), e)));
+                return Err(CpError::ConnectionError(format!(
+                    "SqlSource {} failed: {}",
+                    self.uri.as_str(),
+                    e
+                )));
             }
         };
         let lf = match destination.polars() {
@@ -92,12 +105,23 @@ impl SourceConfig for MySqlSourceConfig {
         let mut queries = vec![];
         let query = self.mysql.sql.clone().unwrap_or_else(|| {
             let selector = if self.mysql.strict.unwrap_or(false) && self.mysql.model_fields.is_some() {
-                let vals = self.mysql.model_fields.as_ref().unwrap().iter().map(|mf| mf.0.value().expect("source[mysql].model_fields").as_str()).collect::<Vec<_>>(); 
+                let vals = self
+                    .mysql
+                    .model_fields
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|mf| mf.0.value().expect("source[mysql].model_fields").as_str())
+                    .collect::<Vec<_>>();
                 vals.join(", ")
             } else {
                 "*".to_owned()
             };
-            StrKeyword::with_value(format!("SELECT {} from {}", selector, self.mysql.table.value().expect("source[mysql].table")))
+            StrKeyword::with_value(format!(
+                "SELECT {} from {}",
+                selector,
+                self.mysql.table.value().expect("source[mysql].table")
+            ))
         });
         queries.push(CXQuery::from(query.value().expect("source[mysql].sql").as_str()));
         let schema = self.mysql.model_fields.as_ref().map(|x| {
@@ -110,9 +134,15 @@ impl SourceConfig for MySqlSourceConfig {
         });
         Box::new(SqlSource {
             output: self.mysql.output.value().expect("source[mysql].output").to_string(),
-            uri: self.mysql.url.as_ref().map(|x| x.value().unwrap()).expect("source[mysql].uri(val)").to_string(),
+            uri: self
+                .mysql
+                .url
+                .as_ref()
+                .map(|x| x.value().unwrap())
+                .expect("source[mysql].uri(val)")
+                .to_string(),
             queries,
-            schema, 
+            schema,
             strict: self.mysql.strict.unwrap_or(false),
         })
     }
@@ -146,12 +176,23 @@ impl SourceConfig for PostgresSourceConfig {
         let mut queries = vec![];
         let query = self.postgres.sql.clone().unwrap_or_else(|| {
             let selector = if self.postgres.strict.unwrap_or(false) && self.postgres.model_fields.is_some() {
-                let vals = self.postgres.model_fields.as_ref().unwrap().iter().map(|mf| mf.0.value().expect("source[postgres].model_fields").as_str()).collect::<Vec<_>>(); 
+                let vals = self
+                    .postgres
+                    .model_fields
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|mf| mf.0.value().expect("source[postgres].model_fields").as_str())
+                    .collect::<Vec<_>>();
                 vals.join(", ")
             } else {
                 "*".to_owned()
             };
-            StrKeyword::with_value(format!("SELECT {} from {}", selector, self.postgres.table.value().expect("source[postgres].table")))
+            StrKeyword::with_value(format!(
+                "SELECT {} from {}",
+                selector,
+                self.postgres.table.value().expect("source[postgres].table")
+            ))
         });
         queries.push(CXQuery::from(query.value().expect("source[postgres].sql").as_str()));
         let schema = self.postgres.model_fields.as_ref().map(|x| {
@@ -163,10 +204,21 @@ impl SourceConfig for PostgresSourceConfig {
             .expect("failed to build schema")
         });
         Box::new(SqlSource {
-            output: self.postgres.output.value().expect("source[postgres].output").to_string(),
-            uri: self.postgres.url.as_ref().map(|x| x.value().unwrap()).expect("source[postgres].uri(val)").to_string(),
+            output: self
+                .postgres
+                .output
+                .value()
+                .expect("source[postgres].output")
+                .to_string(),
+            uri: self
+                .postgres
+                .url
+                .as_ref()
+                .map(|x| x.value().unwrap())
+                .expect("source[postgres].uri(val)")
+                .to_string(),
             queries,
-            schema, 
+            schema,
             strict: self.postgres.strict.unwrap_or(false),
         })
     }
@@ -174,12 +226,22 @@ impl SourceConfig for PostgresSourceConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     use connectorx::prelude::CXQuery;
-    use polars::prelude::{col, DataType, IntoLazy, TimeUnit};
+    use polars::prelude::{DataType, IntoLazy, TimeUnit, col};
 
-    use crate::{context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry}, model::common::{ModelConfig, ModelFields}, parser::keyword::{Keyword, ModelFieldKeyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::source::{common::{Source, SourceConfig}, config::{MySqlSourceConfig, PostgresSourceConfig, SqlConnection}}, util::{common::create_config_pack, test::tests::DbTools}};
+    use crate::{
+        context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry},
+        model::common::{ModelConfig, ModelFields},
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
+            common::{Source, SourceConfig},
+            config::{MySqlSourceConfig, PostgresSourceConfig, SqlConnection},
+        },
+        util::{common::create_config_pack, test::tests::DbTools},
+    };
 
     use super::SqlSource;
 
@@ -248,13 +310,16 @@ mod tests {
                 url: Some(StrKeyword::with_symbol("url")),
                 env_connection: None,
                 model: None,
-            }
+            },
         };
-        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
+            "
 output: TEST
 query: SELECT id, name, data FROM person
 url: postgres://defuser:password@localhost:5432/defuser
-            ").unwrap();
+            ",
+        )
+        .unwrap();
         let ctx = DefaultPipelineContext::with_results(&["TEST"], 1);
         config.emplace(&ctx, &context).unwrap();
         config.validate();
@@ -278,19 +343,24 @@ url: postgres://defuser:password@localhost:5432/defuser
                 table: StrKeyword::with_symbol("lookup"),
                 strict: Some(false),
                 output: StrKeyword::with_value("TEST".to_owned()),
-                url: Some(StrKeyword::with_value("postgres://defuser:password@localhost:5432/defuser".to_owned())),
+                url: Some(StrKeyword::with_value(
+                    "postgres://defuser:password@localhost:5432/defuser".to_owned(),
+                )),
                 env_connection: None,
                 model: Some(StrKeyword::with_symbol("model")),
-            }
+            },
         };
-        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
+            "
 lookup: table
 model: person
-            ").unwrap();
+            ",
+        )
+        .unwrap();
         let mut model_registry = ModelRegistry::default();
         model_registry.insert(ModelConfig {
             label: "person".to_owned(),
-            fields: serde_yaml_ng::from_str::<ModelFields>("{name: str, id: uint64}").unwrap()
+            fields: serde_yaml_ng::from_str::<ModelFields>("{name: str, id: uint64}").unwrap(),
         });
         let ctx = DefaultPipelineContext::with_results(&["TEST"], 1).with_model_registry(model_registry);
         config.emplace(&ctx, &context).unwrap();
@@ -326,14 +396,16 @@ model: person
                 url: None,
                 env_connection: Some(StrKeyword::with_symbol("mysql_conn")),
                 model: None,
-            }
+            },
         };
-        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
+            "
 output: TEST
 mysql_conn: mysql
-            ").unwrap();
-        let mut config_packs = create_config_pack([
-                r#"
+            ",
+        )
+        .unwrap();
+        let mut config_packs = create_config_pack([r#"
 connection:
     mysql:
         password_env: MYSQL_PW
@@ -341,11 +413,10 @@ connection:
         port: 3306
         user_env: MYSQL_USER
         db_env: MYSQL_DB
-                "#
-        ]);
+                "#]);
         let connection_registry = ConnectionRegistry::from(&mut config_packs).unwrap();
         let ctx = DefaultPipelineContext::with_results(&["test"], 1).with_connection_registry(connection_registry);
-        
+
         config.emplace(&ctx, &context).unwrap();
         config.validate();
         let sqlsrc = config.transform();

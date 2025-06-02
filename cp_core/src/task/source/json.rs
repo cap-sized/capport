@@ -4,10 +4,15 @@ use async_trait::async_trait;
 use polars::prelude::{LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema};
 
 use crate::{
-    model::common::ModelConfig, model_emplace, parser::keyword::Keyword, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::{
+    model::common::ModelConfig,
+    model_emplace,
+    parser::keyword::Keyword,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    util::{
         common::get_full_path,
         error::{CpError, CpResult},
-    }, valid_or_insert_error
+    },
+    valid_or_insert_error,
 };
 
 use super::{

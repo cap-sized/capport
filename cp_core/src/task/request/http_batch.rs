@@ -40,7 +40,7 @@ fn default_ctype() -> HeaderValue {
     HeaderValue::from_str("unknown").expect("default_ctype")
 }
 
-fn sync_url(
+pub fn sync_url(
     client: &reqwest::blocking::Client,
     url: &str,
     max_retry: u8,
@@ -91,7 +91,7 @@ fn sync_url(
     )))
 }
 
-async fn async_url(
+pub async fn async_url(
     client: &reqwest::Client,
     url: &str,
     max_retry: u8,
@@ -142,7 +142,7 @@ async fn async_url(
     )))
 }
 
-pub fn sync_urls(
+fn sync_urls(
     urls: Vec<String>,
     max_threads: u8,
     max_retry: u8,

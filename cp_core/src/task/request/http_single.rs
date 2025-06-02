@@ -5,10 +5,11 @@ use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
 use crate::task::request::common::{Request, RequestConfig};
 use crate::task::request::config::{HttpParamConfig, HttpSingleConfig};
 use crate::task::request::http_batch::get_urls;
+use crate::util::common::{explode_df, str_json_to_df};
 use crate::util::error::{CpError, CpResult};
 use crate::valid_or_insert_error;
 use async_trait::async_trait;
-use polars::prelude::{Expr, LazyFrame};
+use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use serde_yaml_ng::Mapping;
 use std::sync::Arc;
 
@@ -18,12 +19,10 @@ pub struct HttpSingleRequest {
     output: String,
     content_type: String,
     schema: Option<Vec<Expr>>,
-    workers: u8,
     max_retry: u8,
     init_retry_interval_ms: u64,
 }
 
-const DEFAULT_HTTP_REQ_WORKERS: u8 = 1;
 const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 3;
 const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
 
@@ -53,19 +52,19 @@ impl HttpSingleRequest {
             return Ok(url);
         }
 
-        let url_params = self.url_params.clone().unwrap();
+        let url_params = self.url_params.clone().unwrap_or_default();
 
         let query_string = url_params
             .iter()
             .map(|url_param| {
-                let col_expr = url_param.col.value().unwrap().clone();
+                let col_expr = url_param.col.value().expect("url_param.col").clone();
 
                 let template = url_param
                     .template
                     .clone()
                     .unwrap_or(format!("{}={{}}", self.get_column_name(col_expr.clone()).unwrap()));
 
-                let lf = ctx.extract_result(url_param.df.value().unwrap())?;
+                let lf = ctx.extract_result(url_param.df.value().expect("url_param.df"))?;
 
                 let df = lf.select([col_expr.clone().alias("param")]).collect()?;
                 let param_val = df
@@ -95,6 +94,21 @@ impl HttpSingleRequest {
     }
 }
 
+fn sync_url(url: &str, max_retry: u8, retry_interval: u64, content_type: &str) -> CpResult<LazyFrame> {
+    let client = reqwest::blocking::Client::new();
+    let result = crate::task::request::http_batch::sync_url(&client, url, max_retry, retry_interval, content_type)?;
+    let result_df = str_json_to_df(&result)?;
+    Ok(explode_df(&result_df)?.lazy())
+}
+
+async fn async_url(url: &str, max_retry: u8, retry_interval: u64, content_type: &str) -> CpResult<LazyFrame> {
+    let client = reqwest::Client::new();
+    let result =
+        crate::task::request::http_batch::async_url(&client, url, max_retry, retry_interval, content_type).await?;
+    let result_df = str_json_to_df(&result)?;
+    Ok(explode_df(&result_df)?.lazy())
+}
+
 #[async_trait]
 impl Request for HttpSingleRequest {
     fn connection_type(&self) -> &str {
@@ -106,14 +120,8 @@ impl Request for HttpSingleRequest {
     }
 
     fn run(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let urls = vec![self.construct_url(&frame, &ctx)?];
-        let frame = crate::task::request::http_batch::sync_urls(
-            urls,
-            self.workers,
-            self.max_retry,
-            self.init_retry_interval_ms,
-            &self.content_type,
-        )?;
+        let url = self.construct_url(&frame, &ctx)?;
+        let frame = sync_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type)?;
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
@@ -125,15 +133,8 @@ impl Request for HttpSingleRequest {
     }
 
     async fn fetch(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let urls = vec![self.construct_url(&frame, &ctx)?];
-        let frame = crate::task::request::http_batch::async_urls(
-            urls,
-            self.workers,
-            self.max_retry,
-            self.init_retry_interval_ms,
-            &self.content_type,
-        )
-        .await?;
+        let url = self.construct_url(&frame, &ctx)?;
+        let frame = async_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type).await?;
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
@@ -213,9 +214,6 @@ impl RequestConfig for HttpSingleConfig {
                         .unwrap_or(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS)
                 })
                 .unwrap_or(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS),
-            workers: options
-                .map(|opt| opt.workers.unwrap_or(DEFAULT_HTTP_REQ_WORKERS))
-                .unwrap_or(DEFAULT_HTTP_REQ_WORKERS),
             max_retry: options
                 .map(|opt| opt.max_retry.unwrap_or(DEFAULT_HTTP_REQ_MAX_RETRY))
                 .unwrap_or(DEFAULT_HTTP_REQ_MAX_RETRY),
@@ -231,7 +229,7 @@ mod tests {
     use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
     use crate::task::request::common::RequestConfig;
     use crate::task::request::config::{HttpParamConfig, HttpReqConfig, HttpSingleConfig};
-    use crate::util::common::vec_str_json_to_df;
+    use crate::util::common::{explode_df, str_json_to_df};
     use crate::util::test::DummyData;
     use httpmock::Method::GET;
     use httpmock::{Mock, MockServer};
@@ -309,7 +307,7 @@ mod tests {
             actual_node.run(url_df.lazy(), ctx.clone()).unwrap();
             mock.assert();
             let actual = ctx.extract_clone_result("OUT").unwrap();
-            let expected = vec_str_json_to_df(&[DummyData::meta_info()]).unwrap();
+            let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
             assert_eq!(expected, actual);
         }
         // without connection sync
@@ -321,7 +319,7 @@ mod tests {
             actual_node.run(url_df.lazy(), ctx.clone()).unwrap();
             let actual_with_messages = ctx.extract_clone_result("OUT").unwrap();
             let actual = actual_with_messages;
-            let expected = vec_str_json_to_df(&[DummyData::meta_info()]).unwrap();
+            let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
             assert_ne!(expected, actual);
         }
         // with connection async
@@ -338,7 +336,7 @@ mod tests {
                 actual_node.fetch(url_df.lazy(), ctx.clone()).await.unwrap();
                 mock.assert();
                 let actual = ctx.extract_clone_result("OUT").unwrap();
-                let expected = vec_str_json_to_df(&[DummyData::meta_info()]).unwrap();
+                let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
                 assert_eq!(expected, actual);
             };
             rt.block_on(event());
@@ -356,7 +354,7 @@ mod tests {
                 actual_node.fetch(url_df.lazy(), ctx.clone()).await.unwrap();
                 let actual_with_messages = ctx.extract_clone_result("OUT").unwrap();
                 let actual = actual_with_messages;
-                let expected = vec_str_json_to_df(&[DummyData::meta_info()]).unwrap();
+                let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
                 assert_ne!(expected, actual);
             };
             rt.block_on(event());

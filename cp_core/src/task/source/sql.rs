@@ -385,9 +385,9 @@ model: person
     #[test]
     fn valid_my_src_config_to_sql_src_no_query() {
         let mut env_var = EnvironmentVariableRegistry::new();
-        env_var.set_str("MYSQL_PW", "dev".to_owned()).unwrap();
+        env_var.set_str("MYSQL_PW", "root".to_owned()).unwrap();
         env_var.set_str("MYSQL_HOST", "localhost".to_owned()).unwrap();
-        env_var.set_str("MYSQL_USER", "dev".to_owned()).unwrap();
+        env_var.set_str("MYSQL_USER", "root".to_owned()).unwrap();
         env_var.set_str("MYSQL_DB", "dev".to_owned()).unwrap();
         let expected = DbTools::populate_my_accounts("root", "root", "dev", "payments", 3306);
         let mut config = MySqlSourceConfig {

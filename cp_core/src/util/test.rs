@@ -327,8 +327,8 @@ pub mod tests {
             client.batch_execute(&drop_cmd).expect("failed drop table via client");
         }
 
-        pub fn populate_my_accounts(user: &str, password: &str, table: &str, port: usize) -> DataFrame {
-            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, user);
+        pub fn populate_my_accounts(user: &str, password: &str, db: &str, table: &str, port: usize) -> DataFrame {
+            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, db);
             let pool = mysql::Pool::new(url.as_str()).expect("failed to create mysql connection");
 
             let mut conn = pool.get_conn().expect("conn");
@@ -369,8 +369,8 @@ pub mod tests {
             payments
         }
 
-        pub fn drop_my(user: &str, password: &str, table: &str, port: usize) {
-            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, user);
+        pub fn drop_my(user: &str, password: &str, db: &str, table: &str, port: usize) {
+            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, db);
             let pool = mysql::Pool::new(url.as_str()).expect("failed to create mysql connection");
 
             let mut conn = pool.get_conn().expect("conn");

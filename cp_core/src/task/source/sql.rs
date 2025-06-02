@@ -331,6 +331,8 @@ url: postgres://defuser:password@localhost:5432/defuser
         let exp_name_col = expected.lazy().select([col("name")]).collect().unwrap();
         assert_eq!(lf.select([col("name")]).collect().unwrap(), exp_name_col);
         DbTools::drop_pg("defuser", "password", "person");
+        // test timeout
+        assert!(sqlsrc.run(actx.clone()).is_err());
     }
 
     #[test]
@@ -376,6 +378,8 @@ model: person
         assert_eq!(name_col, expected.lazy().select([col("name")]).collect().unwrap());
         assert_eq!(id_col.dtype(), &DataType::UInt64);
         DbTools::drop_pg("defuser", "password", "person2");
+        // test timeout
+        assert!(sqlsrc.run(actx.clone()).is_err());
     }
 
     #[test]
@@ -385,7 +389,7 @@ model: person
         env_var.set_str("MYSQL_HOST", "localhost".to_owned()).unwrap();
         env_var.set_str("MYSQL_USER", "dev".to_owned()).unwrap();
         env_var.set_str("MYSQL_DB", "dev".to_owned()).unwrap();
-        let expected = DbTools::populate_my_accounts("dev", "dev", "payments", 3306);
+        let expected = DbTools::populate_my_accounts("root", "root", "dev", "payments", 3306);
         let mut config = MySqlSourceConfig {
             mysql: SqlConnection {
                 sql: None,
@@ -419,14 +423,36 @@ connection:
 
         config.emplace(&ctx, &context).unwrap();
         config.validate();
-        let sqlsrc = config.transform();
         let actx = Arc::new(ctx);
-        assert_eq!(sqlsrc.connection_type(), "sql");
-        assert_eq!(sqlsrc.name(), "TEST");
-        let df = sqlsrc.run(actx.clone()).unwrap().collect().unwrap();
-        assert_eq!(df.column("id").unwrap().dtype(), &DataType::UInt32);
-        assert_eq!(df.column("amt").unwrap().dtype(), &DataType::UInt8);
-        assert_eq!(df, expected);
-        DbTools::drop_my("dev", "dev", "payments", 3306);
+        {
+            let sqlsrc = config.transform();
+            assert_eq!(sqlsrc.connection_type(), "sql");
+            assert_eq!(sqlsrc.name(), "TEST");
+            let df = sqlsrc.run(actx.clone()).unwrap().collect().unwrap();
+            assert_eq!(df.column("id").unwrap().dtype(), &DataType::UInt32);
+            assert_eq!(df.column("amt").unwrap().dtype(), &DataType::UInt8);
+            assert_eq!(df, expected);
+        }
+        {
+            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+            rt_builder.enable_all();
+            let rt = rt_builder.build().unwrap();
+            let event = async || {
+                let sqlsrc = config.transform();
+                assert_eq!(sqlsrc.connection_type(), "sql");
+                assert_eq!(sqlsrc.name(), "TEST");
+                let df = sqlsrc.fetch(actx.clone()).await.unwrap().collect().unwrap();
+                assert_eq!(df.column("id").unwrap().dtype(), &DataType::UInt32);
+                assert_eq!(df.column("amt").unwrap().dtype(), &DataType::UInt8);
+                assert_eq!(df, expected);
+            };
+            rt.block_on(event());
+        }
+        DbTools::drop_my("root", "root", "dev", "payments", 3306);
+        {
+            // test timeout
+            let sqlsrc = config.transform();
+            assert!(sqlsrc.run(actx.clone()).is_err());
+        }
     }
 }

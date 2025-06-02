@@ -10,21 +10,38 @@ on:
       - "d/**" # TODO: Remove
     paths:
       - '**.rs'
+      - '**.yml'
 
 permissions:
   contents: read
 
-
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   test_core:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgresql-version: ['16', '17']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgresql-version }}
+        env:
+          POSTGRES_USER: defuser
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: defuser
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
+    - name: Shutdown Ubuntu MySQL (SUDO)
+      run: sudo service mysql stop
+    - name: Set up MySQL
+      uses: mirromutth/mysql-action@v1.1
+      with:
+        mysql database: dev
+        mysql root password: root
+        mysql user: dev
+        mysql password: dev
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

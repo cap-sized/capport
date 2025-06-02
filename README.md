@@ -27,7 +27,7 @@ We are drastically changing the structure of capport to support
 - [x] PipelineResults
 - [x] PipelineContext
     - [x] Results
-    - [ ] ConnectionRegistry
+    - [x] ConnectionRegistry
     - [x] ModelRegistry
     - [x] PipelineRegistry
     - [x] TransformRegistry
@@ -63,7 +63,8 @@ We are drastically changing the structure of capport to support
     - [x] JsonSource
     - [ ] CsvSource
     - [ ] BsonSource (cp_ext)
-    - [ ] PostgresSource (cp_ext)
+    - [x] PostgresSource (cp_ext)
+    - [x] MySqlSource (cp_ext)
     - [ ] ClickhouseSource (cp_ext)
 - [x] SinkGroup, method of writing data, and types
     - [x] Running SinkGroup as a stage
@@ -71,6 +72,7 @@ We are drastically changing the structure of capport to support
     - [x] CsvSink
     - [ ] BsonSink (cp_ext)
     - [ ] PostgresSink (cp_ext)
+    - [ ] MySqlSink (cp_ext)
     - [ ] ClickhouseSink (cp_ext)
 - [x] RequestGroup, method of writing data, and types
     - [x] Running RequestGroup as a stage

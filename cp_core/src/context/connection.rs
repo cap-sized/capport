@@ -86,20 +86,22 @@ impl Configurable for ConnectionRegistry {
 #[cfg(test)]
 mod tests {
     use crate::{
-        context::envvar::EnvironmentVariableRegistry, parser::connection::ConnectionConfig,
+        context::{common::Configurable, envvar::EnvironmentVariableRegistry},
+        parser::connection::ConnectionConfig,
         util::common::create_config_pack,
     };
 
     use super::ConnectionRegistry;
 
     #[test]
-    fn valid_unpack_request_registry() {
+    fn valid_unpack_connection_registry() {
         let configs = [
             "
 connection:
     test:
-        url_env: POSTGRES_URL_ENV
+        host_env: POSTGRES_URL_ENV
         user_env: MY_USER_ENV
+        port: 5432
         db_env: DB_ENV
 irrelevant_node:
     for_testing:
@@ -109,6 +111,8 @@ irrelevant_node:
 connection:
     pwonly: 
         password_env: MYPASS_ENV
+        port: 3306
+    nothing: {}
 ",
         ];
         let mut env_var = EnvironmentVariableRegistry::new();
@@ -121,7 +125,8 @@ connection:
             actual.get_connection_config("test").unwrap(),
             ConnectionConfig {
                 label: "test".to_owned(),
-                url_env: Some("POSTGRES_URL_ENV".to_owned()),
+                port: Some(5432),
+                host_env: Some("POSTGRES_URL_ENV".to_owned()),
                 user_env: Some("MY_USER_ENV".to_owned()),
                 db_env: Some("DB_ENV".to_owned()),
                 password_env: None
@@ -131,11 +136,46 @@ connection:
             actual.get_connection_config("pwonly").unwrap(),
             ConnectionConfig {
                 label: "pwonly".to_owned(),
+                port: Some(3306),
                 password_env: Some("MYPASS_ENV".to_owned()),
-                url_env: None,
+                host_env: None,
                 user_env: None,
                 db_env: None,
             }
         );
+        assert_eq!(
+            actual.get_connection_config("nothing").unwrap(),
+            ConnectionConfig {
+                label: "nothing".to_owned(),
+                port: None,
+                password_env: None,
+                host_env: None,
+                user_env: None,
+                db_env: None,
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_unpack_connection_registry() {
+        let configs = [
+            "
+connection:
+    test:
+        host_env: POSTGRES_URL_ENV
+        user_env: MY_USER_ENV
+        port: invalid
+        db_env: DB_ENV
+",
+            "
+connection:
+    bad_nothing:
+",
+        ];
+        for config in configs {
+            let mut config_pack = create_config_pack([config]);
+            let mut actual = ConnectionRegistry::default();
+            assert!(actual.extract_parse_config(&mut config_pack).is_err());
+        }
     }
 }

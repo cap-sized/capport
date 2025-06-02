@@ -21,7 +21,7 @@ pub const RECOGNIZED_DATE_PATTERNS: [&str; 2] = ["%Y-%m-%d", "%Y.%m.%d"];
 pub const RECOGNIZED_TIME_PATTERNS: [&str; 2] = ["%H:%M:%S", "%H.%M.%S"];
 
 pub enum EnvKeyType {
-    Url,
+    Host,
     User,
     Password,
     DbName,
@@ -171,6 +171,48 @@ macro_rules! ctx_run_n_threads {
                 log::error!("Thread err:\n{:?}", e);
             }
         };
+    };
+}
+
+#[macro_export]
+macro_rules! model_emplace {
+    ( $val:expr, $ctx:expr, $context:expr ) => {
+        if let Some(mut model_name) = ($val).model.clone() {
+            model_name.insert_value_from_context($context)?;
+            if let Some(name) = model_name.value() {
+                let model = ($ctx).get_model(name)?;
+                ($val).model_fields = Some(model.fields);
+            }
+            let _ = ($val).model.insert(model_name.clone());
+        }
+        if let Some(model_fields) = ($val).model_fields.take() {
+            let model = ModelConfig {
+                label: "".to_string(),
+                fields: model_fields,
+            };
+            let fields = model.substitute_model_fields($context)?;
+            let _ = ($val).model_fields.insert(fields);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! db_url_emplace {
+    ( $val:expr, $ctx:expr, $context:expr, $urlfmt:expr ) => {
+        if let Some(mut url) = ($val).url.clone() {
+            url.insert_value_from_context($context)?;
+            let _ = ($val).url.insert(url);
+        }
+        if let Some(mut ev) = ($val).env_connection.clone() {
+            ev.insert_value_from_context($context)?;
+            if ($val).url.is_none() {
+                if let Some(label) = ev.value() {
+                    let url = format!($urlfmt, ($ctx).get_connection(label)?.to_url());
+                    let _ = ($val).url.insert(StrKeyword::with_value(url));
+                }
+            }
+            let _ = ($val).env_connection.insert(ev);
+        }
     };
 }
 

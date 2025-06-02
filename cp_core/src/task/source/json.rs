@@ -5,6 +5,7 @@ use polars::prelude::{LazyFileListReader, LazyFrame, LazyJsonLineReader, Schema}
 
 use crate::{
     model::common::ModelConfig,
+    model_emplace,
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::{
@@ -75,22 +76,7 @@ impl SourceConfig for JsonSourceConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
         self.json.filepath.insert_value_from_context(context)?;
         self.json.output.insert_value_from_context(context)?;
-        if let Some(mut model_name) = self.json.model.take() {
-            model_name.insert_value_from_context(context)?;
-            if let Some(name) = model_name.value() {
-                let model = ctx.get_model(name)?;
-                self.json.model_fields = Some(model.fields);
-            }
-            let _ = self.json.model.insert(model_name.clone());
-        }
-        if let Some(model_fields) = self.json.model_fields.take() {
-            let model = ModelConfig {
-                label: "".to_string(),
-                fields: model_fields,
-            };
-            let fields = model.substitute_model_fields(context)?;
-            let _ = self.json.model_fields.insert(fields);
-        }
+        model_emplace!(self.json, ctx, context);
         Ok(())
     }
     fn validate(&self) -> Vec<CpError> {

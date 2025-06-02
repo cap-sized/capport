@@ -31,12 +31,14 @@ pub struct CsvSourceConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SqlConnection {
-    pub url: Option<String>,
-    pub db: Option<StrKeyword>,
-    pub env_connection: Option<String>, // use a preset
+    pub url: Option<StrKeyword>,
+    pub env_connection: Option<StrKeyword>, // use a preset
     pub output: StrKeyword,
+    pub table: StrKeyword,
+    pub sql: Option<StrKeyword>,
     pub model: Option<StrKeyword>,
     pub model_fields: Option<ModelFields>,
+    pub strict: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -116,23 +118,27 @@ mod tests {
     fn get_connections() -> [SqlConnection; 2] {
         [
             SqlConnection {
-                db: Some(StrKeyword::with_symbol("defdb")),
+                table: StrKeyword::with_symbol("table"),
+                sql: Some(StrKeyword::with_value("select * from test;".to_owned())),
                 env_connection: None,
                 url: None,
                 model: None,
                 output: StrKeyword::with_value("output".to_owned()),
                 model_fields: None,
+                strict: Some(true)
             },
             SqlConnection {
-                db: None,
-                env_connection: Some("env_conn".to_owned()),
-                url: None,
+                table: StrKeyword::with_value("table".to_string()),
+                sql: Some(StrKeyword::with_symbol("test")),
+                env_connection: Some(StrKeyword::with_value("fallback".to_owned())),
+                url: Some(StrKeyword::with_symbol("first_priority")),
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
                 output: StrKeyword::with_symbol("actual"),
                 model_fields: Some(HashMap::from([(
                     StrKeyword::with_symbol("test"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),
+                strict: None
             },
         ]
     }
@@ -143,6 +149,7 @@ mod tests {
 {}:
     filepath: $fp
     output: $output
+    sql: select * from test;
     model: test
 ",
             "
@@ -181,13 +188,18 @@ mod tests {
         [
             "
 {}:
-    db: $defdb
+    table: $table
+    sql: select * from test;
     output: output
+    strict: true
 ",
             "
 {}:
     output: $actual
-    env_connection: env_conn
+    sql: $test
+    table: table
+    url: $first_priority
+    env_connection: fallback
     model: mymod
     model_fields: 
         $test: int8

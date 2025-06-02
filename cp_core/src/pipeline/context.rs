@@ -115,6 +115,10 @@ impl DefaultPipelineContext {
         self.model_registry = model_registry;
         self
     }
+    pub fn with_connection_registry(mut self, connection_registry: ConnectionRegistry) -> Self {
+        self.connection_registry = connection_registry;
+        self
+    }
     pub fn with_signal(mut self) -> Self {
         if self.signal_state.is_none() {
             let _ = self.signal_state.insert(SignalState::new());

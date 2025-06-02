@@ -277,3 +277,95 @@ impl DummyData {
         .to_string()
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use mysql::params;
+    use mysql::prelude::Queryable;
+    use polars::{df, frame::DataFrame};
+
+    pub struct DbTools;
+    impl DbTools {
+        pub fn populate_pg_person(user: &str, password: &str, table: &str) -> DataFrame {
+            let connect_str = format!("host=localhost user={} password={} dbname={}", user, password, user);
+            let mut client = postgres::Client::connect(&connect_str, postgres::NoTls).unwrap();
+            let create_cmd = format!("
+                CREATE TABLE IF NOT EXISTS {} (
+                    id      SERIAL PRIMARY KEY,
+                    name    TEXT NOT NULL,
+                    data    BYTEA
+                )
+            ", table);
+            let del_cmd = format!("TRUNCATE {}", table);
+            let insert_cmd = format!("INSERT INTO {} (name, data) VALUES ($1, $2)", table);
+
+            let name = "Ferris";
+            let data = None::<&[u8]>;
+
+            client.batch_execute(&create_cmd).expect("failed create table via client");
+            client.batch_execute(&del_cmd).expect("failed delete rows via client");
+            client.execute(&insert_cmd, &[&name, &data]).expect("failed insert via client");
+            df!(
+                "name" => [name],
+                "data" => [data]
+            ).unwrap()
+        }
+
+        pub fn drop_pg(user: &str, password: &str, table: &str) {
+            let connect_str = format!("host=localhost user={} password={} dbname={}", user, password, user);
+            let mut client = postgres::Client::connect(&connect_str, postgres::NoTls).unwrap();
+            let drop_cmd = format!("DROP TABLE {}", table);
+
+            client.batch_execute(&drop_cmd).expect("failed drop table via client");
+        }
+
+        pub fn populate_my_accounts(user: &str, password: &str, table: &str, port: usize) -> DataFrame {
+            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, user);
+            let pool = mysql::Pool::new(url.as_str()).expect("failed to create mysql connection");
+
+            let mut conn = pool.get_conn().expect("conn");
+
+            let create_cmd = format!(r"CREATE TABLE IF NOT EXISTS {} (
+                id int not null,
+                amt int not null,
+                account_name text
+            )", table);
+            let del_cmd = format!("TRUNCATE {}", table);
+
+            conn.query_drop(create_cmd).unwrap();
+            conn.query_drop(del_cmd).unwrap();
+
+            let payments = df!(
+                "id" => [1, 3, 5, 7, 9],
+                "amt" => [2, 4, 6, 8, 10],
+                "account_name" => [None, Some("foo".to_owned()), None, None, Some("bar".to_owned())],
+            ).unwrap();
+
+
+            conn.exec_batch(
+                r"INSERT INTO payments (id, amt, account_name)
+                  VALUES (:id, :amt, :account_name)",
+                  [
+                      mysql::params! { "id" => 1, "amt" => 2, "account_name" => None::<String>},
+                      mysql::params! { "id" => 3, "amt" => 4, "account_name" => Some("foo".to_owned())},
+                      mysql::params! { "id" => 5, "amt" => 6, "account_name" => None::<String>},
+                      mysql::params! { "id" => 7, "amt" => 8, "account_name" => None::<String>},
+                      mysql::params! { "id" => 9, "amt" => 10, "account_name" => Some("bar".to_owned())},
+                  ]
+            ).unwrap();
+
+            payments
+        }
+
+        pub fn drop_my(user: &str, password: &str, table: &str, port: usize) {
+            let url = format!("mysql://{}:{}@localhost:{}/{}", user, password, port, user);
+            let pool = mysql::Pool::new(url.as_str()).expect("failed to create mysql connection");
+
+            let mut conn = pool.get_conn().expect("conn");
+
+            let drop_cmd = format!("DROP TABLE {}", table);
+
+            conn.query_drop(drop_cmd).expect("failed drop table via client");
+        }
+    }
+}

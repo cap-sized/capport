@@ -27,7 +27,7 @@ jobs:
         env:
           POSTGRES_USER: defuser
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: postgres
+          POSTGRES_DB: defuser
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
@@ -38,10 +38,10 @@ jobs:
     - name: Set up MySQL
       uses: mirromutth/mysql-action@v1.1
       with:
-        mysql database: data_db
+        mysql database: dev
         mysql root password: root
         mysql user: dev
-        mysql password: root
+        mysql password: dev
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

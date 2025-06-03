@@ -183,7 +183,7 @@ fn sync_urls(
     }
 }
 
-pub async fn async_urls(
+async fn async_urls(
     urls: Vec<String>,
     max_threads: u8,
     max_retry: u8,

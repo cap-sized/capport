@@ -89,6 +89,23 @@ pub fn vec_str_json_to_df(vecstr: &[String]) -> CpResult<DataFrame> {
     Ok(reader.finish()?)
 }
 
+pub fn str_json_to_df(str: &str) -> CpResult<DataFrame> {
+    let reader = JsonReader::new(Cursor::new(str.trim()));
+    Ok(reader.finish()?)
+}
+
+pub fn explode_df(df: &DataFrame) -> CpResult<DataFrame> {
+    let mut df = df.clone();
+    let cols: Vec<String> = df.get_column_names().iter().map(|s| s.to_string()).collect();
+    for col in cols {
+        if !df.column(&col)?.dtype().is_list() {
+            continue;
+        }
+        df = df.explode([col])?;
+    }
+    Ok(df)
+}
+
 pub fn create_config_pack<I>(yaml_strs: I) -> HashMap<String, HashMap<String, serde_yaml_ng::Value>>
 where
     I: IntoIterator,

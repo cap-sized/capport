@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::parser::keyword::StrKeyword;
+use crate::parser::{keyword::StrKeyword, sql_connection::SqlConnection};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SinkGroupConfig {
@@ -23,6 +23,16 @@ pub struct JsonSinkConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CsvSinkConfig {
     pub csv: LocalFileSinkConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct PostgresSinkConfig {
+    pub postgres: SqlConnection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ClickhouseSinkConfig {
+    pub clickhouse: SqlConnection,
 }
 
 #[cfg(test)]

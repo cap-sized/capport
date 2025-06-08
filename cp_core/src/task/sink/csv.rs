@@ -1,13 +1,17 @@
-use std::{fs::File, path::PathBuf, str::FromStr, sync::Arc};
+use std::{fs::OpenOptions, path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::{frame::DataFrame, io::SerWriter, prelude::CsvWriter};
+use polars::{
+    frame::DataFrame,
+    io::SerWriter,
+    prelude::CsvWriter,
+};
 
 use crate::{
-    parser::keyword::Keyword,
+    parser::{keyword::Keyword, merge_type::MergeTypeEnum},
     pipeline::context::DefaultPipelineContext,
     util::{
-        common::get_full_path,
+        common::{get_full_path, get_utc_time_str_now, rng_str},
         error::{CpError, CpResult},
     },
 };
@@ -18,13 +22,15 @@ use super::{
 };
 
 pub struct CsvSink {
+    merge_type: MergeTypeEnum,
     filepath: PathBuf,
 }
 
 impl CsvSink {
-    pub fn new(filepath: &str) -> Self {
+    pub fn new(filepath: &str, merge_type: Option<MergeTypeEnum>) -> Self {
         Self {
             filepath: std::path::PathBuf::from_str(filepath).expect("bad filepath"),
+            merge_type: merge_type.unwrap_or(MergeTypeEnum::Replace),
         }
     }
 }
@@ -40,7 +46,26 @@ impl Sink for CsvSink {
     }
 
     fn run(&self, dataframe: DataFrame, _ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let filepath = File::create(&self.filepath)?;
+        let filepath = match self.merge_type {
+            MergeTypeEnum::Replace => OpenOptions::new().write(true).create(true).truncate(true).open(&self.filepath)?,
+            MergeTypeEnum::Insert => OpenOptions::new().append(true).truncate(false).open(&self.filepath)?,
+            MergeTypeEnum::MakeNext => {
+                let mut fp = self.filepath.clone();
+                fp.set_file_name(format!(
+                    "{}_{}.csv",
+                    fp.file_stem().expect("filename").to_str().unwrap_or("_"),
+                    get_utc_time_str_now()
+                ));
+                if std::fs::exists(&fp)? {
+                    fp.set_file_name(format!(
+                        "{}_{}.csv",
+                        fp.file_stem().expect("filename").to_str().unwrap_or("_"),
+                        rng_str(6)
+                    ));
+                }
+                OpenOptions::new().write(true).create(true).truncate(true).open(fp)?
+            }
+        };
         let mut writer = CsvWriter::new(filepath);
         let mut df_to_write = dataframe;
         writer.finish(&mut df_to_write)?;
@@ -70,7 +95,13 @@ impl SinkConfig for CsvSinkConfig {
             Ok(x) => x,
             Err(e) => panic!("bad filepath `{:?}`: {}", self.csv.filepath.value(), e),
         };
-        Box::new(CsvSink { filepath: fp })
+        if self.csv.merge_type == MergeTypeEnum::Insert {
+            log::warn!("INSERT merge_type can be costly for csv: {:?}", &fp);
+        }
+        Box::new(CsvSink {
+            filepath: fp,
+            merge_type: self.csv.merge_type,
+        })
     }
 }
 
@@ -81,13 +112,16 @@ mod tests {
     use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
 
     use crate::{
-        parser::keyword::{Keyword, StrKeyword},
+        parser::{
+            keyword::{Keyword, StrKeyword},
+            merge_type::MergeTypeEnum,
+        },
         pipeline::context::DefaultPipelineContext,
         task::sink::{
             common::{Sink, SinkConfig},
             config::{CsvSinkConfig, LocalFileSinkConfig},
         },
-        util::{test::assert_frame_equal, tmp::TempFile},
+        util::{common::rng_str, test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::CsvSink;
@@ -100,11 +134,19 @@ mod tests {
         .unwrap()
     }
 
+    fn example2() -> DataFrame {
+        df!(
+            "a" => [-1, 1, 3, 5, 6, -1, 1, 3, 5, 6, ],
+            "b" => ["z", "a", "j", "i", "c", "z", "a", "j", "i", "c"],
+        )
+        .unwrap()
+    }
+
     #[test]
     fn valid_csv_sink() {
         let expected = example();
         let tmp = TempFile::default();
-        let csv_sink = CsvSink::new(&tmp.filepath);
+        let csv_sink = CsvSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new());
         let _ = csv_sink.run(expected.clone(), ctx);
         let buffer = tmp.get().unwrap();
@@ -118,7 +160,7 @@ mod tests {
     fn valid_csv_sink_async() {
         let expected = example();
         let tmp = TempFile::default();
-        let csv_sink = CsvSink::new(&tmp.filepath);
+        let csv_sink = CsvSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new());
         let mut rt_builder = tokio::runtime::Builder::new_current_thread();
         rt_builder.enable_all();
@@ -133,13 +175,19 @@ mod tests {
         rt.block_on(event());
     }
 
-    #[test]
-    fn valid_csv_sink_config_to_csv_sink() {
-        let expected = example();
-        let tmp = TempFile::default();
+    fn get_node(
+        merge_type: MergeTypeEnum,
+        tmp: TempFile,
+    ) -> (
+        Arc<DefaultPipelineContext>,
+        serde_yaml_ng::Mapping,
+        Box<dyn Sink>,
+        TempFile,
+    ) {
         let mut source_config = CsvSinkConfig {
             csv: LocalFileSinkConfig {
                 filepath: StrKeyword::with_symbol("sample"),
+                merge_type,
             },
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
@@ -148,11 +196,54 @@ mod tests {
         let _ = source_config.emplace(&ctx, &context);
         let errors = source_config.validate();
         assert!(errors.is_empty());
-        let actual_node = source_config.transform();
+        (ctx, context, source_config.transform(), tmp)
+    }
+
+    #[test]
+    fn valid_csv_sink_config_to_csv_sink_replace() {
+        let expected = example();
+        let tmp = TempFile::default();
+        let (ctx, _, actual_node, tmp) = get_node(MergeTypeEnum::Replace, tmp);
         actual_node.run(expected.clone(), ctx.clone()).unwrap();
         let buffer = tmp.get().unwrap();
         let reader = CsvReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
+    }
+
+    #[test]
+    fn valid_csv_sink_config_to_csv_sink_insert() {
+        let expected = example2();
+        let tmp = TempFile::default();
+        let (ctx, _, actual_node, tmp) = get_node(MergeTypeEnum::Insert, tmp);
+        actual_node.run(expected.clone(), ctx.clone()).unwrap();
+        let buffer = tmp.get().unwrap();
+        let reader = CsvReader::new(buffer);
+        let actual = reader.finish().unwrap();
+        assert_frame_equal(actual, expected);
+    }
+
+    #[test]
+    fn valid_csv_sink_config_to_csv_sink_make_next() {
+        let expected = example();
+        let dir = format!("/tmp/capport_testing/{}", rng_str(5));
+        {
+            std::fs::create_dir(&dir).unwrap();
+            let tmp = TempFile::default_in_dir(&dir, "csv").unwrap();
+            let (ctx, _, actual_node, _) = get_node(MergeTypeEnum::MakeNext, tmp);
+            let files_created = 3i32;
+            for _ in 0..files_created {
+                actual_node.run(expected.clone(), ctx.clone()).unwrap();
+            }
+            let count = std::fs::read_dir(&dir).unwrap().fold(0i32, |idx, file| {
+                let buffer = file.unwrap().path();
+                let reader = CsvReader::new(std::fs::File::open(buffer).unwrap());
+                let actual = reader.finish().unwrap();
+                assert_frame_equal(actual, expected.clone());
+                idx + 1
+            });
+            assert_eq!(count, files_created);
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

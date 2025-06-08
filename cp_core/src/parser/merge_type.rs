@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize, de};
 pub enum MergeTypeEnum {
     Insert,
     Replace,
+    MakeNext,
 }
 
 impl<'de> Deserialize<'de> for MergeTypeEnum {
@@ -15,7 +16,10 @@ impl<'de> Deserialize<'de> for MergeTypeEnum {
         match s.as_str() {
             "insert" => Ok(MergeTypeEnum::Insert),
             "replace" => Ok(MergeTypeEnum::Replace),
-            // TODO: Handle parsing of list[xxx] types, more datetime regions
+            "next" => Ok(MergeTypeEnum::MakeNext),
+            "make next" => Ok(MergeTypeEnum::MakeNext),
+            "make_next" => Ok(MergeTypeEnum::MakeNext),
+            "makenext" => Ok(MergeTypeEnum::MakeNext),
             s => Err(de::Error::custom(format!("Unknown sink merge_type: {}", s))),
         }
     }
@@ -31,30 +35,37 @@ mod tests {
             MergeTypeEnum::Replace,
             MergeTypeEnum::Insert,
             MergeTypeEnum::Replace,
+            MergeTypeEnum::MakeNext,
+            MergeTypeEnum::MakeNext,
+            MergeTypeEnum::MakeNext,
+            MergeTypeEnum::MakeNext,
         ]
         .into_iter()
         .collect::<Vec<_>>()
     }
 
     fn example_str() -> Vec<&'static str> {
-        ["insert", "replace", "Insert", "REPLACE"]
-            .into_iter()
-            .collect::<Vec<_>>()
+        [
+            "insert",
+            "replace",
+            "Insert",
+            "REPLACE",
+            "next",
+            "make_next",
+            "Make Next",
+            "MakeNext",
+        ]
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     #[test]
     fn valid_merge_type_ser() {
-        let actual_str = example_merge()
+        let actual_str = [MergeTypeEnum::Insert, MergeTypeEnum::Replace, MergeTypeEnum::MakeNext]
             .iter()
-            .map(|x| serde_yaml_ng::to_string(x).unwrap().trim().to_owned())
+            .map(|f| serde_yaml_ng::to_string(f).map(|x| x.trim().to_owned()).unwrap())
             .collect::<Vec<_>>();
-        assert_eq!(
-            actual_str,
-            example_str()
-                .into_iter()
-                .map(|x| format!("{}{}", x.chars().next().unwrap().to_uppercase(), x[1..].to_lowercase()))
-                .collect::<Vec<_>>()
-        );
+        assert_eq!(actual_str, vec!["Insert", "Replace", "MakeNext"]);
     }
 
     #[test]

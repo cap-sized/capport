@@ -405,8 +405,10 @@ mod tests {
         let configs_str = "
 - csv:
     filepath: /fp
+    merge_type: make_next
 - csv:
     filepath: $replace
+    merge_type: make_next
 ";
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
         let context =
@@ -466,8 +468,10 @@ mod tests {
         let configs_str = "
 - csv:
     filepath: $fp1
+    merge_type: insert
 - csv:
     filepath: $fp2
+    merge_type: insert
 ";
         let configs = serde_yaml_ng::from_str::<Vec<serde_yaml_ng::Value>>(configs_str).unwrap();
         let tmp1 = TempFile::default();

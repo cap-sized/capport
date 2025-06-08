@@ -1,15 +1,11 @@
 use std::{fs::OpenOptions, path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::{
-    frame::DataFrame,
-    io::SerWriter,
-    prelude::CsvWriter,
-};
+use polars::{frame::DataFrame, io::SerWriter, prelude::CsvWriter};
 
 use crate::{
     parser::{keyword::Keyword, merge_type::MergeTypeEnum},
-    pipeline::context::DefaultPipelineContext,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::{
         common::{get_full_path, get_utc_time_str_now, rng_str},
         error::{CpError, CpResult},
@@ -45,9 +41,13 @@ impl Sink for CsvSink {
         self.run(dataframe, ctx)
     }
 
-    fn run(&self, dataframe: DataFrame, _ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+    fn run(&self, dataframe: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let filepath = match self.merge_type {
-            MergeTypeEnum::Replace => OpenOptions::new().write(true).create(true).truncate(true).open(&self.filepath)?,
+            MergeTypeEnum::Replace => OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&self.filepath)?,
             MergeTypeEnum::Insert => OpenOptions::new().append(true).truncate(false).open(&self.filepath)?,
             MergeTypeEnum::MakeNext => {
                 let mut fp = self.filepath.clone();
@@ -66,9 +66,18 @@ impl Sink for CsvSink {
                 OpenOptions::new().write(true).create(true).truncate(true).open(fp)?
             }
         };
-        let mut writer = CsvWriter::new(filepath);
         let mut df_to_write = dataframe;
-        writer.finish(&mut df_to_write)?;
+        if ctx.is_executing_sink() {
+            let mut writer = CsvWriter::new(filepath);
+            writer.finish(&mut df_to_write)?;
+        } else {
+            let path_details = filepath.metadata()?;
+            log::info!(
+                "[no-execute-sink] Completed writing to {:?}: {:?}",
+                path_details,
+                df_to_write
+            );
+        }
         Ok(())
     }
 }
@@ -107,7 +116,7 @@ impl SinkConfig for CsvSinkConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{io::Read, sync::Arc};
 
     use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
 
@@ -147,7 +156,7 @@ mod tests {
         let expected = example();
         let tmp = TempFile::default();
         let csv_sink = CsvSink::new(&tmp.filepath, None);
-        let ctx = Arc::new(DefaultPipelineContext::new());
+        let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
         let _ = csv_sink.run(expected.clone(), ctx);
         let buffer = tmp.get().unwrap();
         let reader = CsvReader::new(buffer);
@@ -161,7 +170,7 @@ mod tests {
         let expected = example();
         let tmp = TempFile::default();
         let csv_sink = CsvSink::new(&tmp.filepath, None);
-        let ctx = Arc::new(DefaultPipelineContext::new());
+        let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
         let mut rt_builder = tokio::runtime::Builder::new_current_thread();
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
@@ -190,13 +199,34 @@ mod tests {
                 merge_type,
             },
         };
-        let ctx = Arc::new(DefaultPipelineContext::new());
+        let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
         let config = format!("sample: {}", &tmp.filepath);
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(config.as_str()).unwrap();
         let _ = source_config.emplace(&ctx, &context);
         let errors = source_config.validate();
         assert!(errors.is_empty());
         (ctx, context, source_config.transform(), tmp)
+    }
+
+    #[test]
+    fn valid_csv_sink_config_to_csv_sink_executing_mode_off() {
+        let tmp = TempFile::default();
+        let mut source_config = CsvSinkConfig {
+            csv: LocalFileSinkConfig {
+                filepath: StrKeyword::with_value(tmp.filepath.clone()),
+                merge_type: MergeTypeEnum::Replace,
+            },
+        };
+        let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(false));
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{}").unwrap();
+        let _ = source_config.emplace(&ctx, &context);
+        let errors = source_config.validate();
+        assert!(errors.is_empty());
+        let actual_node = source_config.transform();
+        actual_node.run(example(), ctx.clone()).unwrap();
+        let mut actual_output = String::new();
+        tmp.get().unwrap().read_to_string(&mut actual_output).unwrap();
+        assert!(actual_output.is_empty())
     }
 
     #[test]

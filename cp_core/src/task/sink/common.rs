@@ -490,7 +490,7 @@ fp2: {}
             max_threads: 1,
             sinks: configs,
         };
-        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE"], 1));
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["SAMPLE"], 1).with_executing_sink(true));
         let mut bcast = ctx.get_broadcast("SAMPLE", "main").unwrap();
         bcast.broadcast(default_next().lazy()).unwrap();
         let actual = sgconfig.parse(&ctx, &context).unwrap();

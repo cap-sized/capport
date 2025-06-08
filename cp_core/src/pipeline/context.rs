@@ -58,6 +58,7 @@ pub trait PipelineContext<
     fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup>;
     fn get_request(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RequestGroup>;
     fn get_connection(&self, label: &str) -> CpResult<ConnectionConfig>;
+    fn is_executing_sink(&self) -> bool;
 
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
@@ -76,6 +77,7 @@ pub struct DefaultPipelineContext {
     request_registry: RequestRegistry,
     connection_registry: ConnectionRegistry,
     signal_state: Option<SignalState>,
+    execute_sink: bool,
 }
 
 /// We NEVER modify the actual entries in PipelineResults or any other registries
@@ -99,6 +101,7 @@ impl DefaultPipelineContext {
         sink_registry: SinkRegistry,
         request_registry: RequestRegistry,
         connection_registry: ConnectionRegistry,
+        execute_sink: bool,
     ) -> Self {
         Self {
             results,
@@ -109,6 +112,7 @@ impl DefaultPipelineContext {
             request_registry,
             connection_registry,
             signal_state: None,
+            execute_sink,
         }
     }
     pub fn with_model_registry(mut self, model_registry: ModelRegistry) -> Self {
@@ -125,6 +129,10 @@ impl DefaultPipelineContext {
         }
         self
     }
+    pub fn with_executing_sink(mut self, is_execution_on: bool) -> Self {
+        self.execute_sink = is_execution_on;
+        self
+    }
     pub fn new() -> Self {
         Self::from(
             PipelineResults::<PolarsPipelineFrame>::new(),
@@ -134,6 +142,7 @@ impl DefaultPipelineContext {
             SinkRegistry::new(),
             RequestRegistry::new(),
             ConnectionRegistry::new(),
+            false,
         )
     }
     pub fn with_results(labels: &[&str], bufsize: usize) -> Self {
@@ -344,5 +353,8 @@ impl<'a>
             )),
             Some(x) => Ok(x),
         }
+    }
+    fn is_executing_sink(&self) -> bool {
+        self.execute_sink
     }
 }

@@ -69,6 +69,7 @@ impl Runner {
             sink_registry,
             request_registry,
             connection_registry,
+            cli_args.execute,
         );
         let pipeline_config = match pipeline_registry.get_pipeline_config(&cli_args.pipeline) {
             Some(x) => x,

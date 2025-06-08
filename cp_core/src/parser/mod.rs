@@ -10,4 +10,5 @@ pub mod logger;
 pub mod merge_type;
 pub mod model;
 pub mod run_mode;
+pub mod sql_connection;
 pub mod task_type;

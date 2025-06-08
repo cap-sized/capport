@@ -4,11 +4,9 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 
 use crate::{
-    db_url_emplace,
     model::common::ModelConfig,
-    model_emplace,
-    parser::keyword::{Keyword, StrKeyword},
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    parser::keyword::Keyword,
+    pipeline::context::DefaultPipelineContext,
     util::error::{CpError, CpResult},
     valid_or_insert_error,
 };
@@ -79,20 +77,13 @@ impl Source for SqlSource {
 
 impl SourceConfig for MySqlSourceConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        db_url_emplace!(self.mysql, ctx, context, "mysql://{}");
-        self.mysql.output.insert_value_from_context(context)?;
-        if let Some(mut sql) = self.mysql.sql.take() {
-            sql.insert_value_from_context(context)?;
-            let _ = self.mysql.sql.insert(sql);
-        }
-        model_emplace!(self.mysql, ctx, context);
-        Ok(())
+        self.mysql.emplace(ctx, context, "mysql://")
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.mysql.url.as_ref().unwrap(), "source[mysql].url");
-        valid_or_insert_error!(errors, self.mysql.output, "source[mysql].output");
+        valid_or_insert_error!(errors, self.mysql.dfname, "source[mysql].dfname");
         if let Some(model_fields) = &self.mysql.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[mysql].model.key");
@@ -102,38 +93,10 @@ impl SourceConfig for MySqlSourceConfig {
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
-        let mut queries = vec![];
-        let query = self.mysql.sql.clone().unwrap_or_else(|| {
-            let selector = if self.mysql.strict.unwrap_or(false) && self.mysql.model_fields.is_some() {
-                let vals = self
-                    .mysql
-                    .model_fields
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .map(|mf| mf.0.value().expect("source[mysql].model_fields").as_str())
-                    .collect::<Vec<_>>();
-                vals.join(", ")
-            } else {
-                "*".to_owned()
-            };
-            StrKeyword::with_value(format!(
-                "SELECT {} from {}",
-                selector,
-                self.mysql.table.value().expect("source[mysql].table")
-            ))
-        });
-        queries.push(CXQuery::from(query.value().expect("source[mysql].sql").as_str()));
-        let schema = self.mysql.model_fields.as_ref().map(|x| {
-            ModelConfig {
-                label: "".to_string(),
-                fields: x.clone(),
-            }
-            .columns()
-            .expect("failed to build schema")
-        });
+        let queries = self.mysql.src_query();
+        let schema = self.mysql.schema();
         Box::new(SqlSource {
-            output: self.mysql.output.value().expect("source[mysql].output").to_string(),
+            output: self.mysql.dfname.value().expect("source[mysql].dfname").to_string(),
             uri: self
                 .mysql
                 .url
@@ -150,20 +113,13 @@ impl SourceConfig for MySqlSourceConfig {
 
 impl SourceConfig for PostgresSourceConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        db_url_emplace!(self.postgres, ctx, context, "postgres://{}");
-        self.postgres.output.insert_value_from_context(context)?;
-        if let Some(mut sql) = self.postgres.sql.take() {
-            sql.insert_value_from_context(context)?;
-            let _ = self.postgres.sql.insert(sql);
-        }
-        model_emplace!(self.postgres, ctx, context);
-        Ok(())
+        self.postgres.emplace(ctx, context, "postgres://")
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.postgres.url.as_ref().unwrap(), "source[postgres].url");
-        valid_or_insert_error!(errors, self.postgres.output, "source[postgres].output");
+        valid_or_insert_error!(errors, self.postgres.dfname, "source[postgres].dfname");
         if let Some(model_fields) = &self.postgres.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[postgres].model.key");
@@ -173,28 +129,8 @@ impl SourceConfig for PostgresSourceConfig {
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
-        let mut queries = vec![];
-        let query = self.postgres.sql.clone().unwrap_or_else(|| {
-            let selector = if self.postgres.strict.unwrap_or(false) && self.postgres.model_fields.is_some() {
-                let vals = self
-                    .postgres
-                    .model_fields
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .map(|mf| mf.0.value().expect("source[postgres].model_fields").as_str())
-                    .collect::<Vec<_>>();
-                vals.join(", ")
-            } else {
-                "*".to_owned()
-            };
-            StrKeyword::with_value(format!(
-                "SELECT {} from {}",
-                selector,
-                self.postgres.table.value().expect("source[postgres].table")
-            ))
-        });
-        queries.push(CXQuery::from(query.value().expect("source[postgres].sql").as_str()));
+        let queries = self.postgres.src_query();
+        let schema = self.postgres.schema();
         let schema = self.postgres.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
@@ -206,9 +142,9 @@ impl SourceConfig for PostgresSourceConfig {
         Box::new(SqlSource {
             output: self
                 .postgres
-                .output
+                .dfname
                 .value()
-                .expect("source[postgres].output")
+                .expect("source[postgres].dfname")
                 .to_string(),
             uri: self
                 .postgres
@@ -234,11 +170,14 @@ mod tests {
     use crate::{
         context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry},
         model::common::{ModelConfig, ModelFields},
-        parser::keyword::{Keyword, StrKeyword},
+        parser::{
+            keyword::{Keyword, StrKeyword},
+            sql_connection::SqlConnection,
+        },
         pipeline::context::DefaultPipelineContext,
         task::source::{
             common::{Source, SourceConfig},
-            config::{MySqlSourceConfig, PostgresSourceConfig, SqlConnection},
+            config::{MySqlSourceConfig, PostgresSourceConfig},
         },
         util::{common::create_config_pack, test::tests::DbTools},
     };
@@ -306,7 +245,7 @@ mod tests {
                 // this is irrelevant
                 table: StrKeyword::with_value("table".to_owned()),
                 strict: Some(true),
-                output: StrKeyword::with_symbol("output"),
+                dfname: StrKeyword::with_symbol("output"),
                 url: Some(StrKeyword::with_symbol("url")),
                 env_connection: None,
                 model: None,
@@ -344,7 +283,7 @@ url: postgres://defuser:password@localhost:5432/defuser
                 model_fields: None,
                 table: StrKeyword::with_symbol("lookup"),
                 strict: Some(false),
-                output: StrKeyword::with_value("TEST".to_owned()),
+                dfname: StrKeyword::with_value("TEST".to_owned()),
                 url: Some(StrKeyword::with_value(
                     "postgres://defuser:password@localhost:5432/defuser".to_owned(),
                 )),
@@ -396,7 +335,7 @@ model: person
                 model_fields: Some(serde_yaml_ng::from_str::<ModelFields>("{id: uint32, amt: uint8}").unwrap()),
                 table: StrKeyword::with_value("payments".to_owned()),
                 strict: Some(false),
-                output: StrKeyword::with_symbol("output"),
+                dfname: StrKeyword::with_symbol("output"),
                 url: None,
                 env_connection: Some(StrKeyword::with_symbol("mysql_conn")),
                 model: None,

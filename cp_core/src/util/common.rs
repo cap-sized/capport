@@ -203,7 +203,7 @@ macro_rules! model_emplace {
             let _ = ($val).model.insert(model_name.clone());
         }
         if let Some(model_fields) = ($val).model_fields.take() {
-            let model = ModelConfig {
+            let model = $crate::model::common::ModelConfig {
                 label: "".to_string(),
                 fields: model_fields,
             };
@@ -224,7 +224,7 @@ macro_rules! db_url_emplace {
             ev.insert_value_from_context($context)?;
             if ($val).url.is_none() {
                 if let Some(label) = ev.value() {
-                    let url = format!($urlfmt, ($ctx).get_connection(label)?.to_url());
+                    let url = [$urlfmt.to_owned(), ($ctx).get_connection(label)?.to_url()].join("");
                     let _ = ($val).url.insert(StrKeyword::with_value(url));
                 }
             }

@@ -4,7 +4,6 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 
 use crate::{
-    model::common::ModelConfig,
     parser::keyword::Keyword,
     pipeline::context::DefaultPipelineContext,
     util::error::{CpError, CpResult},
@@ -131,14 +130,6 @@ impl SourceConfig for PostgresSourceConfig {
     fn transform(&self) -> Box<dyn Source> {
         let queries = self.postgres.src_query();
         let schema = self.postgres.schema();
-        let schema = self.postgres.model_fields.as_ref().map(|x| {
-            ModelConfig {
-                label: "".to_string(),
-                fields: x.clone(),
-            }
-            .columns()
-            .expect("failed to build schema")
-        });
         Box::new(SqlSource {
             output: self
                 .postgres

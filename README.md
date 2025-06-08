@@ -62,22 +62,22 @@ We are drastically changing the structure of capport to support
     - [x] Running SourceGroup as a stage
     - [x] JsonSource
     - [ ] CsvSource
-    - [ ] BsonSource (cp_ext)
-    - [x] PostgresSource (cp_ext)
-    - [x] MySqlSource (cp_ext)
-    - [ ] ClickhouseSource (cp_ext)
+    - [ ] BsonSource
+    - [x] PostgresSource
+    - [x] MySqlSource
+    - [ ] ClickhouseSource
 - [x] SinkGroup, method of writing data, and types
     - [x] Running SinkGroup as a stage
     - [ ] JsonSink
     - [x] CsvSink
-    - [ ] BsonSink (cp_ext)
-    - [ ] PostgresSink (cp_ext)
-    - [ ] MySqlSink (cp_ext)
-    - [ ] ClickhouseSink (cp_ext)
+    - [ ] BsonSink
+    - [ ] PostgresSink
+    - [ ] MySqlSink
+    - [ ] ClickhouseSink
 - [x] RequestGroup, method of writing data, and types
     - [x] Running RequestGroup as a stage
     - [x] HttpBatchRequest
-    - [ ] HttpSingleRequest
+    - [x] HttpSingleRequest
 - [x] PipelineRegistry
 - [ ] Synchronous schedule (per-pipeline)
 - [ ] Asynchronous schedule (per-stage)

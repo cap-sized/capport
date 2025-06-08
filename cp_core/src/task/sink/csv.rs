@@ -3,7 +3,7 @@ use std::{fs::OpenOptions, path::PathBuf, str::FromStr, sync::Arc};
 use async_trait::async_trait;
 use polars::{
     frame::DataFrame,
-    io::{SerReader, SerWriter},
+    io::SerWriter,
     prelude::CsvWriter,
 };
 
@@ -47,8 +47,8 @@ impl Sink for CsvSink {
 
     fn run(&self, dataframe: DataFrame, _ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let filepath = match self.merge_type {
-            MergeTypeEnum::Replace => OpenOptions::new().write(true).create(true).open(&self.filepath)?,
-            MergeTypeEnum::Insert => OpenOptions::new().append(true).create(true).open(&self.filepath)?,
+            MergeTypeEnum::Replace => OpenOptions::new().write(true).create(true).truncate(true).open(&self.filepath)?,
+            MergeTypeEnum::Insert => OpenOptions::new().append(true).truncate(false).open(&self.filepath)?,
             MergeTypeEnum::MakeNext => {
                 let mut fp = self.filepath.clone();
                 fp.set_file_name(format!(
@@ -63,7 +63,7 @@ impl Sink for CsvSink {
                         rng_str(6)
                     ));
                 }
-                OpenOptions::new().write(true).create(true).open(fp)?
+                OpenOptions::new().write(true).create(true).truncate(true).open(fp)?
             }
         };
         let mut writer = CsvWriter::new(filepath);

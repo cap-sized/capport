@@ -269,8 +269,10 @@ mod tests {
                 "
 - csv:
     filepath: $fp1
+    merge_type: replace
 - csv:
     filepath: $fp2
+    merge_type: replace
 ",
             )
             .unwrap(),

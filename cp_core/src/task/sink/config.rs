@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::parser::keyword::StrKeyword;
+use crate::parser::{keyword::StrKeyword, merge_type::MergeTypeEnum};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SinkGroupConfig {
@@ -13,6 +13,7 @@ pub struct SinkGroupConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct LocalFileSinkConfig {
     pub filepath: StrKeyword,
+    pub merge_type: MergeTypeEnum,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -29,7 +30,10 @@ pub struct CsvSinkConfig {
 mod tests {
 
     use crate::{
-        parser::keyword::{Keyword, StrKeyword},
+        parser::{
+            keyword::{Keyword, StrKeyword},
+            merge_type::MergeTypeEnum,
+        },
         task::sink::config::{CsvSinkConfig, JsonSinkConfig},
     };
 
@@ -39,9 +43,11 @@ mod tests {
         [
             LocalFileSinkConfig {
                 filepath: StrKeyword::with_symbol("fp"),
+                merge_type: MergeTypeEnum::MakeNext,
             },
             LocalFileSinkConfig {
                 filepath: StrKeyword::with_value("fp".to_string()),
+                merge_type: MergeTypeEnum::Replace,
             },
         ]
     }
@@ -51,10 +57,12 @@ mod tests {
             "
 {}:
     filepath: $fp
+    merge_type: next
 ",
             "
 {}:
     filepath: fp
+    merge_type: REPLACE
 ",
         ]
     }

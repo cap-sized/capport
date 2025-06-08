@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn valid_model_full_config_with_constraints() {
-        let model_config = "
+        let model_config = r#"
 label: OUTPUT
 fields: 
     $sym: 
@@ -122,11 +122,11 @@ fields:
         constraints: []
     simple: 
         dtype: str
-        constraints: [unique]
+        constraints: [primary]
     complex: 
         dtype: { list: date }
-        constraints: [foreign]
-";
+        constraints: ["not null"]
+"#;
         let expected = ModelConfig {
             label: "OUTPUT".to_owned(),
             fields: HashMap::from([
@@ -134,11 +134,11 @@ fields:
                     StrKeyword::with_symbol("sym"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::Int64), &[])),
                 ),
-                test_build_field_values_constraints!("simple", DataType::String, &[ModelConstraint::Unique]),
+                test_build_field_values_constraints!("simple", DataType::String, &[ModelConstraint::Primary]),
                 test_build_field_values_constraints!(
                     "complex",
                     DataType::List(Box::new(DataType::Date)),
-                    &[ModelConstraint::Foreign]
+                    &[ModelConstraint::NotNull]
                 ),
             ]),
         };

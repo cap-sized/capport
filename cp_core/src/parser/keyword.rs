@@ -549,21 +549,24 @@ format:
             "dtype: int64",
             "
 dtype: str
-constraints: [unique]
+constraints: [not_null]
 ",
             "
 dtype: str
-constraints: [foreign, unique]
+constraints: [primary, unique]
 ",
         ];
         let expected = [
             ModelFieldKeyword::with_symbol("test"),
             ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
             ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
-            ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::String), &[ModelConstraint::Unique])),
             ModelFieldKeyword::with_value(ModelFieldInfo::new(
                 DType(DataType::String),
-                &[ModelConstraint::Foreign, ModelConstraint::Unique],
+                &[ModelConstraint::NotNull],
+            )),
+            ModelFieldKeyword::with_value(ModelFieldInfo::new(
+                DType(DataType::String),
+                &[ModelConstraint::Primary, ModelConstraint::Unique],
             )),
         ];
         let actual = config

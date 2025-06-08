@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use crate::{model::common::ModelFields, parser::keyword::StrKeyword};
+use crate::{
+    model::common::ModelFields,
+    parser::{keyword::StrKeyword, sql_connection::SqlConnection},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SourceGroupConfig {
@@ -30,18 +33,6 @@ pub struct CsvSourceConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct SqlConnection {
-    pub url: Option<StrKeyword>,
-    pub env_connection: Option<StrKeyword>, // use a preset
-    pub output: StrKeyword,
-    pub table: StrKeyword,
-    pub sql: Option<StrKeyword>,
-    pub model: Option<StrKeyword>,
-    pub model_fields: Option<ModelFields>,
-    pub strict: Option<bool>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct PostgresSourceConfig {
     pub postgres: SqlConnection,
 }
@@ -63,10 +54,10 @@ mod tests {
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         },
-        task::source::config::{CsvSourceConfig, JsonSourceConfig, MySqlSourceConfig, PostgresSourceConfig},
+        task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{LocalFileSourceConfig, SqlConnection};
+    use super::LocalFileSourceConfig;
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -115,34 +106,6 @@ mod tests {
         ]
     }
 
-    fn get_connections() -> [SqlConnection; 2] {
-        [
-            SqlConnection {
-                table: StrKeyword::with_symbol("table"),
-                sql: Some(StrKeyword::with_value("select * from test;".to_owned())),
-                env_connection: None,
-                url: None,
-                model: None,
-                output: StrKeyword::with_value("output".to_owned()),
-                model_fields: None,
-                strict: Some(true),
-            },
-            SqlConnection {
-                table: StrKeyword::with_value("table".to_string()),
-                sql: Some(StrKeyword::with_symbol("test")),
-                env_connection: Some(StrKeyword::with_value("fallback".to_owned())),
-                url: Some(StrKeyword::with_symbol("first_priority")),
-                model: Some(StrKeyword::with_value("mymod".to_owned())),
-                output: StrKeyword::with_symbol("actual"),
-                model_fields: Some(HashMap::from([(
-                    StrKeyword::with_symbol("test"),
-                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
-                )])),
-                strict: None,
-            },
-        ]
-    }
-
     fn get_configs() -> [&'static str; 5] {
         [
             "
@@ -184,29 +147,6 @@ mod tests {
         ]
     }
 
-    fn get_connection_configs() -> [&'static str; 2] {
-        [
-            "
-{}:
-    table: $table
-    sql: select * from test;
-    output: output
-    strict: true
-",
-            "
-{}:
-    output: $actual
-    sql: $test
-    table: table
-    url: $first_priority
-    env_connection: fallback
-    model: mymod
-    model_fields: 
-        $test: int8
-",
-        ]
-    }
-
     #[test]
     fn valid_source_config_json() {
         let configs = get_configs()
@@ -235,40 +175,6 @@ mod tests {
             assert_eq!(
                 CsvSourceConfig { csv: locals[i].clone() },
                 serde_yaml_ng::from_str::<CsvSourceConfig>(&configs[i]).unwrap()
-            );
-        }
-    }
-
-    #[test]
-    fn valid_connection_config_postgres() {
-        let configs = get_connection_configs()
-            .iter()
-            .map(|c| c.replace("{}", "postgres"))
-            .collect::<Vec<String>>();
-        let locals = get_connections();
-        for i in 0..2 {
-            assert_eq!(
-                PostgresSourceConfig {
-                    postgres: locals[i].clone()
-                },
-                serde_yaml_ng::from_str::<PostgresSourceConfig>(&configs[i]).unwrap()
-            );
-        }
-    }
-
-    #[test]
-    fn valid_connection_config_mysql() {
-        let configs = get_connection_configs()
-            .iter()
-            .map(|c| c.replace("{}", "mysql"))
-            .collect::<Vec<String>>();
-        let locals = get_connections();
-        for i in 0..2 {
-            assert_eq!(
-                MySqlSourceConfig {
-                    mysql: locals[i].clone()
-                },
-                serde_yaml_ng::from_str::<MySqlSourceConfig>(&configs[i]).unwrap()
             );
         }
     }

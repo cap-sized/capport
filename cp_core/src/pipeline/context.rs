@@ -63,7 +63,7 @@ pub trait PipelineContext<
     /// The set of context signalling tools are meant to be used in async mode only.
     /// The signalling channels are unusable without calling `with_signal()` previously.
     fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo>;
-    async fn signal_replace(&self) -> CpResult<()>;
+    fn signal_replace(&self) -> CpResult<()>;
     async fn signal_terminate(&self) -> CpResult<()>;
 }
 
@@ -124,9 +124,9 @@ impl DefaultPipelineContext {
         self.connection_registry = connection_registry;
         self
     }
-    pub fn with_signal(mut self) -> Self {
+    pub fn with_signal(mut self, bufsize: usize) -> Self {
         if self.signal_state.is_none() {
-            let _ = self.signal_state.insert(SignalState::new());
+            let _ = self.signal_state.insert(SignalState::new(bufsize));
         }
         self
     }
@@ -264,10 +264,11 @@ impl<'a>
         }
     }
     fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo> {
-        self.signal().sig_recver.clone()
+        let recver = self.signal().sig_recver.clone();
+        recver.activate()
     }
-    async fn signal_replace(&self) -> CpResult<()> {
-        self.signal().send_replace_signal().await
+    fn signal_replace(&self) -> CpResult<()> {
+        self.signal().send_replace_signal()
     }
     async fn signal_terminate(&self) -> CpResult<()> {
         self.signal().send_terminate_signal().await

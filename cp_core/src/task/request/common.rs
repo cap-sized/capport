@@ -433,8 +433,9 @@ mod tests {
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
         let event = async || {
-            let ctx =
-                Arc::new(DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 2).with_signal());
+            let ctx = Arc::new(
+                DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 2).with_signal(2),
+            );
             let ictx = ctx.clone();
             ctx.insert_result("next", default_next().lazy()).unwrap();
             ctx.insert_result("df", default_df().lazy()).unwrap();

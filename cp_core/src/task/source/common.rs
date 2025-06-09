@@ -435,7 +435,7 @@ mod tests {
         let rt = rt_builder.build().unwrap();
         let event = async || {
             let ctx = Arc::new(
-                DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(),
+                DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(2),
             );
             let ictx = ctx.clone();
             ctx.insert_result("df", default_df().lazy()).unwrap();
@@ -456,7 +456,7 @@ mod tests {
                 assert_frame_equal(ctx.extract_clone_result("test_df").unwrap(), default_df());
             };
             let terminator = async move || {
-                match ictx.signal_replace().await {
+                match ictx.signal_replace() {
                     Ok(_) => log::info!("Replace signal successfully sent"),
                     Err(e) => log::error!("Error signalling replace: {}", e),
                 };

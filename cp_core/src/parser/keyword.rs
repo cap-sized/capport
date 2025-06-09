@@ -463,7 +463,19 @@ format:
     columns: [one, two, three.not.nested]
 ";
         let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
-        let expected_expr = format_str("Hi {} {} {}", ["one", "two", "three.not.nested"].map(col)).unwrap();
+        let expected_expr = format_str(
+            "Hi {} {} {}",
+            [
+                col("one"),
+                col("two"),
+                col("three")
+                    .struct_()
+                    .field_by_name("not")
+                    .struct_()
+                    .field_by_name("nested"),
+            ],
+        )
+        .unwrap();
         assert_eq!(action.value().unwrap(), &expected_expr);
     }
 
@@ -475,7 +487,19 @@ concat:
     columns: [one, two, three.not.nested]
 ";
         let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
-        let expected_expr = concat_str(["one", "two", "three.not.nested"].map(col), ",", false);
+        let expected_expr = concat_str(
+            [
+                col("one"),
+                col("two"),
+                col("three")
+                    .struct_()
+                    .field_by_name("not")
+                    .struct_()
+                    .field_by_name("nested"),
+            ],
+            ",",
+            false,
+        );
         assert_eq!(action.value().unwrap(), &expected_expr);
     }
 

@@ -116,7 +116,7 @@ impl Logger {
 
         match dispatch.apply() {
             Ok(_) => {
-                println!("Log: {}", self._final_output_path.as_ref().unwrap());
+                println!("{:?}", self);
                 Ok(())
             }
             Err(e) => Err(CpError::ComponentError(

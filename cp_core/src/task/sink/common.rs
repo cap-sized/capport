@@ -85,8 +85,8 @@ impl Stage for SinkGroup {
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
+            &self.max_threads,
             &self.label,
-            &self.max_threads
         );
         let result_name = self.result_name.as_str();
         let label = self.label.as_str();
@@ -374,7 +374,7 @@ mod tests {
         let rt = rt_builder.build().unwrap();
         let event = async || {
             let ctx =
-                Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal());
+                Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal(2));
             let ictx = ctx.clone();
             let iictx = ctx.clone();
             let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();

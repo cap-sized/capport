@@ -5,6 +5,9 @@ logger:
   default:
     level: debug
     output_path_prefix: ""
+  higher:
+    level: info
+    output_path_prefix: ""
 
 runner:
   demo-run-once:
@@ -14,5 +17,6 @@ runner:
     logger: default
     mode: debug
   demo-run-loop:
-    logger: default
+    logger: higher
     mode: loop
+    schedule: "1/1 * * * * *"

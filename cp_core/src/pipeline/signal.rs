@@ -1,4 +1,4 @@
-use async_broadcast::{Receiver, Sender};
+use async_broadcast::{InactiveReceiver, Sender};
 use chrono::Utc;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -15,31 +15,30 @@ pub enum SignalStateType {
 
 pub struct SignalState {
     pub sig_sender: Sender<FrameUpdateInfo>,
-    pub sig_recver: Receiver<FrameUpdateInfo>,
+    pub sig_recver: InactiveReceiver<FrameUpdateInfo>,
 }
 
 impl Default for SignalState {
     fn default() -> Self {
-        Self::new()
+        Self::new(2)
     }
 }
 
 impl SignalState {
-    pub fn new() -> Self {
-        let (sig_sender, sig_recver) = async_broadcast::broadcast(2);
-        Self { sig_sender, sig_recver }
+    pub fn new(bufsize: usize) -> Self {
+        let (sig_sender, sig_recver) = async_broadcast::broadcast(bufsize);
+        Self {
+            sig_sender,
+            sig_recver: sig_recver.deactivate(),
+        }
     }
 
-    pub async fn send_replace_signal(&self) -> CpResult<()> {
-        match self
-            .sig_sender
-            .broadcast(FrameUpdateInfo {
-                source: "REPLACE".to_owned(),
-                timestamp: Utc::now(),
-                msg_type: FrameUpdateType::Replace,
-            })
-            .await
-        {
+    pub fn send_replace_signal(&self) -> CpResult<()> {
+        match self.sig_sender.try_broadcast(FrameUpdateInfo {
+            source: "REPLACE".to_owned(),
+            timestamp: Utc::now(),
+            msg_type: FrameUpdateType::Replace,
+        }) {
             Ok(_) => Ok(()),
             Err(e) => Err(CpError::ComponentError("Signal replace failed", e.to_string())),
         }

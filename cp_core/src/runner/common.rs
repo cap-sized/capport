@@ -1,5 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
+use chrono::{DateTime, Local};
 use serde::Deserialize;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
@@ -111,7 +112,7 @@ impl Runner {
     pub fn start_log(&mut self) -> CpResult<()> {
         let logger_name = self.config.logger.as_str();
         let console_logger_name = if self.logger_registry.get_logger(logger_name).is_some() {
-            "default"
+            logger_name
         } else {
             DEFAULT_CONSOLE_LOGGER_NAME
         };
@@ -126,7 +127,7 @@ impl Runner {
         log::info!("Run Mode: {:?}", mode);
         let pipeline = Pipeline::new(&self.pipeline_config);
         let pctx = if mode == RunModeEnum::Loop {
-            self.pipeline_context.with_signal()
+            self.pipeline_context.with_signal(2)
         } else {
             self.pipeline_context
         };
@@ -152,6 +153,7 @@ pub fn async_runner(
     let event_loop = async move {
         let scheduler = JobScheduler::new().await.expect("failed to create scheduler");
         if let Some(schedule) = cron {
+            log::info!("Schedule: {}", schedule);
             let timezone = if let Some(t) = tz {
                 chrono_tz::Tz::from_str(t).expect("Bad timezone")
             } else {
@@ -160,11 +162,18 @@ pub fn async_runner(
             let sctx = ctx.clone();
             scheduler
                 .add(
-                    Job::new_async_tz(schedule, timezone, move |_, _| {
+                    Job::new_async_tz(schedule, timezone, move |uuid, mut l| {
                         let asctx = sctx.clone();
+                        println!("fired");
                         Box::pin(async move {
-                            match asctx.clone().signal_replace().await {
-                                Ok(_) => log::info!("signal_replace"),
+                            match asctx.clone().signal_replace() {
+                                Ok(_) => log::info!(
+                                    "signal_replace, next signal in {:?}",
+                                    l.next_tick_for_job(uuid).await.map(|x| x.map_or("?".to_owned(), |f| {
+                                        let converted: DateTime<Local> = DateTime::from(f);
+                                        format!("{} ({:?})", converted.to_string(), converted.timezone())
+                                    }))
+                                ),
                                 Err(e) => log::error!("Failed to signal_replace: {}", e),
                             };
                         })
@@ -173,9 +182,10 @@ pub fn async_runner(
                 )
                 .await
                 .expect("failed to add job");
+        } else {
+            panic!("No schedule provided for async run");
         }
-
-        // let src_trigger = async
+        scheduler.start().await.expect("failed to start scheduler");
         let run = async || pipeline.async_exec(ctx.clone()).await;
         let terminator = async || ctx.signal().sigterm_listen().await;
         tokio::join!(run(), terminator());

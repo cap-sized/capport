@@ -29,7 +29,7 @@ use crate::{
     util::{args::RunPipelineArgs, error::CpResult},
 };
 
-const CHANNEL_BUFSIZE: usize = 1000;
+const CHANNEL_BUFSIZE: usize = 10;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct RunnerConfig {
@@ -127,7 +127,7 @@ impl Runner {
         log::info!("Run Mode: {:?}", mode);
         let pipeline = Pipeline::new(&self.pipeline_config);
         let pctx = if mode == RunModeEnum::Loop {
-            self.pipeline_context.with_signal(2)
+            self.pipeline_context.with_signal(CHANNEL_BUFSIZE)
         } else {
             self.pipeline_context
         };

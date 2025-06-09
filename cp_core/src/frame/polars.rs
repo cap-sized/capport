@@ -19,7 +19,7 @@ pub struct PolarsPipelineFrame {
     sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
     receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
     asender: async_broadcast::Sender<FrameUpdateInfo>,
-    areceiver: async_broadcast::Receiver<FrameUpdateInfo>,
+    areceiver: async_broadcast::InactiveReceiver<FrameUpdateInfo>,
 }
 
 #[derive(Clone)]
@@ -171,7 +171,7 @@ impl PolarsPipelineFrame {
             sender,
             receiver,
             asender,
-            areceiver,
+            areceiver: areceiver.deactivate(),
         }
     }
 
@@ -221,7 +221,7 @@ impl<'a>
         PolarsAsyncListenHandle {
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
-            receiver: self.areceiver.clone(),
+            receiver: self.areceiver.clone().activate(),
             lf: self.lf.clone(),
         }
     }

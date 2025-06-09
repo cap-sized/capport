@@ -26,7 +26,8 @@ impl Default for SignalState {
 
 impl SignalState {
     pub fn new(bufsize: usize) -> Self {
-        let (sig_sender, sig_recver) = async_broadcast::broadcast(bufsize);
+        let (mut sig_sender, sig_recver) = async_broadcast::broadcast(bufsize);
+        sig_sender.set_overflow(true);
         Self {
             sig_sender,
             sig_recver: sig_recver.deactivate(),
@@ -40,7 +41,10 @@ impl SignalState {
             msg_type: FrameUpdateType::Replace,
         }) {
             Ok(_) => Ok(()),
-            Err(e) => Err(CpError::ComponentError("Signal replace failed", e.to_string())),
+            Err(e) => Err(CpError::ComponentError(
+                "Signal replace failed",
+                format!("{}\n{:?}", e, self.sig_recver),
+            )),
         }
     }
 

@@ -264,8 +264,7 @@ impl<'a>
         }
     }
     fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo> {
-        let recver = self.signal().sig_recver.clone();
-        recver.activate()
+        self.signal().sig_recver.clone().activate()
     }
     fn signal_replace(&self) -> CpResult<()> {
         self.signal().send_replace_signal()

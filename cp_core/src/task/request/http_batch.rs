@@ -233,7 +233,10 @@ impl Request for HttpBatchRequest {
             frame
         };
         let mut bcast = ctx.get_async_broadcast(self.name(), self.connection_type())?;
-        bcast.broadcast(frame_modelled.clone()).await?;
+        match bcast.broadcast(frame_modelled.clone()) {
+            Ok(_) => log::info!("Sent update for frame {}", &self.output),
+            Err(e) => log::error!("{}: {:?}", &self.output, e),
+        };
         Ok(())
     }
 }

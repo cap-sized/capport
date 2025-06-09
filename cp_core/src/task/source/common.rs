@@ -151,7 +151,7 @@ impl Stage for SourceGroup {
                                         return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
                                     }
                                 };
-                                bcast.kill().await?;
+                                bcast.kill()?;
                                 log::info!("Sent termination signal for frame {}", source.0.name());
                                 Ok(())
                             },
@@ -174,8 +174,10 @@ impl Stage for SourceGroup {
                                 };
                                 match source.0.fetch(ctx.clone()).await {
                                     Ok(lf) => {
-                                        bcast.broadcast(lf).await?;
-                                        log::info!("Sent update for frame {}", source.0.name());
+                                        match bcast.broadcast(lf) {
+                                            Ok(_) => log::info!("Sent update for frame {}", source.0.name()),
+                                            Err(e) => log::error!("{}: {:?}", source.0.name(), e),
+                                        }
                                         Ok(())
                                     }
                                     Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
@@ -440,7 +442,7 @@ mod tests {
             let ictx = ctx.clone();
             ctx.insert_result("df", default_df().lazy()).unwrap();
             let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
-            next_handle.broadcast(default_next().lazy()).await.unwrap();
+            next_handle.broadcast(default_next().lazy()).unwrap();
             let mock_src_df = MockSource::from("test_df", &["df"]);
             let mock_src_next = MockSource::from("test_next", &["next"]);
             let mock_src = MockSource::new("df");

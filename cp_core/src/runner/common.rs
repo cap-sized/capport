@@ -164,14 +164,13 @@ pub fn async_runner(
                 .add(
                     Job::new_async_tz(schedule, timezone, move |uuid, mut l| {
                         let asctx = sctx.clone();
-                        println!("fired");
                         Box::pin(async move {
                             match asctx.clone().signal_replace() {
                                 Ok(_) => log::info!(
                                     "signal_replace, next signal in {:?}",
                                     l.next_tick_for_job(uuid).await.map(|x| x.map_or("?".to_owned(), |f| {
                                         let converted: DateTime<Local> = DateTime::from(f);
-                                        format!("{} ({:?})", converted.to_string(), converted.timezone())
+                                        format!("{} ({:?})", converted, converted.timezone())
                                     }))
                                 ),
                                 Err(e) => log::error!("Failed to signal_replace: {}", e),

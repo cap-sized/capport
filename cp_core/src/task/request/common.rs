@@ -73,7 +73,11 @@ impl Stage for RequestGroup {
         log::info!("INPUT `{}`: {:?}", &self.label, lf.clone().collect());
         for req in &self.requests {
             req.0.run(lf.clone(), ctx.clone())?;
-            log::info!("OUTPUT `{}`: {:?}", &self.label, ctx.extract_clone_result(req.0.name()));
+            log::info!(
+                "OUTPUT `{}`: {:?}",
+                &self.label,
+                ctx.extract_clone_result(req.0.name()).expect("request")
+            );
             log::info!(
                 "Success pushing frame update to {}: {}",
                 req.0.connection_type(),
@@ -160,7 +164,7 @@ impl Stage for RequestGroup {
                                     return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
                                 }
                             };
-                            bcast.kill().await?;
+                            bcast.kill()?;
                             log::info!("Sent termination signal for frame {}", breq.0.name());
                         }
                     }
@@ -253,7 +257,7 @@ mod tests {
 
     use crate::{
         context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle},
         model::common::ModelConfig,
         parser::keyword::{Keyword, StrKeyword},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
@@ -341,7 +345,10 @@ mod tests {
             )
             .unwrap();
             let mut bcast = ctx.get_async_broadcast(&self.out, self.connection_type())?;
-            bcast.broadcast(result).await?;
+            match bcast.broadcast(result) {
+                Ok(_) => log::info!("Sent update for frame {}", &self.out),
+                Err(e) => log::error!("{}: {:?}", &self.out, e),
+            }
             Ok(())
         }
     }
@@ -429,13 +436,12 @@ mod tests {
         rt_builder.enable_all();
         let rt = rt_builder.build().unwrap();
         let event = async || {
-            let ctx =
-                Arc::new(DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 2).with_signal());
+            let ctx = Arc::new(
+                DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 6).with_signal(2),
+            );
             let ictx = ctx.clone();
             ctx.insert_result("next", default_next().lazy()).unwrap();
             ctx.insert_result("df", default_df().lazy()).unwrap();
-            let mut in_handle = ctx.get_async_broadcast("in", "orig").unwrap();
-            in_handle.broadcast(default_in().lazy()).await.unwrap();
             let req1 = MockRequest::new("mock", "df");
             let req2 = MockRequest::new("final", "next");
             let req = RequestGroup::new("in", "root", 1, vec![Box::new(req1), Box::new(req2)]);
@@ -447,8 +453,11 @@ mod tests {
                 assert_frame_equal(ictx.extract_clone_result("final").unwrap(), actual_2);
             };
             let terminator = async move || {
-                let mut inh = ctx.get_async_broadcast("in", "orig").unwrap();
-                inh.kill().await.unwrap();
+                let mut in_handle = ctx.get_async_broadcast("in", "orig").unwrap();
+                let mut _dummy = ctx.get_async_listener("final", "orig").unwrap();
+                in_handle.broadcast(default_in().lazy()).unwrap();
+                let _ = _dummy.listen().await.unwrap();
+                in_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
         };

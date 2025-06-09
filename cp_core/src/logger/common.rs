@@ -1,5 +1,4 @@
 use fern::colors::{Color, ColoredLevelConfig};
-use log::info;
 use serde::{Deserialize, Deserializer, de};
 
 use crate::util::{
@@ -103,21 +102,21 @@ impl Logger {
             });
         let dispatch = match &self.get_full_path(pipeline_name) {
             Some(full_file_path) => {
-                let d = if to_stdout {
-                    base_dispatch.chain(std::io::stdout())
-                } else {
-                    base_dispatch
-                };
                 let outfile = fern::log_file(full_file_path)?;
                 self._final_output_path = Some(full_file_path.to_owned());
-                d.chain(outfile)
+                let new_dispatch = base_dispatch.chain(outfile);
+                if to_stdout {
+                    new_dispatch.chain(std::io::stdout())
+                } else {
+                    new_dispatch
+                }
             }
             None => base_dispatch.chain(std::io::stdout()),
         };
 
         match dispatch.apply() {
             Ok(_) => {
-                info!("Log recording into {}", self._final_output_path.as_ref().unwrap());
+                println!("{:?}", self);
                 Ok(())
             }
             Err(e) => Err(CpError::ComponentError(

@@ -44,13 +44,13 @@ pub struct ModelConfig {
 impl ModelConfig {
     pub fn schema(&self) -> CpResult<Schema> {
         let mut schema = Schema::with_capacity(self.fields.len());
-        for (field_name, field_detail) in &self.fields {
+        for (idx, (field_name, field_detail)) in self.fields.iter().enumerate() {
             let name = field_name
                 .value()
                 .expect("value not present for model field_name")
                 .as_str();
             let detail = field_detail.value().expect("value not present for model field_detail");
-            schema.insert(name.into(), detail.dtype.0.clone());
+            schema.insert_at_index(idx, name.into(), detail.dtype.0.clone())?;
         }
         Ok(schema)
     }

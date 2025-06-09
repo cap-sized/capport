@@ -67,10 +67,8 @@ pub trait FrameBroadcastHandle<'a, FrameType> {
 
 /// Trait for broadcast handles
 pub trait FrameAsyncBroadcastHandle<'a, FrameType> {
-    #[allow(async_fn_in_trait)]
-    async fn broadcast(&mut self, frame: FrameType) -> CpResult<()>;
-    #[allow(async_fn_in_trait)]
-    async fn kill(&mut self) -> CpResult<()>;
+    fn broadcast(&mut self, frame: FrameType) -> CpResult<()>;
+    fn kill(&mut self) -> CpResult<()>;
 }
 
 /// Trait for listening handles

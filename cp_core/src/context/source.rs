@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use polars::prelude::{IntoVec, PlSmallStr};
+
 use crate::{
     parser::common::YamlRead,
     task::source::config::SourceGroupConfig,
@@ -36,6 +38,9 @@ impl SourceRegistry {
         };
         reg.extract_parse_config(config_pack)?;
         Ok(reg)
+    }
+    pub fn keys(&self) -> Vec<PlSmallStr> {
+        self.configs.keys().into_vec()
     }
     pub fn get_source_config(&self, source_name: &str) -> Option<SourceGroupConfig> {
         self.configs.get(source_name).map(|x| x.to_owned())

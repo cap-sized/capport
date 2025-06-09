@@ -1,6 +1,6 @@
 use polars::prelude::*;
 
-use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
+use super::config::{DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
 use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
@@ -52,9 +52,14 @@ impl Stage for RootTransform {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized: {}", &self.label);
         let input = ctx.extract_result(&self.input)?;
-        log::info!("INPUT `{}`: {:?}", &self.label, input.clone().collect());
+        log::info!(
+            "INPUT `{}`: {:?}",
+            &self.label,
+            input.clone().collect().expect("before transform")
+        );
         let output = self.run(input, ctx.clone())?;
-        log::info!("OUTPUT `{}`: {:?}", &self.label, output.clone().collect());
+        let df = output.clone().collect().expect("transform");
+        log::info!("OUTPUT `{}`: {:?}", &self.label, df);
         ctx.insert_result(&self.output, output)
     }
     /// The synchronous, concurrent execution listens to input for the initial frame, and broadcasts to output
@@ -85,12 +90,15 @@ impl Stage for RootTransform {
                     let input = update.frame.read()?.clone();
                     let output = self.run(input, ctx.clone())?;
                     log::trace!("BCAST RootTransform handle {} to: {:?}", &self.label, &self.output);
-                    output_broadcast.broadcast(output).await?;
+                    match output_broadcast.broadcast(output) {
+                        Ok(_) => log::info!("Sent update for frame {}", &self.output),
+                        Err(e) => log::error!("{}: {:?}", &self.output, e),
+                    };
                     loops += 1;
                 }
                 FrameUpdateType::Kill => {
                     log::info!("Stage killed after {} iterations: {}", loops, &self.label);
-                    output_broadcast.kill().await.unwrap();
+                    output_broadcast.kill().unwrap();
                     return Ok(loops);
                 }
             }
@@ -119,7 +127,8 @@ impl RootTransformConfig {
                     transform,
                     dyn TransformConfig,
                     SelectTransformConfig,
-                    JoinTransformConfig
+                    JoinTransformConfig,
+                    DropTransformConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
@@ -250,18 +259,15 @@ mod tests {
         let event = async || {
             let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 2));
             let lctx = ctx.clone();
-            let bctx = ctx.clone();
             let fctx = ctx.clone();
             let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
-            let bhandle = async move || {
-                let mut broadcast = bctx.get_async_broadcast("orig", "source").unwrap();
-                broadcast.broadcast(expected().lazy()).await.unwrap();
-            };
             let lhandle = async move || {
                 let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
                 assert_eq!(trf.async_exec(lctx).await.unwrap(), 1);
             };
             let thandle = async move || {
+                let mut broadcast = fctx.get_async_broadcast("orig", "source").unwrap();
+                broadcast.broadcast(expected().lazy()).unwrap();
                 let mut listener = fctx.get_async_listener("actual", "killer").unwrap();
                 let mut killer = fctx.get_async_broadcast("orig", "killer").unwrap();
                 let update = listener.listen().await.unwrap();
@@ -271,9 +277,9 @@ mod tests {
                     assert_eq!(actual, expected());
                 }
                 log::debug!("AWAIT handle killer");
-                killer.kill().await.unwrap();
+                killer.kill().unwrap();
             };
-            tokio::join!(bhandle(), lhandle(), thandle());
+            tokio::join!(lhandle(), thandle());
         };
         rt.block_on(event());
     }

@@ -12,7 +12,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::config::{JsonSourceConfig, SourceGroupConfig};
+use super::config::{CsvSourceConfig, JsonSourceConfig, SourceGroupConfig};
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
 /// If it receives a termination signal, it is the source type's responsibility to clean up and
@@ -90,7 +90,7 @@ impl Stage for SourceGroup {
             log::info!(
                 "OUTPUT `{}`: {:?}",
                 &self.label,
-                ctx.extract_clone_result(source.0.name())
+                ctx.extract_clone_result(source.0.name()).expect("source")
             );
         }
         Ok(())
@@ -151,7 +151,7 @@ impl Stage for SourceGroup {
                                         return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
                                     }
                                 };
-                                bcast.kill().await?;
+                                bcast.kill()?;
                                 log::info!("Sent termination signal for frame {}", source.0.name());
                                 Ok(())
                             },
@@ -174,8 +174,10 @@ impl Stage for SourceGroup {
                                 };
                                 match source.0.fetch(ctx.clone()).await {
                                     Ok(lf) => {
-                                        bcast.broadcast(lf).await?;
-                                        log::info!("Sent update for frame {}", source.0.name());
+                                        match bcast.broadcast(lf) {
+                                            Ok(_) => log::info!("Sent update for frame {}", source.0.name()),
+                                            Err(e) => log::error!("{}: {:?}", source.0.name(), e),
+                                        }
                                         Ok(())
                                     }
                                     Err(e) => Err(CpError::PipelineError("Fetch source failed", e.to_string())),
@@ -201,7 +203,7 @@ impl SourceGroupConfig {
         self.sources
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig);
+                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig, CsvSourceConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",
@@ -435,12 +437,12 @@ mod tests {
         let rt = rt_builder.build().unwrap();
         let event = async || {
             let ctx = Arc::new(
-                DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(),
+                DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(2),
             );
             let ictx = ctx.clone();
             ctx.insert_result("df", default_df().lazy()).unwrap();
             let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
-            next_handle.broadcast(default_next().lazy()).await.unwrap();
+            next_handle.broadcast(default_next().lazy()).unwrap();
             let mock_src_df = MockSource::from("test_df", &["df"]);
             let mock_src_next = MockSource::from("test_next", &["next"]);
             let mock_src = MockSource::new("df");
@@ -456,7 +458,7 @@ mod tests {
                 assert_frame_equal(ctx.extract_clone_result("test_df").unwrap(), default_df());
             };
             let terminator = async move || {
-                match ictx.signal_replace().await {
+                match ictx.signal_replace() {
                     Ok(_) => log::info!("Replace signal successfully sent"),
                     Err(e) => log::error!("Error signalling replace: {}", e),
                 };
@@ -481,11 +483,18 @@ mod tests {
     filepath: /fp
     output: SAMPLE
     model: test
-- json:
+- csv:
     filepath: /fp
     output: $output
     model: test
 - json:
+    filepath: /fp
+    output: $output
+    model: test
+    model_fields: 
+        aaa: int64
+        bbb: str
+- csv:
     filepath: /fp
     output: $output
     model: test
@@ -507,7 +516,7 @@ mod tests {
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
         let actual = sgconfig.parse(&ctx, &context).unwrap();
-        assert_eq!(actual.sources.len(), 4);
+        assert_eq!(actual.sources.len(), 5);
     }
 
     #[test]

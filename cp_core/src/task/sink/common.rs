@@ -68,7 +68,7 @@ impl SinkGroup {
 impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
-        let dataframe = ctx.extract_clone_result(&self.result_name)?;
+        let dataframe = ctx.extract_clone_result(&self.result_name).expect("sink");
         log::info!("INPUT `{}`: {:?}", &self.label, dataframe);
         for sink in &self.sinks {
             sink.0.run(dataframe.clone(), ctx.clone())?;
@@ -85,8 +85,8 @@ impl Stage for SinkGroup {
     fn sync_exec(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!(
             "Stage initialized [max_threads: {}]: {}",
+            &self.max_threads,
             &self.label,
-            &self.max_threads
         );
         let result_name = self.result_name.as_str();
         let label = self.label.as_str();
@@ -374,15 +374,11 @@ mod tests {
         let rt = rt_builder.build().unwrap();
         let event = async || {
             let ctx =
-                Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal());
+                Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal(2));
             let ictx = ctx.clone();
-            let iictx = ctx.clone();
-            let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
-            next_handle.broadcast(default_next().lazy()).await.unwrap();
             let mnext1 = Box::new(MockSink::new("next1"));
             let mnext2 = Box::new(MockSink::new("next2"));
             let mnext3 = Box::new(MockSink::new("next3"));
-            // let snk = SinkGroup::new("next", "msink", 1, vec![mnext1]);
             let snk = SinkGroup::new("next", "msink", 1, vec![mnext1, mnext2, mnext3]);
             let action_path = async move || {
                 // This will NOT work with linear! mock_src depends on mock_src_df
@@ -392,8 +388,9 @@ mod tests {
                 assert_eq!(ictx.extract_clone_result("next3").unwrap(), default_next());
             };
             let terminator = async move || {
-                let mut kill_handle = iictx.get_async_broadcast("next", "orig").unwrap();
-                kill_handle.kill().await.unwrap();
+                let mut next_handle = ctx.get_async_broadcast("next", "orig").unwrap();
+                next_handle.broadcast(default_next().lazy()).unwrap();
+                next_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
         };

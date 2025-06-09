@@ -19,7 +19,7 @@ pub struct PolarsPipelineFrame {
     sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
     receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
     asender: async_broadcast::Sender<FrameUpdateInfo>,
-    areceiver: async_broadcast::Receiver<FrameUpdateInfo>,
+    areceiver: async_broadcast::InactiveReceiver<FrameUpdateInfo>,
 }
 
 #[derive(Clone)]
@@ -75,7 +75,7 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
 }
 
 impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle<'a> {
-    async fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
+    fn broadcast(&mut self, frame: LazyFrame) -> CpResult<()> {
         // blocks until all other readers/writers are done
         {
             let mut lf = self.lf.write()?;
@@ -86,15 +86,35 @@ impl<'a> FrameAsyncBroadcastHandle<'a, LazyFrame> for PolarsAsyncBroadcastHandle
         // informs all readers
         let update = FrameUpdateInfo::new(self.handle_name.as_str());
         log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
-        let _ = self.sender.broadcast(update).await;
-        Ok(())
+        match self.sender.try_broadcast(update) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if e.is_disconnected() {
+                    log::debug!("({}) {}: {}", &self.handle_name, &self.result_label, e);
+                    Ok(())
+                } else {
+                    Err(CpError::PipelineError("Failed to broadcast replace", e.to_string()))
+                }
+            }
+        }
     }
 
-    async fn kill(&mut self) -> CpResult<()> {
+    fn kill(&mut self) -> CpResult<()> {
         let update = FrameUpdateInfo::kill(self.handle_name.as_str());
-        let _ = self.sender.broadcast(update).await;
-        log::debug!("Kill sent from {}: {}", &self.handle_name, &self.result_label);
-        Ok(())
+        match self.sender.try_broadcast(update) {
+            Ok(_) => {
+                log::debug!("Kill sent from {}: {}", &self.handle_name, &self.result_label);
+                Ok(())
+            }
+            Err(e) => {
+                if e.is_disconnected() {
+                    log::debug!("({}) {}: {}", &self.handle_name, &self.result_label, e);
+                    Ok(())
+                } else {
+                    Err(CpError::PipelineError("Failed to broadcast replace", e.to_string()))
+                }
+            }
+        }
     }
 }
 
@@ -162,7 +182,8 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
 impl PolarsPipelineFrame {
     pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
         let (sender, receiver) = multiqueue::broadcast_queue(bufsize as u64);
-        let (asender, areceiver) = async_broadcast::broadcast(bufsize);
+        let (mut asender, areceiver) = async_broadcast::broadcast(bufsize);
+        asender.set_overflow(true);
         Self {
             label: label.to_owned(),
             lf: Arc::new(RwLock::new(lf.clone())),
@@ -171,7 +192,7 @@ impl PolarsPipelineFrame {
             sender,
             receiver,
             asender,
-            areceiver,
+            areceiver: areceiver.deactivate(),
         }
     }
 
@@ -221,7 +242,7 @@ impl<'a>
         PolarsAsyncListenHandle {
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
-            receiver: self.areceiver.clone(),
+            receiver: self.areceiver.clone().activate(),
             lf: self.lf.clone(),
         }
     }

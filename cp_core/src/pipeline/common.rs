@@ -496,7 +496,7 @@ stages:
                 &output_fp1.filepath,
                 &output_fp2.filepath,
             );
-            let pctx = get_ctx(3).with_signal();
+            let pctx = get_ctx(3).with_signal(2);
             let ctx = pipeline.prepare_results(pctx, 2).unwrap();
 
             let ictx = ctx.clone();
@@ -517,7 +517,7 @@ stages:
                 assert_frame_equal(get_expected(), csv_fp2.finish().unwrap());
             };
             let terminator = async move || {
-                iictx.signal_replace().await.unwrap();
+                iictx.signal_replace().unwrap();
                 iictx.signal_terminate().await.unwrap();
             };
             tokio::join!(action_path(), terminator());

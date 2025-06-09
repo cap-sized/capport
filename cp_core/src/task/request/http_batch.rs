@@ -5,7 +5,7 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use reqwest::header::HeaderValue;
 
 use crate::{
-    ctx_run_n_async, ctx_run_n_threads,
+    ctx_run_n_async,
     frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
     model::common::ModelConfig,
     model_emplace,
@@ -23,7 +23,6 @@ use super::{
     config::HttpBatchConfig,
 };
 
-const DEFAULT_HTTP_REQ_WORKERS: u8 = 8;
 const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 8;
 const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
 
@@ -32,7 +31,6 @@ pub struct HttpBatchRequest {
     output: String,
     content_type: String,
     schema: Option<Vec<Expr>>,
-    workers: u8,
     max_retry: u8,
     init_retry_interval_ms: u64,
 }
@@ -143,58 +141,18 @@ pub async fn async_url(
     )))
 }
 
-fn sync_urls(
-    urls: Vec<String>,
-    max_threads: u8,
-    max_retry: u8,
-    retry_interval: u64,
-    content_type: &str,
-) -> CpResult<LazyFrame> {
-    let results: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
-    let errors: Arc<Mutex<Vec<CpError>>> = Arc::new(Mutex::new(vec![]));
-    type UrlResErrType<'a> = (&'a [String], Arc<Mutex<Vec<String>>>, Arc<Mutex<Vec<CpError>>>);
-    ctx_run_n_threads!(
-        max_threads,
-        urls.as_slice(),
-        move |(urls, resps, errs): UrlResErrType| {
-            let client = reqwest::blocking::Client::new();
-            for url in urls {
-                match sync_url(&client, url, max_retry, retry_interval, content_type) {
-                    Ok(result) => resps.lock()?.push(result),
-                    Err(e) => errs.lock()?.push(e),
-                }
-            }
-            Ok::<(), CpError>(())
-        },
-        results.clone(),
-        errors.clone()
-    );
-    errors.lock()?.iter().for_each(|e| {
-        log::error!("{}", e);
-    });
-    match content_type {
-        "application/json" => {
-            let df = vec_str_json_to_df(results.lock()?.as_slice())?;
-            Ok(df.lazy())
-        }
-        invalid => Err(CpError::TaskError(
-            "Invalid content type",
-            format!("Parsing of this content type as a dataframe not supported: {}", invalid),
-        )),
-    }
+fn sync_urls(urls: Vec<String>, max_retry: u8, retry_interval: u64, content_type: &str) -> CpResult<LazyFrame> {
+    let mut rt_builder = tokio::runtime::Builder::new_multi_thread();
+    rt_builder.enable_all();
+    let rt = rt_builder.build().unwrap();
+    rt.block_on(async move { async_urls(urls, max_retry, retry_interval, content_type).await })
 }
 
-async fn async_urls(
-    urls: Vec<String>,
-    max_threads: u8,
-    max_retry: u8,
-    retry_interval: u64,
-    content_type: &str,
-) -> CpResult<LazyFrame> {
+async fn async_urls(urls: Vec<String>, max_retry: u8, retry_interval: u64, content_type: &str) -> CpResult<LazyFrame> {
     let results: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
     let errors: Arc<Mutex<Vec<CpError>>> = Arc::new(Mutex::new(vec![]));
     ctx_run_n_async!(
-        max_threads,
+        urls.len(),
         urls.as_slice(),
         async move |url: &String, resps: Arc<Mutex<Vec<String>>>, errs: Arc<Mutex<Vec<CpError>>>| {
             let client = reqwest::Client::new();
@@ -255,13 +213,7 @@ impl Request for HttpBatchRequest {
 
     fn run(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let urls = get_urls(frame, self.url_column.clone())?;
-        let frame = sync_urls(
-            urls,
-            self.workers,
-            self.max_retry,
-            self.init_retry_interval_ms,
-            &self.content_type,
-        )?;
+        let frame = sync_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type)?;
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
@@ -274,21 +226,17 @@ impl Request for HttpBatchRequest {
 
     async fn fetch(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         let urls = get_urls(frame, self.url_column.clone())?;
-        let frame = async_urls(
-            urls,
-            self.workers,
-            self.max_retry,
-            self.init_retry_interval_ms,
-            &self.content_type,
-        )
-        .await?;
+        let frame = async_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type).await?;
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
             frame
         };
         let mut bcast = ctx.get_async_broadcast(self.name(), self.connection_type())?;
-        bcast.broadcast(frame_modelled.clone()).await?;
+        match bcast.broadcast(frame_modelled.clone()) {
+            Ok(_) => log::info!("Sent update for frame {}", &self.output),
+            Err(e) => log::error!("{}: {:?}", &self.output, e),
+        };
         Ok(())
     }
 }
@@ -334,9 +282,6 @@ impl RequestConfig for HttpBatchConfig {
                         .unwrap_or(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS)
                 })
                 .unwrap_or(DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS),
-            workers: options
-                .map(|opt| opt.workers.unwrap_or(DEFAULT_HTTP_REQ_WORKERS))
-                .unwrap_or(DEFAULT_HTTP_REQ_WORKERS),
             max_retry: options
                 .map(|opt| opt.max_retry.unwrap_or(DEFAULT_HTTP_REQ_MAX_RETRY))
                 .unwrap_or(DEFAULT_HTTP_REQ_MAX_RETRY),
@@ -410,7 +355,6 @@ mod tests {
                 method: HttpMethod::Get,
                 output: StrKeyword::with_symbol("output"),
                 options: Some(HttpOptionsConfig {
-                    workers: Some(4),
                     max_retry: None,
                     init_retry_interval_ms: None,
                 }),

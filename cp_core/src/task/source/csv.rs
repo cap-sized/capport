@@ -1,7 +1,7 @@
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{fs::File, path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::prelude::{LazyCsvReader, LazyFileListReader, LazyFrame, Schema};
+use polars::prelude::{LazyCsvReader, LazyFileListReader, LazyFrame, PlSmallStr, Schema};
 
 use crate::{
     model::common::ModelConfig,
@@ -25,6 +25,12 @@ pub struct CsvSource {
     output: String,
     separator: u8,
     schema: Option<Arc<Schema>>,
+}
+
+fn read_headers_from_file(fp: &std::path::PathBuf, separator: u8) -> CpResult<Vec<String>> {
+    let reader = LazyCsvReader::new(fp).with_separator(separator).with_n_rows(Some(0));
+    let empty_frame = reader.finish()?.collect()?;
+    Ok(empty_frame.get_columns().iter().map(|x| x.name().to_string()).collect())
 }
 
 impl CsvSource {
@@ -65,12 +71,13 @@ impl Source for CsvSource {
                 self.filepath.to_str().unwrap().to_owned(),
             ));
         }
-        println!("{:?}", self.schema);
         let reader = if let Some(schema) = &self.schema {
+            let headers = read_headers_from_file(&self.filepath, self.separator)?;
             // IMPORTANT: schema does not read header. MUST be in order!
+            let final_schema = Arc::new(schema.try_project(headers)?);
             LazyCsvReader::new(&self.filepath)
                 .with_separator(self.separator)
-                .with_schema(Some(schema.clone()))
+                .with_schema(Some(final_schema))
         } else {
             LazyCsvReader::new(&self.filepath)
                 .with_separator(self.separator)
@@ -243,7 +250,6 @@ mod tests {
         let buffer = tmp.get_mut().unwrap();
         let mut writer = CsvWriter::new(buffer);
         writer.finish(&mut expected).unwrap();
-        std::thread::sleep(std::time::Duration::from_secs(1));
         let mut source_config = CsvSourceConfig {
             csv: _CsvSourceConfig {
                 filepath: StrKeyword::with_value(tmp.filepath.clone()),

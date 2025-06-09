@@ -92,6 +92,7 @@ impl Default for DefaultPipelineContext {
 }
 
 /// Implements the PipelineContext for Polars suite of PipelineFrame tools
+#[allow(clippy::too_many_arguments)]
 impl DefaultPipelineContext {
     pub fn from(
         results: PipelineResults<PolarsPipelineFrame>,

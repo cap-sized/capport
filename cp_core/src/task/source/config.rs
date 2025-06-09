@@ -30,7 +30,7 @@ pub struct _CsvSourceConfig {
     pub model: Option<StrKeyword>,
     // holds a fully substituted ModelConfig
     pub model_fields: Option<ModelFields>,
-    pub separator: Option<StrKeyword>
+    pub separator: Option<StrKeyword>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -68,7 +68,7 @@ mod tests {
         task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{LocalFileSourceConfig, _CsvSourceConfig};
+    use super::{_CsvSourceConfig, LocalFileSourceConfig};
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -194,12 +194,14 @@ mod tests {
     fn valid_source_config_csv() {
         let configs = get_configs()
             .iter()
-            .map(|c| c.replace("{}", "csv").replace("{csv}" , "separator: \",\""))
+            .map(|c| c.replace("{}", "csv").replace("{csv}", "separator: \",\""))
             .collect::<Vec<String>>();
         let locals = get_locals();
         for i in 0..5 {
             assert_eq!(
-                CsvSourceConfig { csv: local_to_csv_src_config(locals[i].clone(), Some(StrKeyword::with_value(",".to_owned()))) },
+                CsvSourceConfig {
+                    csv: local_to_csv_src_config(locals[i].clone(), Some(StrKeyword::with_value(",".to_owned())))
+                },
                 serde_yaml_ng::from_str::<CsvSourceConfig>(&configs[i]).unwrap()
             );
         }

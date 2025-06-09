@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 use log::{debug, trace};
-use polars::{frame::DataFrame, io::SerReader, prelude::{JsonReader, PlSmallStr}};
-use std::{collections::HashMap, fs::File, io::Cursor};
+use polars::{frame::DataFrame, io::SerReader, prelude::JsonReader};
+use std::{collections::HashMap, io::Cursor};
 
 use rand::{Rng, distr::Alphanumeric};
 

@@ -1,7 +1,7 @@
-use std::{fs::File, path::PathBuf, str::FromStr, sync::Arc};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::prelude::{LazyCsvReader, LazyFileListReader, LazyFrame, PlSmallStr, Schema};
+use polars::prelude::{LazyCsvReader, LazyFileListReader, LazyFrame, Schema};
 
 use crate::{
     model::common::ModelConfig,
@@ -143,7 +143,7 @@ impl SourceConfig for CsvSourceConfig {
             filepath,
             output: self.csv.output.value().expect("output").to_owned(),
             schema: schema.map(Arc::new),
-            separator
+            separator,
         })
     }
 }
@@ -156,7 +156,7 @@ mod tests {
         df,
         frame::DataFrame,
         io::SerWriter,
-        prelude::{CsvWriter, DataType, Field, Schema},
+        prelude::{CsvWriter, DataType, Schema},
     };
 
     use crate::{
@@ -169,7 +169,7 @@ mod tests {
         pipeline::context::DefaultPipelineContext,
         task::source::{
             common::{Source, SourceConfig},
-            config::{CsvSourceConfig, _CsvSourceConfig},
+            config::{_CsvSourceConfig, CsvSourceConfig},
         },
         util::{test::assert_frame_equal, tmp::TempFile},
     };
@@ -256,7 +256,7 @@ mod tests {
                 output: StrKeyword::with_value("_sample".to_owned()),
                 model_fields: None,
                 model: Some(StrKeyword::with_value("S".to_owned())),
-                separator: None
+                separator: None,
             },
         };
         let mut model_reg = ModelRegistry::new();

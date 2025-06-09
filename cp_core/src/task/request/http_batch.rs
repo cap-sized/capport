@@ -8,6 +8,7 @@ use crate::{
     ctx_run_n_async, ctx_run_n_threads,
     frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
     model::common::ModelConfig,
+    model_emplace,
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::{
@@ -295,22 +296,7 @@ impl Request for HttpBatchRequest {
 impl RequestConfig for HttpBatchConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
         self.http_batch.output.insert_value_from_context(context)?;
-        if let Some(mut model_name) = self.http_batch.model.take() {
-            model_name.insert_value_from_context(context)?;
-            if let Some(name) = model_name.value() {
-                let model = ctx.get_model(name)?;
-                self.http_batch.model_fields = Some(model.fields);
-            }
-            let _ = self.http_batch.model.insert(model_name.clone());
-        }
-        if let Some(model_fields) = self.http_batch.model_fields.take() {
-            let model = ModelConfig {
-                label: "".to_string(),
-                fields: model_fields,
-            };
-            let fields = model.substitute_model_fields(context)?;
-            let _ = self.http_batch.model_fields.insert(fields);
-        }
+        model_emplace!(self.http_batch, ctx, context);
         self.http_batch.url_column.insert_value_from_context(context)?;
         Ok(())
     }

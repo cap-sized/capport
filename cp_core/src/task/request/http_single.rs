@@ -7,7 +7,7 @@ use crate::task::request::config::{HttpParamConfig, HttpSingleConfig};
 use crate::task::request::http_batch::get_urls;
 use crate::util::common::{explode_df, str_json_to_df};
 use crate::util::error::{CpError, CpResult};
-use crate::valid_or_insert_error;
+use crate::{model_emplace, valid_or_insert_error};
 use async_trait::async_trait;
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use serde_yaml_ng::Mapping;
@@ -149,22 +149,7 @@ impl Request for HttpSingleRequest {
 impl RequestConfig for HttpSingleConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &Mapping) -> CpResult<()> {
         self.http_single.output.insert_value_from_context(context)?;
-        if let Some(mut model_name) = self.http_single.model.take() {
-            model_name.insert_value_from_context(context)?;
-            if let Some(name) = model_name.value() {
-                let model = ctx.get_model(name)?;
-                self.http_single.model_fields = Some(model.fields);
-            }
-            let _ = self.http_single.model.insert(model_name.clone());
-        }
-        if let Some(model_fields) = self.http_single.model_fields.take() {
-            let model = ModelConfig {
-                label: "".to_string(),
-                fields: model_fields,
-            };
-            let fields = model.substitute_model_fields(context)?;
-            let _ = self.http_single.model_fields.insert(fields);
-        }
+        model_emplace!(self.http_single, ctx, context);
         self.http_single.url_column.insert_value_from_context(context)?;
         if let Some(url_params) = &mut self.http_single.url_params {
             for url_param in url_params {

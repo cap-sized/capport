@@ -26,6 +26,8 @@ const CHANNEL_BUFSIZE: usize = 1000;
 pub struct RunnerConfig {
     pub logger: String,
     pub mode: RunModeEnum,
+    pub schedule: Option<String>,
+    pub tz: Option<String>,
 }
 
 pub struct Runner {
@@ -128,4 +130,51 @@ pub fn async_runner(pipeline: Pipeline, ctx: Arc<DefaultPipelineContext>) -> CpR
     };
     rt.block_on(event_loop());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{parser::run_mode::RunModeEnum, runner::common::RunnerConfig};
+
+    #[test]
+    fn valid_parse_runner_config() {
+        let configs = [
+"
+logger: mylog
+mode: debug
+schedule: * * * * *
+tz: America/New_York
+",
+"
+logger: mylog
+mode: debug
+schedule: * * * * *
+",
+"
+logger: mylog
+mode: debug
+",
+        ];
+        let runner: Vec<RunnerConfig> = configs.iter().map(|config| {
+            serde_yaml_ng::from_str(config).unwrap()
+        }).collect();
+        assert_eq!(runner, vec![RunnerConfig {
+            logger: "mylog".to_owned(),
+            mode: RunModeEnum::Debug,
+            schedule: Some("* * * * *".to_owned()),
+            tz: Some("America/New_York".to_owned())
+        }, RunnerConfig {
+            logger: "mylog".to_owned(),
+            mode: RunModeEnum::Debug,
+            schedule: Some("* * * * *".to_owned()),
+            tz: None
+        }, RunnerConfig {
+            logger: "mylog".to_owned(),
+            mode: RunModeEnum::Debug,
+            schedule: None,
+            tz: None
+        },  ])
+
+    }
+
 }

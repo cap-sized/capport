@@ -18,7 +18,6 @@ pub struct RequestGroupConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct HttpOptionsConfig {
-    pub workers: Option<u8>,
     pub max_retry: Option<u8>,
     pub init_retry_interval_ms: Option<u64>,
 }
@@ -72,7 +71,6 @@ mod tests {
                 model: Some(StrKeyword::with_value("player".to_owned())),
                 model_fields: None,
                 options: Some(HttpOptionsConfig {
-                    workers: None,
                     max_retry: Some(1),
                     init_retry_interval_ms: Some(1000),
                 }),

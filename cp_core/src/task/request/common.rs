@@ -73,7 +73,11 @@ impl Stage for RequestGroup {
         log::info!("INPUT `{}`: {:?}", &self.label, lf.clone().collect());
         for req in &self.requests {
             req.0.run(lf.clone(), ctx.clone())?;
-            log::info!("OUTPUT `{}`: {:?}", &self.label, ctx.extract_clone_result(req.0.name()));
+            log::info!(
+                "OUTPUT `{}`: {:?}",
+                &self.label,
+                ctx.extract_clone_result(req.0.name()).expect("request")
+            );
             log::info!(
                 "Success pushing frame update to {}: {}",
                 req.0.connection_type(),

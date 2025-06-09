@@ -304,7 +304,11 @@ impl<'a>
         match self.source_registry.get_source_config(label) {
             None => Err(CpError::ConfigError(
                 "Missing config for source",
-                format!("Config required: {}", label),
+                format!(
+                    "Config required: {}, available configs: {:?}",
+                    label,
+                    self.source_registry.keys()
+                ),
             )),
             Some(x) => match x.parse(self, context) {
                 Ok(trf) => Ok(trf),

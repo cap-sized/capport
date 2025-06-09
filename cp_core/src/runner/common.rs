@@ -5,8 +5,15 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{
     context::{
-        connection::ConnectionRegistry, logger::LoggerRegistry, model::ModelRegistry, pipeline::PipelineRegistry,
-        request::RequestRegistry, sink::SinkRegistry, source::SourceRegistry, transform::TransformRegistry,
+        connection::ConnectionRegistry,
+        envvar::{EnvironmentVariableRegistry, get_env_var_str},
+        logger::LoggerRegistry,
+        model::ModelRegistry,
+        pipeline::PipelineRegistry,
+        request::RequestRegistry,
+        sink::SinkRegistry,
+        source::SourceRegistry,
+        transform::TransformRegistry,
     },
     logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
     parser::{
@@ -36,6 +43,7 @@ pub struct Runner {
     logger_registry: LoggerRegistry,
     pipeline_context: DefaultPipelineContext,
     pipeline_config: PipelineConfig,
+    env_registry: EnvironmentVariableRegistry,
     cli_args: RunPipelineArgs,
 }
 
@@ -45,6 +53,7 @@ impl Runner {
         let mut pack = pack_configs_from_files(&config_files).unwrap();
         let pipeline_registry = PipelineRegistry::from(&mut pack)?;
         let logger_registry = LoggerRegistry::from(&mut pack)?;
+        let env_registry = EnvironmentVariableRegistry::from_args(&cli_args)?;
         let model_registry = ModelRegistry::from(&mut pack)?;
         let transform_registry = TransformRegistry::from(&mut pack)?;
         let source_registry = SourceRegistry::from(&mut pack)?;
@@ -86,10 +95,18 @@ impl Runner {
         Ok(Runner {
             config: runner,
             logger_registry,
+            env_registry,
             pipeline_context,
             pipeline_config,
             cli_args,
         })
+    }
+    pub fn print_env(&self) -> CpResult<()> {
+        let keys = self.env_registry.get_keys();
+        for key in keys {
+            log::info!("[ENV] {}: {}", key, get_env_var_str(&key)?);
+        }
+        Ok(())
     }
     pub fn start_log(&mut self) -> CpResult<()> {
         let logger_name = self.config.logger.as_str();
@@ -106,6 +123,7 @@ impl Runner {
         let mode = self.config.mode;
         let cron = self.config.schedule;
         let tz = self.config.tz;
+        log::info!("Run Mode: {:?}", mode);
         let pipeline = Pipeline::new(&self.pipeline_config);
         let pctx = if mode == RunModeEnum::Loop {
             self.pipeline_context.with_signal()

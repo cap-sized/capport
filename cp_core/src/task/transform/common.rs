@@ -1,6 +1,6 @@
 use polars::prelude::*;
 
-use super::config::{JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
+use super::config::{DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
 use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
@@ -52,9 +52,14 @@ impl Stage for RootTransform {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized: {}", &self.label);
         let input = ctx.extract_result(&self.input)?;
-        log::info!("INPUT `{}`: {:?}", &self.label, input.clone().collect());
+        log::info!(
+            "INPUT `{}`: {:?}",
+            &self.label,
+            input.clone().collect().expect("before transform")
+        );
         let output = self.run(input, ctx.clone())?;
-        log::info!("OUTPUT `{}`: {:?}", &self.label, output.clone().collect());
+        let df = output.clone().collect().expect("transform");
+        log::info!("OUTPUT `{}`: {:?}", &self.label, df);
         ctx.insert_result(&self.output, output)
     }
     /// The synchronous, concurrent execution listens to input for the initial frame, and broadcasts to output
@@ -119,7 +124,8 @@ impl RootTransformConfig {
                     transform,
                     dyn TransformConfig,
                     SelectTransformConfig,
-                    JoinTransformConfig
+                    JoinTransformConfig,
+                    DropTransformConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(

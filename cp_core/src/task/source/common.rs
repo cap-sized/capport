@@ -90,7 +90,7 @@ impl Stage for SourceGroup {
             log::info!(
                 "OUTPUT `{}`: {:?}",
                 &self.label,
-                ctx.extract_clone_result(source.0.name())
+                ctx.extract_clone_result(source.0.name()).expect("source")
             );
         }
         Ok(())

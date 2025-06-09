@@ -1,9 +1,18 @@
 logger:
-  default:
+  trace:
     level: trace
+    output_path_prefix: ""
+  default:
+    level: debug
     output_path_prefix: ""
 
 runner:
   demo-run-once:
     logger: default
     mode: once
+  demo-run-debug:
+    logger: default
+    mode: debug
+  demo-run-loop:
+    logger: default
+    mode: loop

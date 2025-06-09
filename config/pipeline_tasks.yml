@@ -10,7 +10,7 @@ pipeline:
 
     - label: nhl_urls
       task_type: transform
-      task: player_ids_to_urls # user defined
+      task_name: player_ids_to_urls # user defined
       emplace:
         input: PLAYER_IDS
         output: NHL_URLS
@@ -36,9 +36,9 @@ pipeline:
       task_type: sink
       task_name: save_csv # default
       emplace:
-        NHL_PLAYER_DATA: "nhl_player_data.csv"
+        input: NHL_PLAYER_DATA
 
-sources:
+source:
   load_sources: 
     max_threads: 1
     sources:
@@ -54,10 +54,10 @@ sources:
             name: str
             code: str
             
-
+request:
   http_json_get_batch_request:
     input: $input
-    max_threads: 1
+    max_threads: 8
     requests:
       - http_batch:
           method: get
@@ -81,26 +81,16 @@ sources:
               template: "players={}" # optional, default shown
               separator: ","         # optional, default shown
 
-sinks:
+sink:
   save_csv: 
     input: $input
     max_threads: 1
     sinks:
       - csv: 
-          filepath: $fp_player_ids
-          output: PLAYER_IDS
+          filepath: canadian_players.csv
           merge_type: replace
-          model_fields:
-            id: uint64
-      - csv: 
-          filepath: $fp_state_province
-          output: $output
-          merge_type: replace
-          model_fields:
-            name: str
-            code: str
 
-transforms:
+transform:
   player_ids_to_urls:
     input: $input
     output: $output
@@ -115,26 +105,26 @@ transforms:
     input: $input
     output: $output
     steps:
-      - select:
-          id: csid # from the previous step
+     - select:
+          id: playerId # from the previous step
           first_name: firstName.default # handle subpaths
           last_name: lastName.default # handle subpaths
           full_name: 
-            concat: 
+            format: 
               columns: [ "firstName.default", "lastName.default" ] 
-              separator : " "
+              template : "{} {}"
           birthdate: birthDate
           birth_city: birthCity.default
           birth_state_province_name: birthStateProvince.default
-          birth_state_country_code: birthCountry.default
+          birth_state_country_code: birthCountry
           is_nhl: { bool: true }
-      - join:
-          right: $state_province_df #  << named df
-          right_select: 
-            birth_state_province_code: code
-            birth_state_province_name: name
-          left_on: [birth_state_province_name]
-          right_on: [birth_state_province_name]
-          how: left
-      - drop:
-        - birth_state_province_name
+     - join:
+         right: $state_province_df #  << named df
+         right_select: 
+           birth_state_province_code: code
+           birth_state_province_name: name
+         left_on: [birth_state_province_name]
+         right_on: [birth_state_province_name]
+         how: left
+     - drop:
+#      - birth_state_province_name

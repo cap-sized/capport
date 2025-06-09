@@ -68,7 +68,7 @@ impl SinkGroup {
 impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
-        let dataframe = ctx.extract_clone_result(&self.result_name)?;
+        let dataframe = ctx.extract_clone_result(&self.result_name).expect("sink");
         log::info!("INPUT `{}`: {:?}", &self.label, dataframe);
         for sink in &self.sinks {
             sink.0.run(dataframe.clone(), ctx.clone())?;

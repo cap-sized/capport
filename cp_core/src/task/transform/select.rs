@@ -19,6 +19,14 @@ pub struct SelectTransform {
 
 impl Transform for SelectTransform {
     fn run(&self, main: LazyFrame, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+        log::info!(
+            "Select: \n\t{}",
+            self.select
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(",\n\t")
+        );
         Ok(main.select(&self.select))
     }
 }

@@ -1,4 +1,4 @@
-use polars::prelude::{Expr, col, concat_str, format_str};
+use polars::prelude::{Expr, concat_str, format_str};
 use serde::Deserialize;
 
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::keyword::StrKeyword;
+use super::keyword::{PolarsExprKeyword, StrKeyword};
 
 pub trait ExprAction {
     fn expr(&self) -> CpResult<polars::prelude::Expr>;
@@ -16,13 +16,13 @@ pub trait ExprAction {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct FormatAction {
     pub template: StrKeyword,
-    pub columns: Vec<StrKeyword>,
+    pub columns: Vec<PolarsExprKeyword>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ConcatAction {
     pub separator: StrKeyword,
-    pub columns: Vec<StrKeyword>,
+    pub columns: Vec<PolarsExprKeyword>,
     pub ignore_nulls: Option<bool>,
 }
 
@@ -55,7 +55,9 @@ impl ExprAction for ConcatAction {
         let args: Vec<Expr> = self
             .columns
             .iter()
-            .map(|x| col(x.value().unwrap().to_owned()))
+            .map(|x| x.value())
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap().to_owned())
             .collect::<Vec<Expr>>();
 
         Ok(concat_str(
@@ -95,7 +97,9 @@ impl ExprAction for FormatAction {
         let args: Vec<Expr> = self
             .columns
             .iter()
-            .map(|x| col(x.value().unwrap().to_owned()))
+            .map(|x| x.value())
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap().to_owned())
             .collect::<Vec<Expr>>();
         Ok(format_str(self.template.value().unwrap(), args)?)
     }

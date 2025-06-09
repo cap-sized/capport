@@ -12,7 +12,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::config::{JsonSourceConfig, SourceGroupConfig};
+use super::config::{CsvSourceConfig, JsonSourceConfig, SourceGroupConfig};
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
 /// If it receives a termination signal, it is the source type's responsibility to clean up and
@@ -201,7 +201,7 @@ impl SourceGroupConfig {
         self.sources
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig);
+                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig, CsvSourceConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",
@@ -481,11 +481,18 @@ mod tests {
     filepath: /fp
     output: SAMPLE
     model: test
-- json:
+- csv:
     filepath: /fp
     output: $output
     model: test
 - json:
+    filepath: /fp
+    output: $output
+    model: test
+    model_fields: 
+        aaa: int64
+        bbb: str
+- csv:
     filepath: /fp
     output: $output
     model: test
@@ -507,7 +514,7 @@ mod tests {
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
         let actual = sgconfig.parse(&ctx, &context).unwrap();
-        assert_eq!(actual.sources.len(), 4);
+        assert_eq!(actual.sources.len(), 5);
     }
 
     #[test]

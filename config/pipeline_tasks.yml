@@ -89,11 +89,13 @@ sinks:
       - csv: 
           filepath: $fp_player_ids
           output: PLAYER_IDS
+          merge_type: replace
           model_fields:
             id: uint64
       - csv: 
           filepath: $fp_state_province
           output: $output
+          merge_type: replace
           model_fields:
             name: str
             code: str

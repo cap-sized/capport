@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use serde::Deserialize;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{
     context::{
@@ -14,7 +15,7 @@ use crate::{
     },
     pipeline::{
         common::{Pipeline, PipelineConfig},
-        context::DefaultPipelineContext,
+        context::{DefaultPipelineContext, PipelineContext},
         results::PipelineResults,
     },
     util::{args::RunPipelineArgs, error::CpResult},
@@ -103,6 +104,8 @@ impl Runner {
     }
     pub fn run(self) -> CpResult<()> {
         let mode = self.config.mode;
+        let cron = self.config.schedule;
+        let tz = self.config.tz;
         let pipeline = Pipeline::new(&self.pipeline_config);
         let pctx = if mode == RunModeEnum::Loop {
             self.pipeline_context.with_signal()
@@ -113,22 +116,53 @@ impl Runner {
         match mode {
             RunModeEnum::Debug => pipeline.linear(ctx)?,
             RunModeEnum::Once => pipeline.sync_exec(ctx)?,
-            RunModeEnum::Loop => async_runner(pipeline, ctx)?,
+            RunModeEnum::Loop => async_runner(pipeline, ctx, cron.as_deref(), tz.as_deref())?,
         }
         Ok(())
     }
 }
 
-pub fn async_runner(pipeline: Pipeline, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
+pub fn async_runner(
+    pipeline: Pipeline,
+    ctx: Arc<DefaultPipelineContext>,
+    cron: Option<&str>,
+    tz: Option<&str>,
+) -> CpResult<()> {
     let mut rt_builder = tokio::runtime::Builder::new_current_thread();
     rt_builder.enable_all();
     let rt = rt_builder.build().unwrap();
-    let event_loop = async move || {
+    let event_loop = async move {
+        let scheduler = JobScheduler::new().await.expect("failed to create scheduler");
+        if let Some(schedule) = cron {
+            let timezone = if let Some(t) = tz {
+                chrono_tz::Tz::from_str(t).expect("Bad timezone")
+            } else {
+                chrono_tz::UTC
+            };
+            let sctx = ctx.clone();
+            scheduler
+                .add(
+                    Job::new_async_tz(schedule, timezone, move |_, _| {
+                        let asctx = sctx.clone();
+                        Box::pin(async move {
+                            match asctx.clone().signal_replace().await {
+                                Ok(_) => log::info!("signal_replace"),
+                                Err(e) => log::error!("Failed to signal_replace: {}", e),
+                            };
+                        })
+                    })
+                    .expect("bad job"),
+                )
+                .await
+                .expect("failed to add job");
+        }
+
+        // let src_trigger = async
         let run = async || pipeline.async_exec(ctx.clone()).await;
         let terminator = async || ctx.signal().sigterm_listen().await;
         tokio::join!(run(), terminator());
     };
-    rt.block_on(event_loop());
+    rt.block_on(event_loop);
     Ok(())
 }
 
@@ -139,42 +173,48 @@ mod tests {
     #[test]
     fn valid_parse_runner_config() {
         let configs = [
-"
+            r#"
 logger: mylog
-mode: debug
-schedule: * * * * *
+mode: loop
+schedule: "* * * * *"
 tz: America/New_York
-",
-"
+"#,
+            r#"
 logger: mylog
 mode: debug
-schedule: * * * * *
-",
-"
+schedule: "* * * * *"
+"#,
+            r#"
 logger: mylog
-mode: debug
-",
+mode: once
+"#,
         ];
-        let runner: Vec<RunnerConfig> = configs.iter().map(|config| {
-            serde_yaml_ng::from_str(config).unwrap()
-        }).collect();
-        assert_eq!(runner, vec![RunnerConfig {
-            logger: "mylog".to_owned(),
-            mode: RunModeEnum::Debug,
-            schedule: Some("* * * * *".to_owned()),
-            tz: Some("America/New_York".to_owned())
-        }, RunnerConfig {
-            logger: "mylog".to_owned(),
-            mode: RunModeEnum::Debug,
-            schedule: Some("* * * * *".to_owned()),
-            tz: None
-        }, RunnerConfig {
-            logger: "mylog".to_owned(),
-            mode: RunModeEnum::Debug,
-            schedule: None,
-            tz: None
-        },  ])
-
+        let runner: Vec<RunnerConfig> = configs
+            .iter()
+            .map(|config| serde_yaml_ng::from_str(config).unwrap())
+            .collect();
+        assert_eq!(
+            runner,
+            vec![
+                RunnerConfig {
+                    logger: "mylog".to_owned(),
+                    mode: RunModeEnum::Loop,
+                    schedule: Some("* * * * *".to_owned()),
+                    tz: Some("America/New_York".to_owned())
+                },
+                RunnerConfig {
+                    logger: "mylog".to_owned(),
+                    mode: RunModeEnum::Debug,
+                    schedule: Some("* * * * *".to_owned()),
+                    tz: None
+                },
+                RunnerConfig {
+                    logger: "mylog".to_owned(),
+                    mode: RunModeEnum::Once,
+                    schedule: None,
+                    tz: None
+                },
+            ]
+        )
     }
-
 }

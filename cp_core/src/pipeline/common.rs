@@ -304,6 +304,7 @@ mod tests {
             sink_registry,
             request_registry,
             connection_registry,
+            true,
         )
     }
 

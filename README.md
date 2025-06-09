@@ -71,9 +71,8 @@ We are drastically changing the structure of capport to support
     - [ ] JsonSink
     - [x] CsvSink
     - [ ] BsonSink
-    - [ ] PostgresSink
-    - [ ] MySqlSink
     - [ ] ClickhouseSink
+    - [ ] ParquetSink
 - [x] RequestGroup, method of writing data, and types
     - [x] Running RequestGroup as a stage
     - [x] HttpBatchRequest

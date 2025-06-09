@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use crate::parser::{keyword::StrKeyword, merge_type::MergeTypeEnum};
+use crate::{
+    model::common::ModelFields,
+    parser::{keyword::StrKeyword, merge_type::MergeTypeEnum},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SinkGroupConfig {
@@ -14,6 +17,8 @@ pub struct SinkGroupConfig {
 pub struct LocalFileSinkConfig {
     pub filepath: StrKeyword,
     pub merge_type: MergeTypeEnum,
+    pub model: Option<StrKeyword>,
+    pub model_fields: Option<ModelFields>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -29,9 +34,15 @@ pub struct CsvSinkConfig {
 #[cfg(test)]
 mod tests {
 
+    use std::collections::HashMap;
+
+    use polars::prelude::DataType;
+
     use crate::{
+        model::common::ModelFieldInfo,
         parser::{
-            keyword::{Keyword, StrKeyword},
+            dtype::DType,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
             merge_type::MergeTypeEnum,
         },
         task::sink::config::{CsvSinkConfig, JsonSinkConfig},
@@ -44,10 +55,17 @@ mod tests {
             LocalFileSinkConfig {
                 filepath: StrKeyword::with_symbol("fp"),
                 merge_type: MergeTypeEnum::MakeNext,
+                model: None,
+                model_fields: Some(HashMap::from([(
+                    StrKeyword::with_value("a".to_owned()),
+                    ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
+                )])),
             },
             LocalFileSinkConfig {
                 filepath: StrKeyword::with_value("fp".to_string()),
                 merge_type: MergeTypeEnum::Replace,
+                model: Some(StrKeyword::with_symbol("test")),
+                model_fields: None,
             },
         ]
     }
@@ -58,11 +76,14 @@ mod tests {
 {}:
     filepath: $fp
     merge_type: next
+    model_fields: 
+        a: int8
 ",
             "
 {}:
     filepath: fp
     merge_type: REPLACE
+    model: $test
 ",
         ]
     }

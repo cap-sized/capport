@@ -1,5 +1,5 @@
 use connectorx::prelude::CXQuery;
-use polars::prelude::Expr;
+use polars::prelude::{Expr, Schema};
 use serde::Deserialize;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     util::error::CpResult,
 };
 
-use super::keyword::StrKeyword;
+use super::{keyword::StrKeyword, merge_type::MergeTypeEnum};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SqlConnection {
@@ -23,6 +23,7 @@ pub struct SqlConnection {
     pub model: Option<StrKeyword>,
     pub model_fields: Option<ModelFields>,
     pub strict: Option<bool>,
+    pub merge_type: Option<MergeTypeEnum>,
 }
 
 impl SqlConnection {
@@ -65,14 +66,25 @@ impl SqlConnection {
         vec![CXQuery::from(query.value().expect("sql.sql").as_str())]
     }
 
-    pub fn schema(&self) -> Option<Vec<Expr>> {
+    pub fn schema(&self) -> Option<Schema> {
+        self.model_fields.as_ref().map(|x| {
+            ModelConfig {
+                label: "".to_string(),
+                fields: x.clone(),
+            }
+            .schema()
+            .expect("failed to build columns")
+        })
+    }
+
+    pub fn columns(&self) -> Option<Vec<Expr>> {
         self.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
                 fields: x.clone(),
             }
             .columns()
-            .expect("failed to build schema")
+            .expect("failed to build columns")
         })
     }
 }
@@ -88,6 +100,7 @@ mod tests {
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+            merge_type::MergeTypeEnum,
         },
     };
 
@@ -104,6 +117,7 @@ mod tests {
                 dfname: StrKeyword::with_value("output".to_owned()),
                 model_fields: None,
                 strict: Some(true),
+                merge_type: Some(MergeTypeEnum::Insert),
             },
             SqlConnection {
                 table: StrKeyword::with_value("table".to_string()),
@@ -117,6 +131,7 @@ mod tests {
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),
                 strict: None,
+                merge_type: None,
             },
         ]
     }
@@ -125,13 +140,12 @@ mod tests {
         [
             "
 table: $table
-# sql query is not used here
 dfname: output
 strict: true
+merge_type: insert
 ",
             "
 dfname: $actual
-# sql query is not used here
 sql: $test
 table: table
 url: $first_priority

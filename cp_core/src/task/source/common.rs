@@ -265,19 +265,13 @@ mod tests {
     };
 
     use crate::{
-        context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-        model::common::{ModelConfig, ModelFieldInfo},
-        parser::{
+        async_st, context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::{ModelConfig, ModelFieldInfo}, parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        },
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{
+        }, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
             source::{common::SourceGroup, config::SourceGroupConfig},
             stage::{Stage, StageTaskConfig},
-        },
-        util::{error::CpResult, test::assert_frame_equal, tmp::TempFile},
+        }, util::{error::CpResult, test::assert_frame_equal, tmp::TempFile}
     };
 
     use super::Source;
@@ -432,10 +426,7 @@ mod tests {
     #[test]
     fn success_mock_source_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx = Arc::new(
                 DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(2),
             );
@@ -468,8 +459,7 @@ mod tests {
                 };
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

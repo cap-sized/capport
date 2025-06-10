@@ -288,7 +288,7 @@ mod tests {
 
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
-    use crate::frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame};
+    use crate::{async_st, frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame}};
 
     use super::PolarsPipelineFrame;
 
@@ -317,10 +317,7 @@ mod tests {
     fn valid_async_message_passing() {
         const SENDER: &str = "A";
         const RECEIVER: &str = "B";
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 1);
             let listener = result.get_listen_handle(RECEIVER);
             let mut broadcast = result.get_broadcast_handle(SENDER);
@@ -335,8 +332,7 @@ mod tests {
                 assert_eq!(actual, expected().clone());
             };
             tokio::join!(bhandle(), lhandle());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

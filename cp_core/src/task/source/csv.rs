@@ -160,18 +160,13 @@ mod tests {
     };
 
     use crate::{
-        context::model::ModelRegistry,
-        model::common::{ModelConfig, ModelFieldInfo},
-        parser::{
+        async_st, context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        },
-        pipeline::context::DefaultPipelineContext,
-        task::source::{
+        }, pipeline::context::DefaultPipelineContext, task::source::{
             common::{Source, SourceConfig},
-            config::{_CsvSourceConfig, CsvSourceConfig},
-        },
-        util::{test::assert_frame_equal, tmp::TempFile},
+            config::{CsvSourceConfig, _CsvSourceConfig},
+        }, util::{test::assert_frame_equal, tmp::TempFile}
     };
 
     use super::CsvSource;
@@ -231,16 +226,12 @@ mod tests {
         writer.finish(&mut expected).unwrap();
         let csv_source = CsvSource::new(&tmp.filepath, "_sample", b',').and_schema(schema());
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let result = csv_source.fetch(ctx).await.unwrap();
             assert_frame_equal(result.collect().unwrap(), expected);
             assert_eq!(csv_source.name(), "_sample");
             assert_eq!(csv_source.connection_type(), "csv");
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

@@ -154,19 +154,14 @@ mod tests {
     };
 
     use crate::{
-        context::model::ModelRegistry,
-        model::common::{ModelConfig, ModelFieldInfo},
-        parser::{
+        async_st, context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
             merge_type::MergeTypeEnum,
-        },
-        pipeline::context::DefaultPipelineContext,
-        task::sink::{
+        }, pipeline::context::DefaultPipelineContext, task::sink::{
             common::{Sink, SinkConfig},
             config::{CsvSinkConfig, LocalFileSinkConfig},
-        },
-        util::{common::rng_str, test::assert_frame_equal, tmp::TempFile},
+        }, util::{common::rng_str, test::assert_frame_equal, tmp::TempFile}
     };
 
     use super::CsvSink;
@@ -207,17 +202,13 @@ mod tests {
         let tmp = TempFile::default();
         let csv_sink = CsvSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let _ = csv_sink.fetch(expected.clone(), ctx).await;
             let buffer = tmp.get().unwrap();
             let reader = CsvReader::new(buffer);
             let actual = reader.finish().unwrap();
             assert_frame_equal(actual, expected);
-        };
-        rt.block_on(event());
+        });
     }
 
     fn get_node(

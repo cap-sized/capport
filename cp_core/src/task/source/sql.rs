@@ -20,7 +20,7 @@ pub struct SqlSource {
     queries: Vec<CXQuery>,
     output: String,
     strict: bool,
-    schema: Option<Vec<Expr>>,
+    columns: Option<Vec<Expr>>,
 }
 
 #[async_trait]
@@ -58,11 +58,11 @@ impl Source for SqlSource {
                 return Err(CpError::TaskError("Failed to parse SqlSource result", e.to_string()));
             }
         };
-        let frame_modelled = if let Some(schema) = &self.schema {
+        let frame_modelled = if let Some(columns) = &self.columns {
             if self.strict {
-                lf.select(schema.clone())
+                lf.select(columns.clone())
             } else {
-                lf.with_columns(schema.clone())
+                lf.with_columns(columns.clone())
             }
         } else {
             lf
@@ -89,11 +89,14 @@ impl SourceConfig for MySqlSourceConfig {
                 valid_or_insert_error!(errors, field_kw, "source[mysql].model.field");
             }
         }
+        if let Some(merge_type) = self.mysql.merge_type {
+            log::warn!("MergeType {:?} ignored in MySqlSourceConfig", merge_type);
+        }
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
         let queries = self.mysql.src_query();
-        let schema = self.mysql.schema();
+        let columns = self.mysql.columns();
         Box::new(SqlSource {
             output: self.mysql.dfname.value().expect("source[mysql].dfname").to_string(),
             uri: self
@@ -104,7 +107,7 @@ impl SourceConfig for MySqlSourceConfig {
                 .expect("source[mysql].uri(val)")
                 .to_string(),
             queries,
-            schema,
+            columns,
             strict: self.mysql.strict.unwrap_or(false),
         })
     }
@@ -125,11 +128,14 @@ impl SourceConfig for PostgresSourceConfig {
                 valid_or_insert_error!(errors, field_kw, "source[postgres].model.field");
             }
         }
+        if let Some(merge_type) = self.postgres.merge_type {
+            log::warn!("MergeType {:?} ignored in PostgresSourceConfig", merge_type);
+        }
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
         let queries = self.postgres.src_query();
-        let schema = self.postgres.schema();
+        let columns = self.postgres.columns();
         Box::new(SqlSource {
             output: self
                 .postgres
@@ -145,7 +151,7 @@ impl SourceConfig for PostgresSourceConfig {
                 .expect("source[postgres].uri(val)")
                 .to_string(),
             queries,
-            schema,
+            columns,
             strict: self.postgres.strict.unwrap_or(false),
         })
     }
@@ -159,18 +165,13 @@ mod tests {
     use polars::prelude::{DataType, IntoLazy, TimeUnit, col};
 
     use crate::{
-        context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry},
-        model::common::{ModelConfig, ModelFields},
-        parser::{
+        async_st, context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry}, model::common::{ModelConfig, ModelFields}, parser::{
             keyword::{Keyword, StrKeyword},
             sql_connection::SqlConnection,
-        },
-        pipeline::context::DefaultPipelineContext,
-        task::source::{
+        }, pipeline::context::DefaultPipelineContext, task::source::{
             common::{Source, SourceConfig},
             config::{MySqlSourceConfig, PostgresSourceConfig},
-        },
-        util::{common::create_config_pack, test::tests::DbTools},
+        }, util::{common::create_config_pack, test::tests::DbTools}
     };
 
     use super::SqlSource;
@@ -183,7 +184,7 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::naked("select now()")],
             strict: false,
-            schema: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
+            columns: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
@@ -201,7 +202,7 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::naked("select now()")],
             strict: true,
-            schema: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
+            columns: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
@@ -218,7 +219,7 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::from("show databases")],
             strict: false,
-            schema: None,
+            columns: None,
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
@@ -240,6 +241,7 @@ mod tests {
                 url: Some(StrKeyword::with_symbol("url")),
                 env_connection: None,
                 model: None,
+                merge_type: None,
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -280,6 +282,8 @@ url: postgres://defuser:password@localhost:5432/defuser
                 )),
                 env_connection: None,
                 model: Some(StrKeyword::with_symbol("model")),
+                // this gets a warning
+                merge_type: Some(crate::parser::merge_type::MergeTypeEnum::Replace),
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -330,6 +334,7 @@ model: person
                 url: None,
                 env_connection: Some(StrKeyword::with_symbol("mysql_conn")),
                 model: None,
+                merge_type: None,
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -364,10 +369,7 @@ connection:
             assert_eq!(df, expected);
         }
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let sqlsrc = config.transform();
                 assert_eq!(sqlsrc.connection_type(), "sql");
                 assert_eq!(sqlsrc.name(), "TEST");
@@ -375,8 +377,7 @@ connection:
                 assert_eq!(df.column("id").unwrap().dtype(), &DataType::UInt32);
                 assert_eq!(df.column("amt").unwrap().dtype(), &DataType::UInt8);
                 assert_eq!(df, expected);
-            };
-            rt.block_on(event());
+            });
         }
         DbTools::drop_my("root", "root", "dev", "payments", 3306);
         {

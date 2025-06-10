@@ -5,9 +5,9 @@ use serde::Deserialize;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{
-    context::{
+    async_mt, async_st, context::{
         connection::ConnectionRegistry,
-        envvar::{EnvironmentVariableRegistry, get_env_var_str},
+        envvar::{get_env_var_str, EnvironmentVariableRegistry},
         logger::LoggerRegistry,
         model::ModelRegistry,
         pipeline::PipelineRegistry,
@@ -15,18 +15,14 @@ use crate::{
         sink::SinkRegistry,
         source::SourceRegistry,
         transform::TransformRegistry,
-    },
-    logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
-    parser::{
+    }, logger::common::DEFAULT_CONSOLE_LOGGER_NAME, parser::{
         common::{pack_configs_from_files, read_configs},
         run_mode::RunModeEnum,
-    },
-    pipeline::{
+    }, pipeline::{
         common::{Pipeline, PipelineConfig},
         context::{DefaultPipelineContext, PipelineContext},
         results::PipelineResults,
-    },
-    util::{args::RunPipelineArgs, error::CpResult},
+    }, util::{args::RunPipelineArgs, error::CpResult}
 };
 
 const CHANNEL_BUFSIZE: usize = 10;
@@ -147,10 +143,7 @@ pub fn async_runner(
     cron: Option<&str>,
     tz: Option<&str>,
 ) -> CpResult<()> {
-    let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-    rt_builder.enable_all();
-    let rt = rt_builder.build().unwrap();
-    let event_loop = async move {
+    async_mt!(async move || {
         let scheduler = JobScheduler::new().await.expect("failed to create scheduler");
         if let Some(schedule) = cron {
             log::info!("Schedule: {}", schedule);
@@ -188,8 +181,7 @@ pub fn async_runner(
         let run = async || pipeline.async_exec(ctx.clone()).await;
         let terminator = async || ctx.signal().sigterm_listen().await;
         tokio::join!(run(), terminator());
-    };
-    rt.block_on(event_loop);
+    });
     Ok(())
 }
 

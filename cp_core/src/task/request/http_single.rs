@@ -212,6 +212,7 @@ impl RequestConfig for HttpSingleConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::async_st;
     use crate::parser::http::HttpMethod;
     use crate::parser::keyword::{Keyword, StrKeyword};
     use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
@@ -312,10 +313,7 @@ mod tests {
         }
         // with connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let mock = mock_server(&server, players, teams);
@@ -326,15 +324,11 @@ mod tests {
                 let actual = ctx.extract_clone_result("OUT").unwrap();
                 let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
                 assert_eq!(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
         // without connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let template = server.url("/v1/meta");
@@ -344,8 +338,7 @@ mod tests {
                 let actual = actual_with_messages;
                 let expected = explode_df(&str_json_to_df(&DummyData::meta_info()).unwrap()).unwrap();
                 assert_ne!(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
     }
 }

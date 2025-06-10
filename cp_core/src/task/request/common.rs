@@ -256,20 +256,14 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle},
-        model::common::ModelConfig,
-        parser::keyword::{Keyword, StrKeyword},
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{
+        async_st, context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
             request::config::RequestGroupConfig,
             stage::{Stage, StageTaskConfig},
-        },
-        util::{
+        }, util::{
             common::vec_str_json_to_df,
             error::CpResult,
-            test::{DummyData, assert_frame_equal},
-        },
+            test::{assert_frame_equal, DummyData},
+        }
     };
 
     use super::{Request, RequestGroup};
@@ -432,10 +426,7 @@ mod tests {
     #[test]
     fn success_mock_request_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx = Arc::new(
                 DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 6).with_signal(2),
             );
@@ -460,8 +451,7 @@ mod tests {
                 in_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

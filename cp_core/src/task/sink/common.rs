@@ -247,16 +247,10 @@ mod tests {
     };
 
     use crate::{
-        context::model::ModelRegistry,
-        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-        model::common::ModelConfig,
-        parser::keyword::{Keyword, StrKeyword},
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::{
+        async_st, context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
             sink::{common::SinkGroup, config::SinkGroupConfig},
             stage::{Stage, StageTaskConfig},
-        },
-        util::{error::CpResult, test::assert_frame_equal, tmp::TempFile},
+        }, util::{error::CpResult, test::assert_frame_equal, tmp::TempFile}
     };
 
     use super::Sink;
@@ -369,10 +363,7 @@ mod tests {
     #[test]
     fn success_mock_sink_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx =
                 Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal(2));
             let ictx = ctx.clone();
@@ -393,8 +384,7 @@ mod tests {
                 next_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

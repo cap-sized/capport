@@ -268,3 +268,25 @@ macro_rules! try_deserialize_stage {
         }
     };
 }
+
+#[macro_export]
+macro_rules! async_st {
+    ($lambda:expr) => {
+        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = $lambda;
+        rt.block_on(event())
+    }
+}
+
+#[macro_export]
+macro_rules! async_mt {
+    ($lambda:expr) => {
+        let mut rt_builder = tokio::runtime::Builder::new_multi_thread();
+        rt_builder.enable_all();
+        let rt = rt_builder.build().unwrap();
+        let event = $lambda;
+        rt.block_on(event())
+    }
+}

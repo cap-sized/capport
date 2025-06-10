@@ -5,17 +5,10 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use reqwest::header::HeaderValue;
 
 use crate::{
-    ctx_run_n_async,
-    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-    model::common::ModelConfig,
-    model_emplace,
-    parser::keyword::Keyword,
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::{
+    ctx_run_n_async, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, model_emplace, parser::keyword::Keyword, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::{
         common::vec_str_json_to_df,
         error::{CpError, CpResult},
-    },
-    valid_or_insert_error,
+    }, valid_or_insert_error
 };
 
 use super::{
@@ -299,19 +292,16 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        parser::{
+        async_st, parser::{
             http::HttpMethod,
             keyword::{Keyword, StrKeyword},
-        },
-        pipeline::context::{DefaultPipelineContext, PipelineContext},
-        task::request::{
+        }, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::request::{
             common::RequestConfig,
             config::{HttpBatchConfig, HttpOptionsConfig, HttpReqConfig},
-        },
-        util::{
+        }, util::{
             common::vec_str_json_to_df,
-            test::{DummyData, assert_frame_equal},
-        },
+            test::{assert_frame_equal, DummyData},
+        }
     };
 
     #[derive(Serialize, Deserialize)]
@@ -399,10 +389,7 @@ mod tests {
         }
         // with connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let mocks = mock_server(&server);
@@ -414,15 +401,11 @@ mod tests {
                 let actual = ctx.extract_clone_result("OUT").unwrap();
                 let expected = get_expected();
                 assert_frame_equal(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
         // without connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let url_df = get_url_df(&server);
@@ -435,8 +418,7 @@ mod tests {
                     .unwrap();
                 let expected = df!( "id" => Vec::<String>::new(), "label" => Vec::<String>::new() ).unwrap();
                 assert_frame_equal(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
     }
 }

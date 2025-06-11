@@ -12,7 +12,9 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::config::{CsvSourceConfig, JsonSourceConfig, SourceGroupConfig};
+use super::config::{
+    CsvSourceConfig, HttpSourceConfig, JsonSourceConfig, MySqlSourceConfig, PostgresSourceConfig, SourceGroupConfig,
+};
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
 /// If it receives a termination signal, it is the source type's responsibility to clean up and
@@ -203,7 +205,15 @@ impl SourceGroupConfig {
         self.sources
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SourceConfig, JsonSourceConfig, CsvSourceConfig);
+                let config = try_deserialize_stage!(
+                    transform,
+                    dyn SourceConfig,
+                    JsonSourceConfig,
+                    CsvSourceConfig,
+                    HttpSourceConfig,
+                    MySqlSourceConfig,
+                    PostgresSourceConfig
+                );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",

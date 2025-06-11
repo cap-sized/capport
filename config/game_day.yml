@@ -1,0 +1,117 @@
+pipeline:
+  play_by_play: []
+
+  shifts: []
+
+  scores:
+    - label: score_nhlapi
+      task_type: source
+      task_name: load_score_source
+      emplace: {}
+    - label: extract_games
+      task_type: transform
+      task_name: unnest_games_and_get_url
+      emplace: {}
+    - label: process_goals
+      task_type: transform
+      task_name: process_goals
+      emplace: {}
+    - label: process_scores
+      task_type: transform
+      task_name: process_scores
+      emplace: {}
+    - label: save_game_state
+      task_type: sink
+      task_name: save_json_file
+      emplace: 
+        to_save: NHL_GAMES
+        filepath: raw_nhl_scores.json
+    - label: save_game_state
+      task_type: sink
+      task_name: save_csv_file
+      emplace: 
+        to_save: GOALS_CLEAN
+        filepath: clean_nhl_goals.csv
+    - label: save_game_state
+      task_type: sink
+      task_name: save_csv_file
+      emplace: 
+        to_save: SCORE_CLEAN
+        filepath: scoreboard.csv
+
+source:
+  load_score_source:
+    max_threads: 1
+    sources:
+      - http: 
+          url: "https://api-web.nhle.com/v1/score/2024-10-30"
+          output: SCORE_RAW
+
+transform:
+  unnest_games_and_get_url:
+    input: SCORE_RAW
+    output: NHL_GAMES
+    steps:
+      - unnest_list_of_struct: games
+      - drop: [ prevDate, nextDate, gameWeek, oddsPartners ]
+
+  process_scores:
+    input: NHL_GAMES
+    output: SCORE_CLEAN
+    steps:
+      - select:
+          date: currentDate
+          away_sog: awayTeam.sog
+          away_score: awayTeam.score
+          away_team: awayTeam.abbrev
+          away_id: awayTeam.id
+          home_sog: homeTeam.sog
+          home_score: homeTeam.score
+          home_team: homeTeam.abbrev
+          home_id: homeTeam.id
+          game_id: id
+
+  process_goals:
+    input: NHL_GAMES
+    output: GOALS_CLEAN
+    steps:
+      - select:
+          goals: goals
+          date: currentDate
+          away_team: awayTeam.abbrev
+          away_id: awayTeam.id
+          home_team: homeTeam.abbrev
+          home_id: homeTeam.id
+          game_id: id
+      - unnest_list_of_struct: goals
+      - select:
+          game_id: game_id
+          period: period
+          time_in_period: timeInPeriod
+          player_id: playerId
+          player_name: name.default
+          team: teamAbbrev
+          away_score: awayScore
+          away_team: away_team
+          home_score: homeScore
+          home_team: home_team
+          goal_type: goalModifier
+          date: date
+          
+
+sink:
+  save_json_file: 
+    input: $to_save
+    max_threads: 1
+    sinks:
+      - json: 
+          filepath: $filepath
+          merge_type: replace
+
+  save_csv_file: 
+    input: $to_save
+    max_threads: 1
+    sinks:
+      - csv: 
+          filepath: $filepath
+          merge_type: replace

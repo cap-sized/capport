@@ -53,6 +53,7 @@ We are drastically changing the structure of capport to support
     - [x] SelectTransform
     - [x] JoinTransform
     - [x] DropTransform
+    - [x] UnnestTransform
     - [ ] FilterTransform
         - [ ] deserialize field `FilterStmt` { col_keyword_a: { OP : col_keyword_b } } which produces a PolarsStmt ("a OP b", or "OP a")
     - [ ] OrderTransform
@@ -69,7 +70,7 @@ We are drastically changing the structure of capport to support
     - [ ] ClickhouseSource
 - [x] SinkGroup, method of writing data, and types
     - [x] Running SinkGroup as a stage
-    - [ ] JsonSink
+    - [x] JsonSink
     - [x] CsvSink
     - [ ] BsonSink
     - [x] ClickhouseSink

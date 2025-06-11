@@ -4,3 +4,4 @@ pub mod drop;
 pub mod join;
 pub mod select;
 pub mod sql;
+pub mod unnest;

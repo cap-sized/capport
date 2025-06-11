@@ -17,7 +17,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{ClickhouseSinkConfig, CsvSinkConfig, SinkGroupConfig};
+use super::config::{ClickhouseSinkConfig, CsvSinkConfig, JsonSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -194,7 +194,13 @@ impl SinkGroupConfig {
         self.sinks
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig, ClickhouseSinkConfig);
+                let config = try_deserialize_stage!(
+                    transform,
+                    dyn SinkConfig,
+                    CsvSinkConfig,
+                    ClickhouseSinkConfig,
+                    JsonSinkConfig
+                );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Sink config parsing error",

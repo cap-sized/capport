@@ -12,7 +12,7 @@ use crate::{
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::{
-        common::vec_str_json_to_df,
+        common::{DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS, DEFAULT_HTTP_REQ_MAX_RETRY, vec_str_json_to_df},
         error::{CpError, CpResult},
     },
     valid_or_insert_error,
@@ -22,9 +22,6 @@ use super::{
     common::{Request, RequestConfig},
     config::HttpBatchConfig,
 };
-
-const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 8;
-const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
 
 pub struct HttpBatchRequest {
     url_column: Expr,
@@ -301,13 +298,13 @@ mod tests {
     use crate::{
         async_st,
         parser::{
-            http::HttpMethod,
+            http::{HttpMethod, HttpOptionsConfig},
             keyword::{Keyword, StrKeyword},
         },
         pipeline::context::{DefaultPipelineContext, PipelineContext},
         task::request::{
             common::RequestConfig,
-            config::{HttpBatchConfig, HttpOptionsConfig, HttpReqConfig},
+            config::{HttpBatchConfig, HttpReqConfig},
         },
         util::{
             common::vec_str_json_to_df,

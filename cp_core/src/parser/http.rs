@@ -19,6 +19,12 @@ impl<'de> Deserialize<'de> for HttpMethod {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct HttpOptionsConfig {
+    pub max_retry: Option<u8>,
+    pub init_retry_interval_ms: Option<u64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::HttpMethod;

@@ -65,7 +65,7 @@ macro_rules! parse_clickhouse_async {
     ($request:expr) => {
         let response = ($request).send().await?;
         if response.status().is_success() {
-            log::info!("Success: {}", response.url());
+            log::info!("Success: {}\n{:?}", response.url(), response);
             return Ok(());
         }
         match response.error_for_status() {
@@ -82,7 +82,7 @@ macro_rules! parse_clickhouse_sync {
     ($request:expr) => {
         let response = ($request).send()?;
         if response.status().is_success() {
-            log::info!("Success: {}", response.url());
+            log::info!("Success: {}\n{:?}", response.url(), response);
         } else {
             match response.error_for_status() {
                 Ok(mut err) => {
@@ -111,6 +111,7 @@ impl Sink for ClickhouseSink {
             lf.with_columns(&self.columns)
         })
         .collect()?;
+        log::debug!("Pushing to clickhouse: {:?}", final_frame);
         if self.create_table_if_not_exists {
             let create = self.inserter.get_create_query()?;
             let request = client
@@ -142,6 +143,7 @@ impl Sink for ClickhouseSink {
             lf.with_columns(&self.columns)
         })
         .collect()?;
+        log::debug!("Pushing to clickhouse: {:?}", final_frame);
         if self.create_table_if_not_exists {
             let create = self.inserter.get_create_query()?;
             let request = client

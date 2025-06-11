@@ -62,6 +62,7 @@ We are drastically changing the structure of capport to support
     - [x] Running SourceGroup as a stage
     - [x] JsonSource
     - [x] CsvSource
+    - [x] HttpSource
     - [ ] BsonSource
     - [x] PostgresSource
     - [x] MySqlSource

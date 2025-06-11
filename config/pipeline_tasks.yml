@@ -102,7 +102,7 @@ sink:
 
 model:
   nhl_player:
-    id: int32
+    id: uint64
     full_name: str
     birthdate: date
     birth_city: str

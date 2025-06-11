@@ -98,7 +98,7 @@ sink:
         options:
           order_by: []
           primary_key: [id]
-          create_table_if_not_exists: true
+          create_table_if_not_exists: false
 
 model:
   nhl_player:

@@ -15,16 +15,17 @@ on:
 permissions:
   contents: read
 
+env:
+  CLICKHOUSE_DATABASE: default
+  CLICKHOUSE_USER: default
+  CLICKHOUSE_PASSWORD: password
+
 jobs:
   test_core:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         postgresql-version: ['16', '17']
-    env:
-      CLICKHOUSE_DATABASE: default
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: password
     services:
       postgres:
         image: postgres:${{ matrix.postgresql-version }}

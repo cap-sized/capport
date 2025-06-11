@@ -47,6 +47,9 @@ jobs:
         mysql root password: root
         mysql user: dev
         mysql password: dev
+    - uses: vahid-sohrabloo/clickhouse-action@v1
+      with:
+        version: '22.7'
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

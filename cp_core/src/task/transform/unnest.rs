@@ -2,22 +2,41 @@ use std::sync::Arc;
 
 use polars::prelude::{Expr, LazyFrame};
 
-use crate::{parser::keyword::Keyword, pipeline::context::DefaultPipelineContext, util::error::{CpError, CpResult}, valid_or_insert_error};
+use crate::{
+    parser::keyword::Keyword,
+    pipeline::context::DefaultPipelineContext,
+    util::error::{CpError, CpResult},
+    valid_or_insert_error,
+};
 
-use super::{common::{Transform, TransformConfig}, config::UnnestTransformConfig};
-
+use super::{
+    common::{Transform, TransformConfig},
+    config::UnnestTransformConfig,
+};
 
 pub struct UnnestTransform {
     col_list: Option<Expr>,
     col_struct: Option<Expr>,
-    col_list_of_struct: Option<Expr>
+    col_list_of_struct: Option<Expr>,
 }
 
 impl Transform for UnnestTransform {
     fn run(&self, main: LazyFrame, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
-        let main = if let Some(expr) = self.col_list.clone() { main.explode([expr]) } else { main };
-        let main = if let Some(expr) = self.col_struct.clone() { main.unnest([expr]) } else { main };
-        let main = if let Some(expr) = self.col_list_of_struct.clone() { main.explode([expr.clone()]).unnest([expr]) } else { main };
+        let main = if let Some(expr) = self.col_list.clone() {
+            main.explode([expr])
+        } else {
+            main
+        };
+        let main = if let Some(expr) = self.col_struct.clone() {
+            main.unnest([expr])
+        } else {
+            main
+        };
+        let main = if let Some(expr) = self.col_list_of_struct.clone() {
+            main.explode([expr.clone()]).unnest([expr])
+        } else {
+            main
+        };
         Ok(main)
     }
 }
@@ -54,10 +73,19 @@ impl TransformConfig for UnnestTransformConfig {
     }
 
     fn transform(&self) -> Box<dyn Transform> {
-        Box::new(UnnestTransform { 
-            col_list_of_struct: self.unnest_list_of_struct.clone().map(|x| x.value().expect("transform[unnest_list_of_struct]").clone()),
-            col_list: self.unnest_list.clone().map(|x| x.value().expect("transform[unnest_list]").clone()),
-            col_struct: self.unnest_struct.clone().map(|x| x.value().expect("transform[unnest_struct]").clone()),
+        Box::new(UnnestTransform {
+            col_list_of_struct: self
+                .unnest_list_of_struct
+                .clone()
+                .map(|x| x.value().expect("transform[unnest_list_of_struct]").clone()),
+            col_list: self
+                .unnest_list
+                .clone()
+                .map(|x| x.value().expect("transform[unnest_list]").clone()),
+            col_struct: self
+                .unnest_struct
+                .clone()
+                .map(|x| x.value().expect("transform[unnest_struct]").clone()),
         })
     }
 }
@@ -79,13 +107,18 @@ mod tests {
         let config = UnnestTransformConfig {
             unnest_list_of_struct: Some(PolarsExprKeyword::with_value(col("players"))),
             unnest_list: None,
-            unnest_struct: None
+            unnest_struct: None,
         };
         println!("main {:?}", main.clone().collect().unwrap());
         assert!(config.validate().is_empty());
         let drop = config.transform();
         let ctx = Arc::new(DefaultPipelineContext::new());
-        let expected = main.clone().explode([col("players")]).unnest([col("players")]).collect().unwrap();
+        let expected = main
+            .clone()
+            .explode([col("players")])
+            .unnest([col("players")])
+            .collect()
+            .unwrap();
         println!("expected {:?}", expected);
         let actual = drop.run(main.clone(), ctx).unwrap().collect().unwrap();
         println!("actual {:?}", actual);
@@ -98,7 +131,7 @@ mod tests {
         let config = UnnestTransformConfig {
             unnest_list: Some(PolarsExprKeyword::with_value(col("players"))),
             unnest_list_of_struct: None,
-            unnest_struct: None
+            unnest_struct: None,
         };
         println!("main {:?}", main.clone().collect().unwrap());
         assert!(config.validate().is_empty());
@@ -113,11 +146,14 @@ mod tests {
 
     #[test]
     fn valid_unnest_transform_basic_struct() {
-        let main = str_json_to_df(&DummyData::meta_info()).unwrap().lazy().explode([col("players")]);
+        let main = str_json_to_df(&DummyData::meta_info())
+            .unwrap()
+            .lazy()
+            .explode([col("players")]);
         let config = UnnestTransformConfig {
             unnest_struct: Some(PolarsExprKeyword::with_value(col("players"))),
             unnest_list_of_struct: None,
-            unnest_list: None
+            unnest_list: None,
         };
         println!("main {:?}", main.clone().collect().unwrap());
         assert!(config.validate().is_empty());

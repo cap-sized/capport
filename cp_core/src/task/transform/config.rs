@@ -67,7 +67,7 @@ mod tests {
             jtype::JType,
             keyword::{Keyword, PolarsExprKeyword, StrKeyword},
         },
-        task::transform::config::{UnnestTransformConfig, _JoinTransformConfig},
+        task::transform::config::{_JoinTransformConfig, UnnestTransformConfig},
     };
 
     use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig, SqlTransformConfig};

@@ -194,7 +194,13 @@ impl SinkGroupConfig {
         self.sinks
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig, ClickhouseSinkConfig, JsonSinkConfig);
+                let config = try_deserialize_stage!(
+                    transform,
+                    dyn SinkConfig,
+                    CsvSinkConfig,
+                    ClickhouseSinkConfig,
+                    JsonSinkConfig
+                );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Sink config parsing error",

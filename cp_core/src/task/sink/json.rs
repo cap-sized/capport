@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use polars::{
     frame::DataFrame,
     io::SerWriter,
-    prelude::{JsonWriter, Expr, IntoLazy},
+    prelude::{Expr, IntoLazy, JsonWriter},
 };
 
 use crate::{
@@ -150,7 +150,7 @@ mod tests {
         df,
         frame::DataFrame,
         io::SerReader,
-        prelude::{JsonReader, DataType, IntoLazy, col},
+        prelude::{DataType, IntoLazy, JsonReader, col},
     };
 
     use crate::{

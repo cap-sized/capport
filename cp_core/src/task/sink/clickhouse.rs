@@ -83,16 +83,16 @@ macro_rules! parse_clickhouse_sync {
         let response = ($request).send()?;
         if response.status().is_success() {
             log::info!("Success: {}", response.url());
-            return Ok(());
-        }
-        match response.error_for_status() {
-            Ok(mut err) => {
-                log::error!("Bad response: {:?}", err);
-                let mut buf = String::new();
-                err.read_to_string(&mut buf).unwrap();
-                return Err(CpError::ConnectionError(buf));
+        } else {
+            match response.error_for_status() {
+                Ok(mut err) => {
+                    log::error!("Bad response: {:?}", err);
+                    let mut buf = String::new();
+                    err.read_to_string(&mut buf).unwrap();
+                    return Err(CpError::ConnectionError(buf));
+                }
+                Err(_) => {}
             }
-            Err(_) => {}
         }
     };
 }
@@ -118,9 +118,11 @@ impl Sink for ClickhouseSink {
                 .query(&[("query", create)])
                 .headers(self.headers.clone())
                 .header("Content-Length", 0);
+            log::debug!("Table update: {}", create);
             parse_clickhouse_sync!(request);
         }
         let insert = self.inserter.get_insert_query()?;
+        log::debug!("Inserting: {}", insert);
         let body = self.inserter.get_arrow_body(&final_frame)?;
         let request = client
             .post(&self.uri)
@@ -242,9 +244,11 @@ impl SinkConfig for ClickhouseSinkConfig {
                 .expect("source[clickhouse].url")
                 .split_terminator("/")
                 .collect();
-            if let Some(db_name) = parts.pop() {
-                if self.options.db_name.is_none() {
-                    let _ = self.options.db_name.insert(StrKeyword::with_value(db_name.to_string()));
+            if parts.len() > 3 {
+                if let Some(db_name) = parts.pop() {
+                    if self.options.db_name.is_none() {
+                        let _ = self.options.db_name.insert(StrKeyword::with_value(db_name.to_string()));
+                    }
                 }
             }
             let _ = self.clickhouse.url.insert(StrKeyword::with_value(parts.join("/")));

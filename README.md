@@ -79,7 +79,7 @@ We are drastically changing the structure of capport to support
     - [x] HttpSingleRequest
 - [x] PipelineRegistry
 - [ ] Synchronous schedule (per-pipeline)
-- [ ] Asynchronous schedule (per-stage)
+- [x] Asynchronous schedule (per-stage)
 
 ## Project structure
 

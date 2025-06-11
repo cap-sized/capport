@@ -142,6 +142,12 @@ impl Stage for RequestGroup {
                 async |breq: &BoxedRequest, ctx: Arc<DefaultPipelineContext>| {
                     let req = &breq.0;
                     let upd = update.clone();
+                    let mut bcast = match ctx.get_async_broadcast(breq.0.name(), label) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
+                        }
+                    };
                     match upd.info.msg_type {
                         FrameUpdateType::Replace => {
                             let mut dataframe: Option<LazyFrame> = None;
@@ -157,22 +163,30 @@ impl Stage for RequestGroup {
                             );
                         }
                         FrameUpdateType::Kill => {
-                            terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            let mut bcast = match ctx.get_async_broadcast(breq.0.name(), label) {
-                                Ok(x) => x,
-                                Err(e) => {
-                                    return Err(CpError::PipelineError("Broadcast channel failed", e.to_string()));
-                                }
-                            };
-                            bcast.kill()?;
-                            log::info!("Sent termination signal for frame {}", breq.0.name());
+                            let prev = terminations.fetch_add(1, std::sync::atomic::Ordering::Release);
+                            match bcast.kill() {
+                                Ok(_) => log::info!("[Request] Sent termination signal for frame {}", breq.0.name()),
+                                Err(e) => log::error!(
+                                    "[Request] Failed to sent termination signal for frame {}: {}",
+                                    breq.0.name(),
+                                    e
+                                ),
+                            }
+                            log::info!(
+                                "Terminating request substage `{}.{}` [{}/{}]",
+                                &self.label,
+                                breq.0.connection_type(),
+                                prev + 1,
+                                self.requests.len()
+                            );
                         }
                     }
                     Ok::<(), CpError>(())
                 },
                 ctx.clone()
             );
-            if terminations.load(std::sync::atomic::Ordering::Relaxed) >= self.requests.len() {
+            let tcount = terminations.load(std::sync::atomic::Ordering::Acquire);
+            if tcount >= self.requests.len() {
                 log::info!("Stage killed after {} iterations: {}", loops, &self.label);
                 break;
             }

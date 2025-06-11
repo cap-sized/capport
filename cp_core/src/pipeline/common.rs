@@ -144,6 +144,7 @@ impl Pipeline {
             },
             ctx.clone()
         );
+        log::info!("completed all tasks");
     }
 }
 

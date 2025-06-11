@@ -12,6 +12,10 @@ pipeline:
       task_type: transform
       task_name: unnest_games_and_get_url
       emplace: {}
+    - label: process_goals
+      task_type: transform
+      task_name: process_goals
+      emplace: {}
     - label: process_scores
       task_type: transform
       task_name: process_scores
@@ -26,8 +30,14 @@ pipeline:
       task_type: sink
       task_name: save_csv_file
       emplace: 
+        to_save: GOALS_CLEAN
+        filepath: clean_nhl_goals.csv
+    - label: save_game_state
+      task_type: sink
+      task_name: save_csv_file
+      emplace: 
         to_save: SCORE_CLEAN
-        filepath: clean_nhl_scores.csv
+        filepath: scoreboard.csv
 
 source:
   load_score_source:
@@ -48,6 +58,22 @@ transform:
   process_scores:
     input: NHL_GAMES
     output: SCORE_CLEAN
+    steps:
+      - select:
+          date: currentDate
+          away_sog: awayTeam.sog
+          away_score: awayTeam.score
+          away_team: awayTeam.abbrev
+          away_id: awayTeam.id
+          home_sog: homeTeam.sog
+          home_score: homeTeam.score
+          home_team: homeTeam.abbrev
+          home_id: homeTeam.id
+          game_id: id
+
+  process_goals:
+    input: NHL_GAMES
+    output: GOALS_CLEAN
     steps:
       - select:
           goals: goals

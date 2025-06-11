@@ -48,6 +48,14 @@ pub struct SqlTransformConfig {
     pub sql_context: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnnestTransformConfig {
+    pub unnest_struct: Option<PolarsExprKeyword>,
+    pub unnest_list: Option<PolarsExprKeyword>,
+    pub unnest_list_of_struct: Option<PolarsExprKeyword>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -59,7 +67,7 @@ mod tests {
             jtype::JType,
             keyword::{Keyword, PolarsExprKeyword, StrKeyword},
         },
-        task::transform::config::_JoinTransformConfig,
+        task::transform::config::{UnnestTransformConfig, _JoinTransformConfig},
     };
 
     use super::{DropTransformConfig, JoinTransformConfig, SelectTransformConfig, SqlTransformConfig};
@@ -259,6 +267,21 @@ join:
             SqlTransformConfig {
                 sql: "select col from data".to_string(),
                 sql_context: None
+            }
+        );
+    }
+
+    #[test]
+    fn parse_transform_unnest() {
+        let config = "unnest_list: $col";
+        let actual: UnnestTransformConfig = serde_yaml_ng::from_str(config).unwrap();
+
+        assert_eq!(
+            actual,
+            UnnestTransformConfig {
+                unnest_list: Some(PolarsExprKeyword::with_symbol("col")),
+                unnest_struct: None,
+                unnest_list_of_struct: None,
             }
         );
     }

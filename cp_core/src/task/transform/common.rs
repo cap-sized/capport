@@ -1,6 +1,6 @@
 use polars::prelude::*;
 
-use super::config::{DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig};
+use super::config::{DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig, SqlTransformConfig, UnnestTransformConfig};
 use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
@@ -133,7 +133,9 @@ impl RootTransformConfig {
                     dyn TransformConfig,
                     SelectTransformConfig,
                     JoinTransformConfig,
-                    DropTransformConfig
+                    DropTransformConfig,
+                    SqlTransformConfig,
+                    UnnestTransformConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(

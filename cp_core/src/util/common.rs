@@ -20,6 +20,9 @@ pub type YamlValue = serde_yaml_ng::Value;
 pub const RECOGNIZED_DATE_PATTERNS: [&str; 2] = ["%Y-%m-%d", "%Y.%m.%d"];
 pub const RECOGNIZED_TIME_PATTERNS: [&str; 2] = ["%H:%M:%S", "%H.%M.%S"];
 
+pub const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 8;
+pub const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
+
 pub enum EnvKeyType {
     Host,
     User,

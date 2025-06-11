@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::{
     model::common::ModelFields,
     parser::{
-        http::HttpMethod,
+        http::{HttpMethod, HttpOptionsConfig},
         keyword::{PolarsExprKeyword, StrKeyword},
     },
 };
@@ -14,12 +14,6 @@ pub struct RequestGroupConfig {
     pub input: StrKeyword,
     pub max_threads: usize,
     pub requests: Vec<serde_yaml_ng::Value>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct HttpOptionsConfig {
-    pub max_retry: Option<u8>,
-    pub init_retry_interval_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

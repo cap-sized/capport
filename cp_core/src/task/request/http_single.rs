@@ -5,7 +5,7 @@ use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
 use crate::task::request::common::{Request, RequestConfig};
 use crate::task::request::config::{HttpParamConfig, HttpSingleConfig};
 use crate::task::request::http_batch::get_urls;
-use crate::util::common::{explode_df, str_json_to_df};
+use crate::util::common::{explode_df, str_json_to_df, DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS, DEFAULT_HTTP_REQ_MAX_RETRY};
 use crate::util::error::{CpError, CpResult};
 use crate::{model_emplace, valid_or_insert_error};
 use async_trait::async_trait;
@@ -22,9 +22,6 @@ pub struct HttpSingleRequest {
     max_retry: u8,
     init_retry_interval_ms: u64,
 }
-
-const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 3;
-const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
 
 impl HttpSingleRequest {
     fn get_column_name(&self, expr: Expr) -> Option<String> {

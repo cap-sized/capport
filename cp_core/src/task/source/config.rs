@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::{
     model::common::ModelFields,
-    parser::{keyword::StrKeyword, sql_connection::SqlConnection},
+    parser::{http::HttpOptionsConfig, keyword::StrKeyword, sql_connection::SqlConnection},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -53,6 +53,20 @@ pub struct MySqlSourceConfig {
     pub mysql: SqlConnection,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SingleLinkConfig {
+    pub url: StrKeyword,
+    pub output: StrKeyword,
+    pub model: Option<StrKeyword>,
+    pub model_fields: Option<ModelFields>,
+    pub options: Option<HttpOptionsConfig>
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct HttpSourceConfig {
+    pub http: SingleLinkConfig,
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -62,13 +76,12 @@ mod tests {
     use crate::{
         model::common::ModelFieldInfo,
         parser::{
-            dtype::DType,
-            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+            dtype::DType, http::HttpOptionsConfig, keyword::{Keyword, ModelFieldKeyword, StrKeyword}
         },
         task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{_CsvSourceConfig, LocalFileSourceConfig};
+    use super::{HttpSourceConfig, LocalFileSourceConfig, SingleLinkConfig, _CsvSourceConfig};
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -206,4 +219,46 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn valid_http_config_csv() {
+        let configs = [
+            "
+http:
+    url: http://mywebsite.com
+    output: $example
+    model_fields:
+        $test: int8
+", 
+"
+http:
+    url: http://mywebsite.com
+    output: $example
+    model_fields:
+        $test: int8
+    options: { max_retry: 8, init_retry_interval_ms: 100 }
+",
+        ];
+        let expected = [ 
+            None,
+            Some(HttpOptionsConfig { max_retry: Some(8), init_retry_interval_ms: Some(100) })
+        ];
+        for i in 0..2 {
+            assert_eq!(
+            HttpSourceConfig {
+                http: SingleLinkConfig { 
+                    url: StrKeyword::with_value("http://mywebsite.com".to_owned()), 
+                    output: StrKeyword::with_symbol("example"),
+                    model: None,
+                    model_fields: Some(HashMap::from([
+                            (StrKeyword::with_symbol("test"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))))
+                    ])),
+                    options: expected[i].clone()
+                },
+            },
+                serde_yaml_ng::from_str::<HttpSourceConfig>(configs[i]).unwrap()
+            )
+        }
+    }
+
 }

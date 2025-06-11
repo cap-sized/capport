@@ -20,7 +20,7 @@ pub struct SqlSource {
     queries: Vec<CXQuery>,
     output: String,
     strict: bool,
-    schema: Option<Vec<Expr>>,
+    columns: Option<Vec<Expr>>,
 }
 
 #[async_trait]
@@ -58,11 +58,11 @@ impl Source for SqlSource {
                 return Err(CpError::TaskError("Failed to parse SqlSource result", e.to_string()));
             }
         };
-        let frame_modelled = if let Some(schema) = &self.schema {
+        let frame_modelled = if let Some(columns) = &self.columns {
             if self.strict {
-                lf.select(schema.clone())
+                lf.select(columns.clone())
             } else {
-                lf.with_columns(schema.clone())
+                lf.with_columns(columns.clone())
             }
         } else {
             lf
@@ -82,20 +82,37 @@ impl SourceConfig for MySqlSourceConfig {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.mysql.url.as_ref().unwrap(), "source[mysql].url");
-        valid_or_insert_error!(errors, self.mysql.dfname, "source[mysql].dfname");
+        if let Some(output) = &self.mysql.output {
+            valid_or_insert_error!(errors, output, "source[mysql].output");
+        } else {
+            errors.push(CpError::ConfigValidationError(
+                "source[mysql].output",
+                "Missing df output name, please declare".to_owned(),
+            ));
+        }
         if let Some(model_fields) = &self.mysql.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[mysql].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[mysql].model.field");
             }
         }
+        if let Some(merge_type) = self.mysql.merge_type {
+            log::warn!("MergeType {:?} ignored in MySqlSourceConfig", merge_type);
+        }
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
         let queries = self.mysql.src_query();
-        let schema = self.mysql.schema();
+        let columns = self.mysql.columns();
         Box::new(SqlSource {
-            output: self.mysql.dfname.value().expect("source[mysql].dfname").to_string(),
+            output: self
+                .mysql
+                .output
+                .as_ref()
+                .expect("source[mysql].output")
+                .value()
+                .expect("source[mysql].output")
+                .to_string(),
             uri: self
                 .mysql
                 .url
@@ -104,7 +121,7 @@ impl SourceConfig for MySqlSourceConfig {
                 .expect("source[mysql].uri(val)")
                 .to_string(),
             queries,
-            schema,
+            columns,
             strict: self.mysql.strict.unwrap_or(false),
         })
     }
@@ -118,24 +135,36 @@ impl SourceConfig for PostgresSourceConfig {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.postgres.url.as_ref().unwrap(), "source[postgres].url");
-        valid_or_insert_error!(errors, self.postgres.dfname, "source[postgres].dfname");
+        if let Some(output) = &self.postgres.output {
+            valid_or_insert_error!(errors, output, "source[postgres].output");
+        } else {
+            errors.push(CpError::ConfigValidationError(
+                "source[postgres].output",
+                "Missing df output name, please declare".to_owned(),
+            ));
+        }
         if let Some(model_fields) = &self.postgres.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[postgres].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[postgres].model.field");
             }
         }
+        if let Some(merge_type) = self.postgres.merge_type {
+            log::warn!("MergeType {:?} ignored in PostgresSourceConfig", merge_type);
+        }
         errors
     }
     fn transform(&self) -> Box<dyn Source> {
         let queries = self.postgres.src_query();
-        let schema = self.postgres.schema();
+        let columns = self.postgres.columns();
         Box::new(SqlSource {
             output: self
                 .postgres
-                .dfname
+                .output
+                .as_ref()
+                .expect("source[postgres].output")
                 .value()
-                .expect("source[postgres].dfname")
+                .expect("source[postgres].output")
                 .to_string(),
             uri: self
                 .postgres
@@ -145,7 +174,7 @@ impl SourceConfig for PostgresSourceConfig {
                 .expect("source[postgres].uri(val)")
                 .to_string(),
             queries,
-            schema,
+            columns,
             strict: self.postgres.strict.unwrap_or(false),
         })
     }
@@ -159,6 +188,7 @@ mod tests {
     use polars::prelude::{DataType, IntoLazy, TimeUnit, col};
 
     use crate::{
+        async_st,
         context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry},
         model::common::{ModelConfig, ModelFields},
         parser::{
@@ -183,7 +213,7 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::naked("select now()")],
             strict: false,
-            schema: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
+            columns: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
@@ -201,7 +231,7 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::naked("select now()")],
             strict: true,
-            schema: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
+            columns: Some(vec![col("now").cast(dtype.clone()).alias("time")]),
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
@@ -218,12 +248,45 @@ mod tests {
             output: "TEST".to_string(),
             queries: vec![CXQuery::from("show databases")],
             strict: false,
-            schema: None,
+            columns: None,
         };
         let ctx = Arc::new(DefaultPipelineContext::new());
         let val = sql.run(ctx.clone()).unwrap();
         let actual = val.collect().unwrap();
         assert_eq!(actual.shape().1, 1);
+    }
+
+    macro_rules! check_invalid_sql_config {
+        ($conftype:tt, $nodename:expr, $config:expr) => {{
+            let full_config = $config.replace("{}", $nodename).replace("{valid}", "").to_owned();
+            println!("{}", full_config);
+            let bad_config_material = serde_yaml_ng::from_str::<$conftype>(&full_config).unwrap();
+            let errors = bad_config_material.validate();
+            assert_eq!(errors.len(), 1);
+        }
+        {
+            let full_config = $config
+                .replace("{}", $nodename)
+                .replace("{valid}", "output: something\nmerge_type: insert")
+                .to_owned();
+            let bad_config_material = serde_yaml_ng::from_str::<$conftype>(&full_config).unwrap();
+            let errors = bad_config_material.validate();
+            assert!(errors.is_empty());
+        }};
+    }
+
+    #[test]
+    fn invalid_sql_src() {
+        let config = "
+{}:
+    table: table
+    env_connection: sink
+    model: mymod
+    url: http://alreadyhere:8000
+    {valid}
+        ";
+        check_invalid_sql_config!(MySqlSourceConfig, "mysql", &config);
+        check_invalid_sql_config!(PostgresSourceConfig, "postgres", &config);
     }
 
     #[test]
@@ -236,10 +299,11 @@ mod tests {
                 // this is irrelevant
                 table: StrKeyword::with_value("table".to_owned()),
                 strict: Some(true),
-                dfname: StrKeyword::with_symbol("output"),
+                output: Some(StrKeyword::with_symbol("output")),
                 url: Some(StrKeyword::with_symbol("url")),
                 env_connection: None,
                 model: None,
+                merge_type: None,
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -274,12 +338,14 @@ url: postgres://defuser:password@localhost:5432/defuser
                 model_fields: None,
                 table: StrKeyword::with_symbol("lookup"),
                 strict: Some(false),
-                dfname: StrKeyword::with_value("TEST".to_owned()),
+                output: Some(StrKeyword::with_value("TEST".to_owned())),
                 url: Some(StrKeyword::with_value(
                     "postgres://defuser:password@localhost:5432/defuser".to_owned(),
                 )),
                 env_connection: None,
                 model: Some(StrKeyword::with_symbol("model")),
+                // this gets a warning
+                merge_type: Some(crate::parser::merge_type::MergeTypeEnum::Replace),
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -326,10 +392,11 @@ model: person
                 model_fields: Some(serde_yaml_ng::from_str::<ModelFields>("{id: uint32, amt: uint8}").unwrap()),
                 table: StrKeyword::with_value("payments".to_owned()),
                 strict: Some(false),
-                dfname: StrKeyword::with_symbol("output"),
+                output: Some(StrKeyword::with_symbol("output")),
                 url: None,
                 env_connection: Some(StrKeyword::with_symbol("mysql_conn")),
                 model: None,
+                merge_type: None,
             },
         };
         let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>(
@@ -364,10 +431,7 @@ connection:
             assert_eq!(df, expected);
         }
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let sqlsrc = config.transform();
                 assert_eq!(sqlsrc.connection_type(), "sql");
                 assert_eq!(sqlsrc.name(), "TEST");
@@ -375,8 +439,7 @@ connection:
                 assert_eq!(df.column("id").unwrap().dtype(), &DataType::UInt32);
                 assert_eq!(df.column("amt").unwrap().dtype(), &DataType::UInt8);
                 assert_eq!(df, expected);
-            };
-            rt.block_on(event());
+            });
         }
         DbTools::drop_my("root", "root", "dev", "payments", 3306);
         {

@@ -299,6 +299,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
+        async_st,
         parser::{
             http::HttpMethod,
             keyword::{Keyword, StrKeyword},
@@ -399,10 +400,7 @@ mod tests {
         }
         // with connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let mocks = mock_server(&server);
@@ -414,15 +412,11 @@ mod tests {
                 let actual = ctx.extract_clone_result("OUT").unwrap();
                 let expected = get_expected();
                 assert_frame_equal(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
         // without connection async
         {
-            let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-            rt_builder.enable_all();
-            let rt = rt_builder.build().unwrap();
-            let event = async || {
+            async_st!(async || {
                 let actual_node = source_config.transform();
                 let server = MockServer::start();
                 let url_df = get_url_df(&server);
@@ -435,8 +429,7 @@ mod tests {
                     .unwrap();
                 let expected = df!( "id" => Vec::<String>::new(), "label" => Vec::<String>::new() ).unwrap();
                 assert_frame_equal(expected, actual);
-            };
-            rt.block_on(event());
+            });
         }
     }
 }

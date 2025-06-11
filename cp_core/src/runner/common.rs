@@ -5,6 +5,7 @@ use serde::Deserialize;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{
+    async_mt,
     context::{
         connection::ConnectionRegistry,
         envvar::{EnvironmentVariableRegistry, get_env_var_str},
@@ -147,10 +148,7 @@ pub fn async_runner(
     cron: Option<&str>,
     tz: Option<&str>,
 ) -> CpResult<()> {
-    let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-    rt_builder.enable_all();
-    let rt = rt_builder.build().unwrap();
-    let event_loop = async move {
+    async_mt!(async move || {
         let scheduler = JobScheduler::new().await.expect("failed to create scheduler");
         if let Some(schedule) = cron {
             log::info!("Schedule: {}", schedule);
@@ -188,8 +186,7 @@ pub fn async_runner(
         let run = async || pipeline.async_exec(ctx.clone()).await;
         let terminator = async || ctx.signal().sigterm_listen().await;
         tokio::join!(run(), terminator());
-    };
-    rt.block_on(event_loop);
+    });
     Ok(())
 }
 

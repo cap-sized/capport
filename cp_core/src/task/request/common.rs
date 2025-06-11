@@ -256,6 +256,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
+        async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle},
         model::common::ModelConfig,
@@ -432,10 +433,7 @@ mod tests {
     #[test]
     fn success_mock_request_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx = Arc::new(
                 DefaultPipelineContext::with_results(&["df", "next", "mock", "final", "in"], 6).with_signal(2),
             );
@@ -460,8 +458,7 @@ mod tests {
                 in_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

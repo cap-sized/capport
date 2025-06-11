@@ -17,7 +17,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{CsvSinkConfig, SinkGroupConfig};
+use super::config::{ClickhouseSinkConfig, CsvSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -186,7 +186,7 @@ impl SinkGroupConfig {
         self.sinks
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig);
+                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig, ClickhouseSinkConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",
@@ -247,6 +247,7 @@ mod tests {
     };
 
     use crate::{
+        async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
         model::common::ModelConfig,
@@ -369,10 +370,7 @@ mod tests {
     #[test]
     fn success_mock_sink_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx =
                 Arc::new(DefaultPipelineContext::with_results(&["next", "next1", "next2", "next3"], 2).with_signal(2));
             let ictx = ctx.clone();
@@ -393,8 +391,7 @@ mod tests {
                 next_handle.kill().unwrap();
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

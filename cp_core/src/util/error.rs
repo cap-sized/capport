@@ -49,6 +49,12 @@ impl From<polars::error::PolarsError> for CpError {
     }
 }
 
+impl From<inserter_x::common::InsError> for CpError {
+    fn from(value: inserter_x::common::InsError) -> Self {
+        Self::TaskError("ClickhouseInserter", value.to_string())
+    }
+}
+
 impl From<serde_yaml_ng::Error> for CpError {
     fn from(value: serde_yaml_ng::Error) -> Self {
         Self::ConfigError("YML Parsing Error", value.to_string())

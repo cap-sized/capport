@@ -265,6 +265,7 @@ mod tests {
     };
 
     use crate::{
+        async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
         model::common::{ModelConfig, ModelFieldInfo},
@@ -432,10 +433,7 @@ mod tests {
     #[test]
     fn success_mock_source_async_exec() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx = Arc::new(
                 DefaultPipelineContext::with_results(&["df", "next", "test_df", "test_next"], 2).with_signal(2),
             );
@@ -468,8 +466,7 @@ mod tests {
                 };
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

@@ -154,6 +154,7 @@ mod tests {
     };
 
     use crate::{
+        async_st,
         context::model::ModelRegistry,
         model::common::{ModelConfig, ModelFieldInfo},
         parser::{
@@ -207,17 +208,13 @@ mod tests {
         let tmp = TempFile::default();
         let csv_sink = CsvSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let _ = csv_sink.fetch(expected.clone(), ctx).await;
             let buffer = tmp.get().unwrap();
             let reader = CsvReader::new(buffer);
             let actual = reader.finish().unwrap();
             assert_frame_equal(actual, expected);
-        };
-        rt.block_on(event());
+        });
     }
 
     fn get_node(
@@ -283,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_executing_mode_off() {
+    fn valid_csv_sink_config_to_csv_sink_exec_mode_off() {
         let tmp = TempFile::default();
         let mut source_config = CsvSinkConfig {
             csv: LocalFileSinkConfig {

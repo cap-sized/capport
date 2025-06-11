@@ -195,6 +195,7 @@ mod tests {
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
     use super::{RootTransform, Transform};
+    use crate::async_st;
     use crate::parser::keyword::{Keyword, StrKeyword};
     use crate::task::stage::StageTaskConfig;
     use crate::task::transform::config::RootTransformConfig;
@@ -253,10 +254,7 @@ mod tests {
     #[test]
     fn success_async_exec_no_subtransforms() {
         // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async || {
+        async_st!(async || {
             let ctx = Arc::new(DefaultPipelineContext::with_results(&["orig", "actual"], 2));
             let lctx = ctx.clone();
             let fctx = ctx.clone();
@@ -280,8 +278,7 @@ mod tests {
                 killer.kill().unwrap();
             };
             tokio::join!(lhandle(), thandle());
-        };
-        rt.block_on(event());
+        });
     }
 
     #[test]

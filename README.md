@@ -61,7 +61,7 @@ We are drastically changing the structure of capport to support
 - [x] SourceGroup, method of pulling data, and types
     - [x] Running SourceGroup as a stage
     - [x] JsonSource
-    - [ ] CsvSource
+    - [x] CsvSource
     - [ ] BsonSource
     - [x] PostgresSource
     - [x] MySqlSource
@@ -71,7 +71,7 @@ We are drastically changing the structure of capport to support
     - [ ] JsonSink
     - [x] CsvSink
     - [ ] BsonSink
-    - [ ] ClickhouseSink
+    - [x] ClickhouseSink
     - [ ] ParquetSink
 - [x] RequestGroup, method of writing data, and types
     - [x] Running RequestGroup as a stage

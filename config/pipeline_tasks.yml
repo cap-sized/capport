@@ -32,9 +32,9 @@ pipeline:
         state_province_df: STATE_PROVINCE
         output: NHL_PLAYER_DATA
 
-    - label: save_player_data_to_local
+    - label: save_player_data
       task_type: sink
-      task_name: save_csv # default
+      task_name: save_file # default
       emplace:
         input: NHL_PLAYER_DATA
 
@@ -82,13 +82,16 @@ request:
               separator: ","         # optional, default shown
 
 sink:
-  save_csv: 
+  save_file: 
     input: $input
     max_threads: 1
     sinks:
       - csv: 
           filepath: canadian_players.csv
           merge_type: replace
+      - clickhouse:
+          dfname: 
+        options:
 
 transform:
   player_ids_to_urls:

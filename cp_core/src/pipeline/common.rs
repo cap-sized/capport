@@ -156,6 +156,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
+        async_st,
         context::{
             connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
             source::SourceRegistry, transform::TransformRegistry,
@@ -474,10 +475,7 @@ stages:
     #[test]
     fn basic_async_exec_pipeline() {
         // fern::Dispatch::new().level(log::LevelFilter::Warn).chain(std::io::stdout()).apply().unwrap();
-        let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-        rt_builder.enable_all();
-        let rt = rt_builder.build().unwrap();
-        let event = async move || {
+        async_st!(async move || {
             let mut prices = DummyData::df_instrument_prices();
             let mut instruments = DummyData::df_instruments();
             let price_file = TempFile::default();
@@ -521,7 +519,6 @@ stages:
                 iictx.signal_terminate().await.unwrap();
             };
             tokio::join!(action_path(), terminator());
-        };
-        rt.block_on(event());
+        });
     }
 }

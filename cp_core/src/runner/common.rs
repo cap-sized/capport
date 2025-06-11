@@ -231,10 +231,12 @@ tz: America/New_York
 logger: mylog
 mode: debug
 schedule: "* * * * *"
+kill_at: "1 * * * *"
 "#,
             r#"
 logger: mylog
 mode: once
+kill_at: "0 */2 * * *"
 "#,
         ];
         let runner: Vec<RunnerConfig> = configs

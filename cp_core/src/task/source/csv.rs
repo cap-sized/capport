@@ -160,13 +160,19 @@ mod tests {
     };
 
     use crate::{
-        async_st, context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{
+        async_st,
+        context::model::ModelRegistry,
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        }, pipeline::context::DefaultPipelineContext, task::source::{
+        },
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
             common::{Source, SourceConfig},
-            config::{CsvSourceConfig, _CsvSourceConfig},
-        }, util::{test::assert_frame_equal, tmp::TempFile}
+            config::{_CsvSourceConfig, CsvSourceConfig},
+        },
+        util::{test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::CsvSource;

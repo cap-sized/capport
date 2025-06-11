@@ -154,14 +154,20 @@ mod tests {
     };
 
     use crate::{
-        async_st, context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{
+        async_st,
+        context::model::ModelRegistry,
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
             merge_type::MergeTypeEnum,
-        }, pipeline::context::DefaultPipelineContext, task::sink::{
+        },
+        pipeline::context::DefaultPipelineContext,
+        task::sink::{
             common::{Sink, SinkConfig},
             config::{CsvSinkConfig, LocalFileSinkConfig},
-        }, util::{common::rng_str, test::assert_frame_equal, tmp::TempFile}
+        },
+        util::{common::rng_str, test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::CsvSink;
@@ -274,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_executing_mode_off() {
+    fn valid_csv_sink_config_to_csv_sink_exec_mode_off() {
         let tmp = TempFile::default();
         let mut source_config = CsvSinkConfig {
             csv: LocalFileSinkConfig {

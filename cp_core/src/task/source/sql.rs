@@ -82,7 +82,14 @@ impl SourceConfig for MySqlSourceConfig {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.mysql.url.as_ref().unwrap(), "source[mysql].url");
-        valid_or_insert_error!(errors, self.mysql.dfname, "source[mysql].dfname");
+        if let Some(output) = &self.mysql.output {
+            valid_or_insert_error!(errors, output, "source[mysql].output");
+        } else {
+            errors.push(CpError::ConfigValidationError(
+                "source[mysql].output",
+                "Missing df output name, please declare".to_owned(),
+            ));
+        }
         if let Some(model_fields) = &self.mysql.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[mysql].model.key");
@@ -98,7 +105,14 @@ impl SourceConfig for MySqlSourceConfig {
         let queries = self.mysql.src_query();
         let columns = self.mysql.columns();
         Box::new(SqlSource {
-            output: self.mysql.dfname.value().expect("source[mysql].dfname").to_string(),
+            output: self
+                .mysql
+                .output
+                .as_ref()
+                .expect("source[mysql].output")
+                .value()
+                .expect("source[mysql].output")
+                .to_string(),
             uri: self
                 .mysql
                 .url
@@ -121,7 +135,14 @@ impl SourceConfig for PostgresSourceConfig {
         let mut errors = vec![];
         // Only url has to be inserted
         valid_or_insert_error!(errors, self.postgres.url.as_ref().unwrap(), "source[postgres].url");
-        valid_or_insert_error!(errors, self.postgres.dfname, "source[postgres].dfname");
+        if let Some(output) = &self.postgres.output {
+            valid_or_insert_error!(errors, output, "source[postgres].output");
+        } else {
+            errors.push(CpError::ConfigValidationError(
+                "source[postgres].output",
+                "Missing df output name, please declare".to_owned(),
+            ));
+        }
         if let Some(model_fields) = &self.postgres.model_fields {
             for (key_kw, field_kw) in model_fields {
                 valid_or_insert_error!(errors, key_kw, "source[postgres].model.key");
@@ -139,9 +160,11 @@ impl SourceConfig for PostgresSourceConfig {
         Box::new(SqlSource {
             output: self
                 .postgres
-                .dfname
+                .output
+                .as_ref()
+                .expect("source[postgres].output")
                 .value()
-                .expect("source[postgres].dfname")
+                .expect("source[postgres].output")
                 .to_string(),
             uri: self
                 .postgres
@@ -165,13 +188,19 @@ mod tests {
     use polars::prelude::{DataType, IntoLazy, TimeUnit, col};
 
     use crate::{
-        async_st, context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry}, model::common::{ModelConfig, ModelFields}, parser::{
+        async_st,
+        context::{connection::ConnectionRegistry, envvar::EnvironmentVariableRegistry, model::ModelRegistry},
+        model::common::{ModelConfig, ModelFields},
+        parser::{
             keyword::{Keyword, StrKeyword},
             sql_connection::SqlConnection,
-        }, pipeline::context::DefaultPipelineContext, task::source::{
+        },
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
             common::{Source, SourceConfig},
             config::{MySqlSourceConfig, PostgresSourceConfig},
-        }, util::{common::create_config_pack, test::tests::DbTools}
+        },
+        util::{common::create_config_pack, test::tests::DbTools},
     };
 
     use super::SqlSource;
@@ -227,6 +256,39 @@ mod tests {
         assert_eq!(actual.shape().1, 1);
     }
 
+    macro_rules! check_invalid_sql_config {
+        ($conftype:tt, $nodename:expr, $config:expr) => {{
+            let full_config = $config.replace("{}", $nodename).replace("{valid}", "").to_owned();
+            println!("{}", full_config);
+            let bad_config_material = serde_yaml_ng::from_str::<$conftype>(&full_config).unwrap();
+            let errors = bad_config_material.validate();
+            assert_eq!(errors.len(), 1);
+        }
+        {
+            let full_config = $config
+                .replace("{}", $nodename)
+                .replace("{valid}", "output: something\nmerge_type: insert")
+                .to_owned();
+            let bad_config_material = serde_yaml_ng::from_str::<$conftype>(&full_config).unwrap();
+            let errors = bad_config_material.validate();
+            assert!(errors.is_empty());
+        }};
+    }
+
+    #[test]
+    fn invalid_sql_src() {
+        let config = "
+{}:
+    table: table
+    env_connection: sink
+    model: mymod
+    url: http://alreadyhere:8000
+    {valid}
+        ";
+        check_invalid_sql_config!(MySqlSourceConfig, "mysql", &config);
+        check_invalid_sql_config!(PostgresSourceConfig, "postgres", &config);
+    }
+
     #[test]
     fn valid_pg_src_config_to_sql_src_fully_qualified_values() {
         let expected = DbTools::populate_pg_person("defuser", "password", "person");
@@ -237,7 +299,7 @@ mod tests {
                 // this is irrelevant
                 table: StrKeyword::with_value("table".to_owned()),
                 strict: Some(true),
-                dfname: StrKeyword::with_symbol("output"),
+                output: Some(StrKeyword::with_symbol("output")),
                 url: Some(StrKeyword::with_symbol("url")),
                 env_connection: None,
                 model: None,
@@ -276,7 +338,7 @@ url: postgres://defuser:password@localhost:5432/defuser
                 model_fields: None,
                 table: StrKeyword::with_symbol("lookup"),
                 strict: Some(false),
-                dfname: StrKeyword::with_value("TEST".to_owned()),
+                output: Some(StrKeyword::with_value("TEST".to_owned())),
                 url: Some(StrKeyword::with_value(
                     "postgres://defuser:password@localhost:5432/defuser".to_owned(),
                 )),
@@ -330,7 +392,7 @@ model: person
                 model_fields: Some(serde_yaml_ng::from_str::<ModelFields>("{id: uint32, amt: uint8}").unwrap()),
                 table: StrKeyword::with_value("payments".to_owned()),
                 strict: Some(false),
-                dfname: StrKeyword::with_symbol("output"),
+                output: Some(StrKeyword::with_symbol("output")),
                 url: None,
                 env_connection: Some(StrKeyword::with_symbol("mysql_conn")),
                 model: None,

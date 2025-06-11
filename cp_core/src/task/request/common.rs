@@ -256,14 +256,21 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        async_st, context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
+        async_st,
+        context::model::ModelRegistry,
+        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle},
+        model::common::ModelConfig,
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{
             request::config::RequestGroupConfig,
             stage::{Stage, StageTaskConfig},
-        }, util::{
+        },
+        util::{
             common::vec_str_json_to_df,
             error::CpResult,
-            test::{assert_frame_equal, DummyData},
-        }
+            test::{DummyData, assert_frame_equal},
+        },
     };
 
     use super::{Request, RequestGroup};

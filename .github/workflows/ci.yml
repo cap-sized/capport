@@ -21,6 +21,10 @@ jobs:
     strategy:
       matrix:
         postgresql-version: ['16', '17']
+    env:
+      CLICKHOUSE_DATABASE: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: password
     services:
       postgres:
         image: postgres:${{ matrix.postgresql-version }}
@@ -42,6 +46,11 @@ jobs:
         mysql root password: root
         mysql user: dev
         mysql password: dev
+    - name: Setup ClickHouse Server
+        id: clickhouse-server
+        uses: praneeth527/clickhouse-server-action@v1.0.0
+        with:
+          tag: latest
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

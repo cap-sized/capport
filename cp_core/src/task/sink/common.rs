@@ -17,7 +17,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{CsvSinkConfig, SinkGroupConfig};
+use super::config::{ClickhouseSinkConfig, CsvSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -186,7 +186,7 @@ impl SinkGroupConfig {
         self.sinks
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig);
+                let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig, ClickhouseSinkConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Source config parsing error",
@@ -247,10 +247,17 @@ mod tests {
     };
 
     use crate::{
-        async_st, context::model::ModelRegistry, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::{
+        async_st,
+        context::model::ModelRegistry,
+        frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+        model::common::ModelConfig,
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::{
             sink::{common::SinkGroup, config::SinkGroupConfig},
             stage::{Stage, StageTaskConfig},
-        }, util::{error::CpResult, test::assert_frame_equal, tmp::TempFile}
+        },
+        util::{error::CpResult, test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::Sink;

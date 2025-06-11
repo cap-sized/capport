@@ -125,13 +125,19 @@ mod tests {
     };
 
     use crate::{
-        async_st, context::model::ModelRegistry, model::common::{ModelConfig, ModelFieldInfo}, parser::{
+        async_st,
+        context::model::ModelRegistry,
+        model::common::{ModelConfig, ModelFieldInfo},
+        parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        }, pipeline::context::DefaultPipelineContext, task::source::{
+        },
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
             common::{Source, SourceConfig},
             config::{JsonSourceConfig, LocalFileSourceConfig},
-        }, util::{test::assert_frame_equal, tmp::TempFile}
+        },
+        util::{test::assert_frame_equal, tmp::TempFile},
     };
 
     use super::JsonSource;

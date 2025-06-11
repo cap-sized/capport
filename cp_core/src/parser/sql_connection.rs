@@ -17,7 +17,7 @@ use super::{keyword::StrKeyword, merge_type::MergeTypeEnum};
 pub struct SqlConnection {
     pub url: Option<StrKeyword>,
     pub env_connection: Option<StrKeyword>, // use a preset
-    pub dfname: StrKeyword,
+    pub output: Option<StrKeyword>,
     pub table: StrKeyword,
     pub sql: Option<StrKeyword>,
     pub model: Option<StrKeyword>,
@@ -34,11 +34,15 @@ impl SqlConnection {
         url_prefix: &str,
     ) -> CpResult<()> {
         db_url_emplace!(self, ctx, context, url_prefix);
-        self.dfname.insert_value_from_context(context)?;
+        if let Some(mut output) = self.output.take() {
+            output.insert_value_from_context(context)?;
+            let _ = self.output.insert(output);
+        }
         if let Some(mut sql) = self.sql.take() {
             sql.insert_value_from_context(context)?;
             let _ = self.sql.insert(sql);
         }
+        self.table.insert_value_from_context(context)?;
         model_emplace!(self, ctx, context);
         Ok(())
     }
@@ -106,7 +110,7 @@ mod tests {
 
     use super::SqlConnection;
 
-    fn get_connections() -> [SqlConnection; 2] {
+    fn get_connections() -> [SqlConnection; 3] {
         [
             SqlConnection {
                 table: StrKeyword::with_symbol("table"),
@@ -114,7 +118,7 @@ mod tests {
                 env_connection: None,
                 url: None,
                 model: None,
-                dfname: StrKeyword::with_value("output".to_owned()),
+                output: Some(StrKeyword::with_value("output".to_owned())),
                 model_fields: None,
                 strict: Some(true),
                 merge_type: Some(MergeTypeEnum::Insert),
@@ -125,7 +129,7 @@ mod tests {
                 env_connection: Some(StrKeyword::with_value("fallback".to_owned())),
                 url: Some(StrKeyword::with_symbol("first_priority")),
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
-                dfname: StrKeyword::with_symbol("actual"),
+                output: Some(StrKeyword::with_symbol("actual")),
                 model_fields: Some(HashMap::from([(
                     StrKeyword::with_symbol("test"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
@@ -133,19 +137,30 @@ mod tests {
                 strict: None,
                 merge_type: None,
             },
+            SqlConnection {
+                table: StrKeyword::with_symbol("table"),
+                sql: None,
+                env_connection: Some(StrKeyword::with_value("sink".to_owned())),
+                url: None,
+                model: Some(StrKeyword::with_value("mymod".to_owned())),
+                output: None,
+                model_fields: None,
+                strict: Some(true),
+                merge_type: Some(MergeTypeEnum::Insert),
+            },
         ]
     }
 
-    fn get_connection_configs() -> [&'static str; 2] {
+    fn get_connection_configs() -> [&'static str; 3] {
         [
             "
 table: $table
-dfname: output
+output: output
 strict: true
 merge_type: insert
 ",
             "
-dfname: $actual
+output: $actual
 sql: $test
 table: table
 url: $first_priority
@@ -153,6 +168,11 @@ env_connection: fallback
 model: mymod
 model_fields: 
     $test: int8
+",
+            "
+table: table
+env_connection: sink
+model: mymod
 ",
         ]
     }

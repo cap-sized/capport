@@ -277,7 +277,7 @@ macro_rules! async_st {
         let rt = rt_builder.build().unwrap();
         let event = $lambda;
         rt.block_on(event())
-    }
+    };
 }
 
 #[macro_export]
@@ -288,5 +288,5 @@ macro_rules! async_mt {
         let rt = rt_builder.build().unwrap();
         let event = $lambda;
         rt.block_on(event())
-    }
+    };
 }

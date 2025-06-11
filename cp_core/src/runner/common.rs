@@ -5,9 +5,10 @@ use serde::Deserialize;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{
-    async_mt, async_st, context::{
+    async_mt,
+    context::{
         connection::ConnectionRegistry,
-        envvar::{get_env_var_str, EnvironmentVariableRegistry},
+        envvar::{EnvironmentVariableRegistry, get_env_var_str},
         logger::LoggerRegistry,
         model::ModelRegistry,
         pipeline::PipelineRegistry,
@@ -15,14 +16,18 @@ use crate::{
         sink::SinkRegistry,
         source::SourceRegistry,
         transform::TransformRegistry,
-    }, logger::common::DEFAULT_CONSOLE_LOGGER_NAME, parser::{
+    },
+    logger::common::DEFAULT_CONSOLE_LOGGER_NAME,
+    parser::{
         common::{pack_configs_from_files, read_configs},
         run_mode::RunModeEnum,
-    }, pipeline::{
+    },
+    pipeline::{
         common::{Pipeline, PipelineConfig},
         context::{DefaultPipelineContext, PipelineContext},
         results::PipelineResults,
-    }, util::{args::RunPipelineArgs, error::CpResult}
+    },
+    util::{args::RunPipelineArgs, error::CpResult},
 };
 
 const CHANNEL_BUFSIZE: usize = 10;

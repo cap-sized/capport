@@ -70,7 +70,6 @@ mod tests {
     fn valid_clickhouse_sink_config() {
         let config = "
 clickhouse:
-    dfname: $actual
     sql: $test
     table: table
     url: $first_priority
@@ -89,7 +88,7 @@ options:
             env_connection: Some(StrKeyword::with_value("fallback".to_owned())),
             url: Some(StrKeyword::with_symbol("first_priority")),
             model: Some(StrKeyword::with_value("mymod".to_owned())),
-            dfname: StrKeyword::with_symbol("actual"),
+            output: None,
             model_fields: Some(HashMap::from([(
                 StrKeyword::with_symbol("test"),
                 ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
@@ -105,7 +104,7 @@ options:
             ],
             not_null: None,
             db_name: None,
-            create_table_if_not_exists: None
+            create_table_if_not_exists: None,
         };
         let expected = ClickhouseSinkConfig { clickhouse, options };
         assert_eq!(

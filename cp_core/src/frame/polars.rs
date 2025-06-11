@@ -288,7 +288,10 @@ mod tests {
 
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
 
-    use crate::{async_st, frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame}};
+    use crate::{
+        async_st,
+        frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame},
+    };
 
     use super::PolarsPipelineFrame;
 

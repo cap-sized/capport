@@ -156,19 +156,25 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        async_st, context::{
+        async_st,
+        context::{
             connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
             source::SourceRegistry, transform::TransformRegistry,
-        }, model::common::ModelConfig, parser::keyword::{Keyword, StrKeyword}, pipeline::{
+        },
+        model::common::ModelConfig,
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::{
             context::{DefaultPipelineContext, PipelineContext},
             results::PipelineResults,
-        }, task::{
+        },
+        task::{
             request::config::RequestGroupConfig, sink::config::SinkGroupConfig, source::config::SourceGroupConfig,
             transform::config::RootTransformConfig,
-        }, util::{
-            test::{assert_frame_equal, DummyData},
+        },
+        util::{
+            test::{DummyData, assert_frame_equal},
             tmp::TempFile,
-        }
+        },
     };
 
     use super::Pipeline;

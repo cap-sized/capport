@@ -5,10 +5,17 @@ use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use reqwest::header::HeaderValue;
 
 use crate::{
-    ctx_run_n_async, frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle}, model::common::ModelConfig, model_emplace, parser::keyword::Keyword, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::{
+    ctx_run_n_async,
+    frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
+    model::common::ModelConfig,
+    model_emplace,
+    parser::keyword::Keyword,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    util::{
         common::vec_str_json_to_df,
         error::{CpError, CpResult},
-    }, valid_or_insert_error
+    },
+    valid_or_insert_error,
 };
 
 use super::{
@@ -292,16 +299,20 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        async_st, parser::{
+        async_st,
+        parser::{
             http::HttpMethod,
             keyword::{Keyword, StrKeyword},
-        }, pipeline::context::{DefaultPipelineContext, PipelineContext}, task::request::{
+        },
+        pipeline::context::{DefaultPipelineContext, PipelineContext},
+        task::request::{
             common::RequestConfig,
             config::{HttpBatchConfig, HttpOptionsConfig, HttpReqConfig},
-        }, util::{
+        },
+        util::{
             common::vec_str_json_to_df,
-            test::{assert_frame_equal, DummyData},
-        }
+            test::{DummyData, assert_frame_equal},
+        },
     };
 
     #[derive(Serialize, Deserialize)]

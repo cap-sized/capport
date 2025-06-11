@@ -59,7 +59,7 @@ pub struct SingleLinkConfig {
     pub output: StrKeyword,
     pub model: Option<StrKeyword>,
     pub model_fields: Option<ModelFields>,
-    pub options: Option<HttpOptionsConfig>
+    pub options: Option<HttpOptionsConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -76,12 +76,14 @@ mod tests {
     use crate::{
         model::common::ModelFieldInfo,
         parser::{
-            dtype::DType, http::HttpOptionsConfig, keyword::{Keyword, ModelFieldKeyword, StrKeyword}
+            dtype::DType,
+            http::HttpOptionsConfig,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         },
         task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{HttpSourceConfig, LocalFileSourceConfig, SingleLinkConfig, _CsvSourceConfig};
+    use super::{_CsvSourceConfig, HttpSourceConfig, LocalFileSourceConfig, SingleLinkConfig};
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -229,8 +231,8 @@ http:
     output: $example
     model_fields:
         $test: int8
-", 
-"
+",
+            "
 http:
     url: http://mywebsite.com
     output: $example
@@ -239,26 +241,29 @@ http:
     options: { max_retry: 8, init_retry_interval_ms: 100 }
 ",
         ];
-        let expected = [ 
+        let expected = [
             None,
-            Some(HttpOptionsConfig { max_retry: Some(8), init_retry_interval_ms: Some(100) })
+            Some(HttpOptionsConfig {
+                max_retry: Some(8),
+                init_retry_interval_ms: Some(100),
+            }),
         ];
         for i in 0..2 {
             assert_eq!(
-            HttpSourceConfig {
-                http: SingleLinkConfig { 
-                    url: StrKeyword::with_value("http://mywebsite.com".to_owned()), 
-                    output: StrKeyword::with_symbol("example"),
-                    model: None,
-                    model_fields: Some(HashMap::from([
-                            (StrKeyword::with_symbol("test"), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))))
-                    ])),
-                    options: expected[i].clone()
+                HttpSourceConfig {
+                    http: SingleLinkConfig {
+                        url: StrKeyword::with_value("http://mywebsite.com".to_owned()),
+                        output: StrKeyword::with_symbol("example"),
+                        model: None,
+                        model_fields: Some(HashMap::from([(
+                            StrKeyword::with_symbol("test"),
+                            ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8)))
+                        )])),
+                        options: expected[i].clone()
+                    },
                 },
-            },
                 serde_yaml_ng::from_str::<HttpSourceConfig>(configs[i]).unwrap()
             )
         }
     }
-
 }

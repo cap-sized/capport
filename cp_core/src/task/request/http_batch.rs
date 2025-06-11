@@ -12,7 +12,7 @@ use crate::{
     parser::keyword::Keyword,
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     util::{
-        common::{vec_str_json_to_df, DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS, DEFAULT_HTTP_REQ_MAX_RETRY},
+        common::{DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS, DEFAULT_HTTP_REQ_MAX_RETRY, vec_str_json_to_df},
         error::{CpError, CpResult},
     },
     valid_or_insert_error,
@@ -308,7 +308,7 @@ mod tests {
         },
         util::{
             common::vec_str_json_to_df,
-            test::{assert_frame_equal, DummyData},
+            test::{DummyData, assert_frame_equal},
         },
     };
 
@@ -430,5 +430,3 @@ mod tests {
         }
     }
 }
-
-

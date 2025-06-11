@@ -1,11 +1,27 @@
 use std::{io::Cursor, sync::Arc};
 
 use async_trait::async_trait;
-use polars::{io::SerReader, prelude::{IntoLazy, JsonReader, LazyFrame, Schema}};
+use polars::{
+    io::SerReader,
+    prelude::{IntoLazy, JsonReader, LazyFrame, Schema},
+};
 
-use crate::{model::common::ModelConfig, model_emplace, parser::keyword::Keyword, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::{common::str_json_to_df, error::{CpError, CpResult}}, valid_or_insert_error};
+use crate::{
+    model::common::ModelConfig,
+    model_emplace,
+    parser::keyword::Keyword,
+    pipeline::context::{DefaultPipelineContext, PipelineContext},
+    util::{
+        common::str_json_to_df,
+        error::{CpError, CpResult},
+    },
+    valid_or_insert_error,
+};
 
-use super::{common::{Source, SourceConfig}, config::HttpSourceConfig};
+use super::{
+    common::{Source, SourceConfig},
+    config::HttpSourceConfig,
+};
 
 pub struct HttpSource {
     url: String,
@@ -15,13 +31,13 @@ pub struct HttpSource {
 
 #[async_trait]
 impl Source for HttpSource {
-    fn connection_type(&self) ->  &str {
+    fn connection_type(&self) -> &str {
         "http"
     }
-    fn name(&self) ->  &str {
+    fn name(&self) -> &str {
         self.output.as_str()
     }
-    fn run(&self,_ctx:Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+    fn run(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let client = reqwest::blocking::Client::new();
         let request = client.get(&self.url);
         let response = request.send()?;
@@ -33,7 +49,7 @@ impl Source for HttpSource {
             Ok(str_json_to_df(&body)?.lazy())
         }
     }
-    async fn fetch(&self,_ctx:Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
+    async fn fetch(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let client = reqwest::Client::new();
         let request = client.get(&self.url);
         let response = request.send().await?;
@@ -48,7 +64,11 @@ impl Source for HttpSource {
 }
 
 impl SourceConfig for HttpSourceConfig {
-    fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> crate::util::error::CpResult<()> {
+    fn emplace(
+        &mut self,
+        ctx: &DefaultPipelineContext,
+        context: &serde_yaml_ng::Mapping,
+    ) -> crate::util::error::CpResult<()> {
         self.http.url.insert_value_from_context(context)?;
         self.http.output.insert_value_from_context(context)?;
         model_emplace!(self.http, ctx, context);
@@ -76,7 +96,6 @@ impl SourceConfig for HttpSourceConfig {
             .expect("failed to build schema")
         });
 
-
         Box::new(HttpSource {
             url: self.http.url.value().expect("source[http].url").to_string(),
             output: self.http.output.value().expect("output").to_owned(),
@@ -91,12 +110,20 @@ mod tests {
 
     use httpmock::{Method::GET, Mock, MockServer};
 
-    use crate::{async_st, parser::keyword::{Keyword, StrKeyword}, pipeline::context::DefaultPipelineContext, task::source::{common::SourceConfig, config::{HttpSourceConfig, SingleLinkConfig}}, util::{common::str_json_to_df, test::DummyData}};
+    use crate::{
+        async_st,
+        parser::keyword::{Keyword, StrKeyword},
+        pipeline::context::DefaultPipelineContext,
+        task::source::{
+            common::SourceConfig,
+            config::{HttpSourceConfig, SingleLinkConfig},
+        },
+        util::{common::str_json_to_df, test::DummyData},
+    };
 
     fn mock_server<'a>(server: &'a MockServer) -> Mock<'a> {
         server.mock(|when, then| {
-            when.method(GET)
-                .path("/v1/shifts");
+            when.method(GET).path("/v1/shifts");
             then.status(200)
                 .header("content-type", "application/json")
                 .body(DummyData::shift_charts());

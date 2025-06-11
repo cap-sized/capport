@@ -1,101 +1,101 @@
-last_name,birth_state_country_code,birth_city,id,first_name,is_nhl,full_name,birthdate,birth_state_province_code
-Crouse,CAN,Mt. Brydges,8478474,Lawson,true,Lawson Crouse,1997-06-23,ON
-Frasca,CAN,Brampton,8483000,Jordan,true,Jordan Frasca,2001-07-05,ON
-Bjarnason,CAN,Brandon,8484147,Carson,true,Carson Bjarnason,2005-06-30,MB
-Allen,CAN,Fredericton,8474596,Jake,true,Jake Allen,1990-08-07,NB
-Stienburg,CAN,Halifax,8481737,Matt,true,Matt Stienburg,2000-10-07,
-Howden,CAN,Calgary,8479353,Brett,true,Brett Howden,1998-03-29,AB
-Graves,CAN,Yarmouth,8477435,Ryan,true,Ryan Graves,1995-05-21,
-Nylander,CAN,Calgary,8477939,William,true,William Nylander,1996-05-01,AB
-Robertson,CAN,Toronto,8483043,Tucker,true,Tucker Robertson,2003-06-22,ON
-Akey,CAN,Waterloo,8484139,Beau,true,Beau Akey,2005-02-11,ON
-Tanev,CAN,Toronto,8479293,Brandon,true,Brandon Tanev,1991-12-31,ON
-Kerfoot,CAN,Vancouver,8477021,Alexander,true,Alexander Kerfoot,1994-08-11,BC
-Dunn,CAN,Mississauga,8478407,Vince,true,Vince Dunn,1996-10-29,ON
-Severson,CAN,Melville,8476923,Damon,true,Damon Severson,1994-08-07,SK
-Anderson,CAN,Burlington,8476981,Josh,true,Josh Anderson,1994-05-07,ON
-Cossa,CAN,Hamilton,8482657,Sebastian,true,Sebastian Cossa,2002-11-21,ON
-Schwartz,CAN,Wilcox,8475768,Jaden,true,Jaden Schwartz,1992-06-25,SK
-Chabot,CAN,Sainte-Marie,8478469,Thomas,true,Thomas Chabot,1997-01-30,QC
-Masters,CAN,Edmonton,8482707,Kyle,true,Kyle Masters,2003-04-09,AB
-Bouchard,CAN,Oakville,8480803,Evan,true,Evan Bouchard,1999-10-20,ON
-Lambos,CAN,Winnipeg,8482781,Carson,true,Carson Lambos,2003-01-14,MB
-Gibson,CAN,Windsor,8484174,Andrew,true,Andrew Gibson,2005-02-13,ON
-Hamilton,CAN,Toronto,8476462,Dougie,true,Dougie Hamilton,1993-06-17,ON
-Timmins,CAN,St. Catharines,8479982,Conor,true,Conor Timmins,1998-09-18,ON
-Mailloux,CAN,Belle River,8482733,Logan,true,Logan Mailloux,2003-04-15,ON
-Ceulemans,CAN,Regina,8482678,Corson,true,Corson Ceulemans,2003-05-05,SK
-Girard,CAN,Roberval,8479398,Samuel,true,Samuel Girard,1998-05-12,QC
-Hryckowian,CAN,L'Ile-Bizard,8484829,Justin,true,Justin Hryckowian,2001-02-23,QC
-Pinelli,CAN,Stoney Creek,8484214,Luca,true,Luca Pinelli,2005-04-05,ON
-Kartye,CAN,Kingston,8481789,Tye,true,Tye Kartye,2001-04-30,ON
-Gaudreau,CAN,Bromont,8477919,Frederick,true,Frederick Gaudreau,1993-05-01,QC
-Strome,CAN,Mississauga,8476458,Ryan,true,Ryan Strome,1993-07-11,ON
-Ekblad,CAN,Windsor,8477932,Aaron,true,Aaron Ekblad,1996-02-07,ON
-Couture,CAN,Guelph,8474053,Logan,true,Logan Couture,1989-03-28,ON
-Barron,CAN,Halifax,8480289,Morgan,true,Morgan Barron,1998-12-02,
-Raddysh,CAN,Toronto,8478178,Darren,true,Darren Raddysh,1996-02-28,ON
-Dach,CAN,Fort Saskatchewan,8481523,Kirby,true,Kirby Dach,2001-01-21,AB
-Joseph,CAN,Laval,8478472,Mathieu,true,Mathieu Joseph,1997-02-09,QC
-Mayo,CAN,Victoria,8478062,Dysin,true,Dysin Mayo,1996-08-17,BC
-Frost,CAN,Aurora,8480028,Morgan,true,Morgan Frost,1999-05-14,ON
-Heidt,CAN,Saskatoon,8484178,Riley,true,Riley Heidt,2005-03-25,SK
-Letang,CAN,Montréal,8471724,Kris,true,Kris Letang,1987-04-24,QC
-Smith,CAN,Mimico,8475191,Reilly,true,Reilly Smith,1991-04-01,ON
-Bahl,CAN,New Westminster,8480860,Kevin,true,Kevin Bahl,2000-06-27,BC
-Johansen,CAN,Vancouver,8475793,Ryan,true,Ryan Johansen,1992-07-31,BC
-Morrissey,CAN,Calgary,8477504,Josh,true,Josh Morrissey,1995-03-28,AB
-Jarry,CAN,Surrey,8477465,Tristan,true,Tristan Jarry,1995-04-29,BC
-Nielsen,CAN,Fort St. John,8483039,Tristen,true,Tristen Nielsen,2000-02-23,BC
-Mueller,CAN,Edmonton,8484406,Ty,true,Ty Mueller,2003-02-26,AB
-Harvey-Pinard,CAN,Saguenay,8481093,Rafael,true,Rafael Harvey-Pinard,1999-01-06,QC
-Weber,CAN,Sicamous,8470642,Shea,true,Shea Weber,1985-08-14,BC
-Geekie,CAN,Strathclair,8483447,Conor,true,Conor Geekie,2004-05-05,MB
-Maggio,CAN,Windsor,8483062,Matthew,true,Matthew Maggio,2002-11-25,ON
-Kyrou,CAN,Toronto,8479385,Jordan,true,Jordan Kyrou,1998-05-05,ON
-Wilson,CAN,Toronto,8476880,Tom,true,Tom Wilson,1994-03-29,ON
-Burroughs,CAN,Vancouver,8477335,Kyle,true,Kyle Burroughs,1995-07-12,BC
-Clarke,CAN,Nepean,8482730,Brandt,true,Brandt Clarke,2003-02-09,ON
-Tippett,CAN,Peterborough,8480015,Owen,true,Owen Tippett,1999-02-16,ON
-Parayko,CAN,St. Albert,8476892,Colton,true,Colton Parayko,1993-05-12,AB
-Brennan,CAN,Winnipeg,8483426,Tyler,true,Tyler Brennan,2003-09-27,MB
-Bourque,CAN,Plessisville,8482145,Mavrik,true,Mavrik Bourque,2002-01-08,QC
-Bourgault,CAN,L'Islet,8482673,Xavier,true,Xavier Bourgault,2002-10-22,QC
-Geekie,CAN,Strathclair,8479987,Morgan,true,Morgan Geekie,1998-07-20,MB
-Bankier,CAN,White Rock,8482863,Caedan,true,Caedan Bankier,2003-01-26,BC
-Dragicevic,CAN,Richmond,8484162,Lukas,true,Lukas Dragicevic,2005-04-25,BC
-Lardis,CAN,Oakville,8484185,Nick,true,Nick Lardis,2005-07-08,ON
-Jenner,CAN,Dorchester,8476432,Boone,true,Boone Jenner,1993-06-15,ON
-Soucy,CAN,Viking,8477369,Carson,true,Carson Soucy,1994-07-27,AB
-Benning,CAN,Edmonton,8476988,Matt,true,Matt Benning,1994-05-25,AB
-Cristall,CAN,Vancouver,8484159,Andrew,true,Andrew Cristall,2005-02-04,BC
-Ungar,CAN,Calgary,8483083,Connor,true,Connor Ungar,2002-01-12,AB
-Ellis,CAN,Hamilton,8475176,Ryan,true,Ryan Ellis,1991-01-03,ON
-Dubois,CAN,Ste-Agathe-des-Monts,8479400,Pierre-Luc,true,Pierre-Luc Dubois,1998-06-24,QC
-Nurse,CAN,Hamilton,8477498,Darnell,true,Darnell Nurse,1995-02-04,ON
-Wheatcroft,CAN,Calgary,8484124,Chase,true,Chase Wheatcroft,2002-05-28,AB
-Doughty,CAN,London,8474563,Drew,true,Drew Doughty,1989-12-08,ON
-Danielson,CAN,Edmonton,8484160,Nate,true,Nate Danielson,2004-09-27,AB
-Xhekaj,CAN,Hamilton,8484403,Florian,true,Florian Xhekaj,2004-06-27,ON
-Reaves,CAN,Winnipeg,8471817,Ryan,true,Ryan Reaves,1987-01-20,MB
-Price,CAN,Saskatoon,8484217,Caden,true,Caden Price,2005-08-24,SK
-Doucet,CAN,Sherbrooke,8484107,Alexandre,true,Alexandre Doucet,2002-01-12,QC
-Johnston,CAN,Toronto,8482740,Wyatt,true,Wyatt Johnston,2003-05-14,ON
-Makar,CAN,Calgary,8480069,Cale,true,Cale Makar,1998-10-30,AB
-Oleksiak,CAN,Toronto,8476467,Jamie,true,Jamie Oleksiak,1992-12-21,ON
-Firkus,CAN,Irma,8483442,Jagger,true,Jagger Firkus,2004-04-29,AB
-Staal,CAN,Thunder Bay,8473533,Jordan,true,Jordan Staal,1988-09-10,ON
-Marchand,CAN,Halifax,8473419,Brad,true,Brad Marchand,1988-05-11,
-Sissons,CAN,North Vancouver,8476925,Colton,true,Colton Sissons,1993-11-05,BC
-Cizikas,CAN,Toronto,8475231,Casey,true,Casey Cizikas,1991-02-27,ON
-Fabbri,CAN,Mississauga,8477952,Robby,true,Robby Fabbri,1996-01-22,ON
-Mateychuk,CAN,Winnipeg,8483485,Denton,true,Denton Mateychuk,2004-07-12,MB
-Morrison,CAN,Guelph,8483012,Logan,true,Logan Morrison,2002-07-09,ON
-Dickinson,CAN,Georgetown,8477450,Jason,true,Jason Dickinson,1995-07-04,ON
-Walman,CAN,Toronto,8478013,Jake,true,Jake Walman,1996-02-20,ON
-Suzuki,CAN,London,8480018,Nick,true,Nick Suzuki,1999-08-10,ON
-Fowler,CAN,Windsor,8475764,Cam,true,Cam Fowler,1991-12-05,ON
-Ingram,CAN,Saskatoon,8478971,Connor,true,Connor Ingram,1997-03-31,SK
-Dobson,CAN,Summerside,8480865,Noah,true,Noah Dobson,2000-01-07,PE
-Fleury,CAN,Sorel,8470594,Marc-Andre,true,Marc-Andre Fleury,1984-11-28,QC
-Cirelli,CAN,Etobicoke,8478519,Anthony,true,Anthony Cirelli,1997-07-15,ON
+is_nhl,last_name,birth_city,first_name,full_name,birthdate,id,birth_state_country_code,birth_state_province_code
+true,Ekblad,Windsor,Aaron,Aaron Ekblad,1996-02-07,8477932,CAN,ON
+true,Maggio,Windsor,Matthew,Matthew Maggio,2002-11-25,8483062,CAN,ON
+true,Bourque,Plessisville,Mavrik,Mavrik Bourque,2002-01-08,8482145,CAN,QC
+true,Pinelli,Stoney Creek,Luca,Luca Pinelli,2005-04-05,8484214,CAN,ON
+true,Lardis,Oakville,Nick,Nick Lardis,2005-07-08,8484185,CAN,ON
+true,Anderson,Burlington,Josh,Josh Anderson,1994-05-07,8476981,CAN,ON
+true,Dragicevic,Richmond,Lukas,Lukas Dragicevic,2005-04-25,8484162,CAN,BC
+true,Doucet,Sherbrooke,Alexandre,Alexandre Doucet,2002-01-12,8484107,CAN,QC
+true,Joseph,Laval,Mathieu,Mathieu Joseph,1997-02-09,8478472,CAN,QC
+true,Dobson,Summerside,Noah,Noah Dobson,2000-01-07,8480865,CAN,PE
+true,Crouse,Mt. Brydges,Lawson,Lawson Crouse,1997-06-23,8478474,CAN,ON
+true,Mayo,Victoria,Dysin,Dysin Mayo,1996-08-17,8478062,CAN,BC
+true,Allen,Fredericton,Jake,Jake Allen,1990-08-07,8474596,CAN,NB
+true,Hamilton,Toronto,Dougie,Dougie Hamilton,1993-06-17,8476462,CAN,ON
+true,Smith,Mimico,Reilly,Reilly Smith,1991-04-01,8475191,CAN,ON
+true,Akey,Waterloo,Beau,Beau Akey,2005-02-11,8484139,CAN,ON
+true,Letang,Montréal,Kris,Kris Letang,1987-04-24,8471724,CAN,QC
+true,Price,Saskatoon,Caden,Caden Price,2005-08-24,8484217,CAN,SK
+true,Nielsen,Fort St. John,Tristen,Tristen Nielsen,2000-02-23,8483039,CAN,BC
+true,Burroughs,Vancouver,Kyle,Kyle Burroughs,1995-07-12,8477335,CAN,BC
+true,Nurse,Hamilton,Darnell,Darnell Nurse,1995-02-04,8477498,CAN,ON
+true,Suzuki,London,Nick,Nick Suzuki,1999-08-10,8480018,CAN,ON
+true,Kerfoot,Vancouver,Alexander,Alexander Kerfoot,1994-08-11,8477021,CAN,BC
+true,Couture,Guelph,Logan,Logan Couture,1989-03-28,8474053,CAN,ON
+true,Jenner,Dorchester,Boone,Boone Jenner,1993-06-15,8476432,CAN,ON
+true,Cirelli,Etobicoke,Anthony,Anthony Cirelli,1997-07-15,8478519,CAN,ON
+true,Dach,Fort Saskatchewan,Kirby,Kirby Dach,2001-01-21,8481523,CAN,AB
+true,Howden,Calgary,Brett,Brett Howden,1998-03-29,8479353,CAN,AB
+true,Brennan,Winnipeg,Tyler,Tyler Brennan,2003-09-27,8483426,CAN,MB
+true,Barron,Halifax,Morgan,Morgan Barron,1998-12-02,8480289,CAN,
+true,Graves,Yarmouth,Ryan,Ryan Graves,1995-05-21,8477435,CAN,
+true,Firkus,Irma,Jagger,Jagger Firkus,2004-04-29,8483442,CAN,AB
+true,Fowler,Windsor,Cam,Cam Fowler,1991-12-05,8475764,CAN,ON
+true,Bankier,White Rock,Caedan,Caedan Bankier,2003-01-26,8482863,CAN,BC
+true,Severson,Melville,Damon,Damon Severson,1994-08-07,8476923,CAN,SK
+true,Bahl,New Westminster,Kevin,Kevin Bahl,2000-06-27,8480860,CAN,BC
+true,Ingram,Saskatoon,Connor,Connor Ingram,1997-03-31,8478971,CAN,SK
+true,Chabot,Sainte-Marie,Thomas,Thomas Chabot,1997-01-30,8478469,CAN,QC
+true,Kartye,Kingston,Tye,Tye Kartye,2001-04-30,8481789,CAN,ON
+true,Kyrou,Toronto,Jordan,Jordan Kyrou,1998-05-05,8479385,CAN,ON
+true,Dickinson,Georgetown,Jason,Jason Dickinson,1995-07-04,8477450,CAN,ON
+true,Gaudreau,Bromont,Frederick,Frederick Gaudreau,1993-05-01,8477919,CAN,QC
+true,Wilson,Toronto,Tom,Tom Wilson,1994-03-29,8476880,CAN,ON
+true,Nylander,Calgary,William,William Nylander,1996-05-01,8477939,CAN,AB
+true,Johansen,Vancouver,Ryan,Ryan Johansen,1992-07-31,8475793,CAN,BC
+true,Tanev,Toronto,Brandon,Brandon Tanev,1991-12-31,8479293,CAN,ON
+true,Cossa,Hamilton,Sebastian,Sebastian Cossa,2002-11-21,8482657,CAN,ON
+true,Walman,Toronto,Jake,Jake Walman,1996-02-20,8478013,CAN,ON
+true,Hryckowian,L'Ile-Bizard,Justin,Justin Hryckowian,2001-02-23,8484829,CAN,QC
+true,Harvey-Pinard,Saguenay,Rafael,Rafael Harvey-Pinard,1999-01-06,8481093,CAN,QC
+true,Geekie,Strathclair,Morgan,Morgan Geekie,1998-07-20,8479987,CAN,MB
+true,Bourgault,L'Islet,Xavier,Xavier Bourgault,2002-10-22,8482673,CAN,QC
+true,Bjarnason,Brandon,Carson,Carson Bjarnason,2005-06-30,8484147,CAN,MB
+true,Lambos,Winnipeg,Carson,Carson Lambos,2003-01-14,8482781,CAN,MB
+true,Reaves,Winnipeg,Ryan,Ryan Reaves,1987-01-20,8471817,CAN,MB
+true,Schwartz,Wilcox,Jaden,Jaden Schwartz,1992-06-25,8475768,CAN,SK
+true,Timmins,St. Catharines,Conor,Conor Timmins,1998-09-18,8479982,CAN,ON
+true,Masters,Edmonton,Kyle,Kyle Masters,2003-04-09,8482707,CAN,AB
+true,Geekie,Strathclair,Conor,Conor Geekie,2004-05-05,8483447,CAN,MB
+true,Ceulemans,Regina,Corson,Corson Ceulemans,2003-05-05,8482678,CAN,SK
+true,Gibson,Windsor,Andrew,Andrew Gibson,2005-02-13,8484174,CAN,ON
+true,Mateychuk,Winnipeg,Denton,Denton Mateychuk,2004-07-12,8483485,CAN,MB
+true,Ellis,Hamilton,Ryan,Ryan Ellis,1991-01-03,8475176,CAN,ON
+true,Heidt,Saskatoon,Riley,Riley Heidt,2005-03-25,8484178,CAN,SK
+true,Cristall,Vancouver,Andrew,Andrew Cristall,2005-02-04,8484159,CAN,BC
+true,Cizikas,Toronto,Casey,Casey Cizikas,1991-02-27,8475231,CAN,ON
+true,Dunn,Mississauga,Vince,Vince Dunn,1996-10-29,8478407,CAN,ON
+true,Morrissey,Calgary,Josh,Josh Morrissey,1995-03-28,8477504,CAN,AB
+true,Benning,Edmonton,Matt,Matt Benning,1994-05-25,8476988,CAN,AB
+true,Strome,Mississauga,Ryan,Ryan Strome,1993-07-11,8476458,CAN,ON
+true,Xhekaj,Hamilton,Florian,Florian Xhekaj,2004-06-27,8484403,CAN,ON
+true,Makar,Calgary,Cale,Cale Makar,1998-10-30,8480069,CAN,AB
+true,Wheatcroft,Calgary,Chase,Chase Wheatcroft,2002-05-28,8484124,CAN,AB
+true,Johnston,Toronto,Wyatt,Wyatt Johnston,2003-05-14,8482740,CAN,ON
+true,Danielson,Edmonton,Nate,Nate Danielson,2004-09-27,8484160,CAN,AB
+true,Frost,Aurora,Morgan,Morgan Frost,1999-05-14,8480028,CAN,ON
+true,Ungar,Calgary,Connor,Connor Ungar,2002-01-12,8483083,CAN,AB
+true,Dubois,Ste-Agathe-des-Monts,Pierre-Luc,Pierre-Luc Dubois,1998-06-24,8479400,CAN,QC
+true,Tippett,Peterborough,Owen,Owen Tippett,1999-02-16,8480015,CAN,ON
+true,Weber,Sicamous,Shea,Shea Weber,1985-08-14,8470642,CAN,BC
+true,Clarke,Nepean,Brandt,Brandt Clarke,2003-02-09,8482730,CAN,ON
+true,Bouchard,Oakville,Evan,Evan Bouchard,1999-10-20,8480803,CAN,ON
+true,Parayko,St. Albert,Colton,Colton Parayko,1993-05-12,8476892,CAN,AB
+true,Sissons,North Vancouver,Colton,Colton Sissons,1993-11-05,8476925,CAN,BC
+true,Fabbri,Mississauga,Robby,Robby Fabbri,1996-01-22,8477952,CAN,ON
+true,Doughty,London,Drew,Drew Doughty,1989-12-08,8474563,CAN,ON
+true,Mueller,Edmonton,Ty,Ty Mueller,2003-02-26,8484406,CAN,AB
+true,Morrison,Guelph,Logan,Logan Morrison,2002-07-09,8483012,CAN,ON
+true,Raddysh,Toronto,Darren,Darren Raddysh,1996-02-28,8478178,CAN,ON
+true,Soucy,Viking,Carson,Carson Soucy,1994-07-27,8477369,CAN,AB
+true,Staal,Thunder Bay,Jordan,Jordan Staal,1988-09-10,8473533,CAN,ON
+true,Fleury,Sorel,Marc-Andre,Marc-Andre Fleury,1984-11-28,8470594,CAN,QC
+true,Mailloux,Belle River,Logan,Logan Mailloux,2003-04-15,8482733,CAN,ON
+true,Oleksiak,Toronto,Jamie,Jamie Oleksiak,1992-12-21,8476467,CAN,ON
+true,Girard,Roberval,Samuel,Samuel Girard,1998-05-12,8479398,CAN,QC
+true,Jarry,Surrey,Tristan,Tristan Jarry,1995-04-29,8477465,CAN,BC
+true,Frasca,Brampton,Jordan,Jordan Frasca,2001-07-05,8483000,CAN,ON
+true,Robertson,Toronto,Tucker,Tucker Robertson,2003-06-22,8483043,CAN,ON
+true,Marchand,Halifax,Brad,Brad Marchand,1988-05-11,8473419,CAN,
+true,Stienburg,Halifax,Matt,Matt Stienburg,2000-10-07,8481737,CAN,

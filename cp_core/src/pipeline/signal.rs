@@ -1,6 +1,5 @@
 use async_broadcast::{InactiveReceiver, Sender};
 use chrono::Utc;
-use tokio::signal::unix::{SignalKind, signal};
 
 use crate::{
     frame::common::{FrameUpdateInfo, FrameUpdateType},
@@ -60,30 +59,6 @@ impl SignalState {
         {
             Ok(_) => Ok(()),
             Err(e) => Err(CpError::ComponentError("Signal terminating failed", e.to_string())),
-        }
-    }
-
-    pub async fn sigterm_listen(&self) {
-        loop {
-            // Its ok to use expect here, these results should never yield Err
-            let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to initialize SIGTERM stream");
-            sigterm_stream.recv().await.expect("Bad SIGTERM signal received");
-            let mut curr_state = Some(SignalStateType::Alive);
-            match curr_state.as_ref().unwrap() {
-                SignalStateType::Alive => {
-                    log::warn!(
-                        "Stages will terminate after completing their current event cycle. Ctrl-C again to force-kill"
-                    );
-                    let _ = curr_state.insert(SignalStateType::RequestedKill);
-                    self.send_terminate_signal()
-                        .await
-                        .expect("Failed to send termination signal to stages");
-                }
-                SignalStateType::RequestedKill => {
-                    log::warn!("Terminating immediately");
-                    break;
-                }
-            }
         }
     }
 }

@@ -37,6 +37,7 @@ pub struct RunnerConfig {
     pub logger: String,
     pub mode: RunModeEnum,
     pub schedule: Option<String>,
+    pub kill_at: Option<String>,
     pub tz: Option<String>,
 }
 
@@ -124,6 +125,7 @@ impl Runner {
     pub fn run(self) -> CpResult<()> {
         let mode = self.config.mode;
         let cron = self.config.schedule;
+        let kill = self.config.kill_at;
         let tz = self.config.tz;
         log::info!("Run Mode: {:?}", mode);
         let pipeline = Pipeline::new(&self.pipeline_config);
@@ -136,7 +138,7 @@ impl Runner {
         match mode {
             RunModeEnum::Debug => pipeline.linear(ctx)?,
             RunModeEnum::Once => pipeline.sync_exec(ctx)?,
-            RunModeEnum::Loop => async_runner(pipeline, ctx, cron.as_deref(), tz.as_deref())?,
+            RunModeEnum::Loop => async_runner(pipeline, ctx, cron.as_deref(), kill.as_deref(), tz.as_deref())?,
         }
         Ok(())
     }
@@ -146,17 +148,18 @@ pub fn async_runner(
     pipeline: Pipeline,
     ctx: Arc<DefaultPipelineContext>,
     cron: Option<&str>,
+    kill: Option<&str>,
     tz: Option<&str>,
 ) -> CpResult<()> {
     async_mt!(async move || {
         let scheduler = JobScheduler::new().await.expect("failed to create scheduler");
+        let timezone = if let Some(t) = tz {
+            chrono_tz::Tz::from_str(t).expect("Bad timezone")
+        } else {
+            chrono_tz::UTC
+        };
         if let Some(schedule) = cron {
             log::info!("Schedule: {}", schedule);
-            let timezone = if let Some(t) = tz {
-                chrono_tz::Tz::from_str(t).expect("Bad timezone")
-            } else {
-                chrono_tz::UTC
-            };
             let sctx = ctx.clone();
             scheduler
                 .add(
@@ -175,17 +178,38 @@ pub fn async_runner(
                             };
                         })
                     })
-                    .expect("bad job"),
+                    .expect("bad job (trigger)"),
                 )
                 .await
-                .expect("failed to add job");
+                .expect("failed to add job (trigger)");
         } else {
             panic!("No schedule provided for async run");
         }
+        if let Some(kill_at) = kill {
+            log::info!("Killswitch scheduled at: {}", kill_at);
+            let sctx = ctx.clone();
+            scheduler
+                .add(
+                    Job::new_async_tz(kill_at, timezone, move |_, mut l| {
+                        let asctx = sctx.clone();
+                        Box::pin(async move {
+                            match asctx.clone().signal_terminate().await {
+                                Ok(_) => {
+                                    log::info!("sent kill signal");
+                                    l.shutdown().await.expect("failed to shutdown scheduler");
+                                }
+                                Err(e) => log::error!("failed to send kill signal: {}", e),
+                            }
+                        })
+                    })
+                    .expect("bad job (killswitch)"),
+                )
+                .await
+                .expect("failed to add job (killswitch)");
+        }
         scheduler.start().await.expect("failed to start scheduler");
         let run = async || pipeline.async_exec(ctx.clone()).await;
-        let terminator = async || ctx.signal().sigterm_listen().await;
-        tokio::join!(run(), terminator());
+        tokio::join!(run());
     });
     Ok(())
 }
@@ -224,18 +248,21 @@ mode: once
                     logger: "mylog".to_owned(),
                     mode: RunModeEnum::Loop,
                     schedule: Some("* * * * *".to_owned()),
+                    kill_at: None,
                     tz: Some("America/New_York".to_owned())
                 },
                 RunnerConfig {
                     logger: "mylog".to_owned(),
                     mode: RunModeEnum::Debug,
                     schedule: Some("* * * * *".to_owned()),
+                    kill_at: Some("1 * * * *".to_owned()),
                     tz: None
                 },
                 RunnerConfig {
                     logger: "mylog".to_owned(),
                     mode: RunModeEnum::Once,
                     schedule: None,
+                    kill_at: Some("0 */2 * * *".to_owned()),
                     tz: None
                 },
             ]

@@ -97,8 +97,13 @@ impl Stage for RootTransform {
                     loops += 1;
                 }
                 FrameUpdateType::Kill => {
-                    log::info!("Stage killed after {} iterations: {}", loops, &self.label);
+                    log::info!("[Transform] Sent termination signal for frame {}", &self.output);
                     output_broadcast.kill().unwrap();
+                    log::info!(
+                        "Terminating transform stage `{}` after {} iterations",
+                        &self.label,
+                        loops
+                    );
                     return Ok(loops);
                 }
             }

@@ -19,4 +19,5 @@ runner:
   demo-run-loop:
     logger: higher
     mode: loop
-    schedule: "1/10 * * * * *"
+    schedule: "1/5 * * * * *"
+    kill_at: "1/25 * * * * *"

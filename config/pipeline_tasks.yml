@@ -90,8 +90,23 @@ sink:
           filepath: canadian_players.csv
           merge_type: replace
       - clickhouse:
-          dfname: 
+          url: "http://default:password@localhost:8123/"
+          table: canadian_players_nhl_example
+          model: nhl_player
+          merge_type: replace
+          strict: true
         options:
+          order_by: []
+          primary_key: [id]
+          create_table_if_not_exists: true
+
+model:
+  nhl_player:
+    id: int32
+    full_name: str
+    birthdate: date
+    birth_city: str
+    birth_state_province_code: str
 
 transform:
   player_ids_to_urls:
@@ -130,4 +145,4 @@ transform:
          right_on: [birth_state_province_name]
          how: left
      - drop:
-#      - birth_state_province_name
+       - birth_state_province_name

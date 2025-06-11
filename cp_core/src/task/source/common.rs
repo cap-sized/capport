@@ -152,12 +152,12 @@ impl Stage for SourceGroup {
                                     }
                                 };
                                 bcast.kill()?;
-                                log::info!("Sent termination signal for frame {}", source.0.name());
+                                log::info!("[Source] Sent termination signal for frame {}", source.0.name());
                                 Ok(())
                             },
                             ctx.clone()
                         );
-                        loops += 1;
+                        log::info!("Terminating source stage `{}` after {} iterations", &self.label, loops);
                         break;
                     }
                     FrameUpdateType::Replace => {

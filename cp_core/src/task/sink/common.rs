@@ -164,15 +164,23 @@ impl Stage for SinkGroup {
                             }
                         }
                         FrameUpdateType::Kill => {
-                            terminations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let prev = terminations.fetch_add(1, std::sync::atomic::Ordering::Release);
+                            log::info!(
+                                "Terminating sink substage `{}.{}` [{}/{}]",
+                                &self.label,
+                                sink.connection_type(),
+                                prev + 1,
+                                self.sinks.len()
+                            );
                         }
                     }
                     Ok::<(), CpError>(())
                 },
                 ctx.clone()
             );
-            if terminations.load(std::sync::atomic::Ordering::Relaxed) >= self.sinks.len() {
-                log::info!("Stage killed after {} iterations: {}", loops, &self.label);
+            let tcount = terminations.load(std::sync::atomic::Ordering::Acquire);
+            if tcount >= self.sinks.len() {
+                log::info!("Terminating sink stage `{}` after {} iterations", &self.label, loops);
                 break;
             }
             loops += 1;
@@ -189,8 +197,8 @@ impl SinkGroupConfig {
                 let config = try_deserialize_stage!(transform, dyn SinkConfig, CsvSinkConfig, ClickhouseSinkConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
-                        "Source config parsing error",
-                        format!("Failed to parse source config: {:?}", transform),
+                        "Sink config parsing error",
+                        format!("Failed to parse sink config: {:?}", transform),
                     )
                 })
             })

@@ -47,11 +47,6 @@ jobs:
         mysql root password: root
         mysql user: dev
         mysql password: dev
-    - name: Setup ClickHouse Server
-        id: clickhouse-server
-        uses: praneeth527/clickhouse-server-action@v1.0.0
-        with:
-          tag: latest
     - name: Run core tests
       run: cargo test --verbose --package cp_core
   lint:

@@ -21,6 +21,11 @@ pub struct SelectTransformConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct WithColTransformConfig {
+    pub with_columns: HashMap<StrKeyword, PolarsExprKeyword>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct JoinTransformConfig {
     pub join: _JoinTransformConfig,
 }

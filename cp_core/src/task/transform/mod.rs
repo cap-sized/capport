@@ -5,3 +5,4 @@ pub mod join;
 pub mod select;
 pub mod sql;
 pub mod unnest;
+pub mod with;

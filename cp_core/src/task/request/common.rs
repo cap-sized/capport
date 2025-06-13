@@ -13,7 +13,7 @@ use crate::{
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
     try_deserialize_stage,
-    util::error::{CpError, CpResult},
+    util::{common::format_schema, error::{CpError, CpResult}},
     valid_or_insert_error,
 };
 
@@ -73,10 +73,12 @@ impl Stage for RequestGroup {
         log::info!("INPUT `{}`: {:?}", &self.label, lf.clone().collect());
         for req in &self.requests {
             req.0.run(lf.clone(), ctx.clone())?;
+            let result = ctx.extract_clone_result(req.0.name()).expect("request");
             log::info!(
-                "OUTPUT `{}`: {:?}",
+                "[Request] OUTPUT `{}`: {:?}\n{}",
                 &self.label,
-                ctx.extract_clone_result(req.0.name()).expect("request")
+                &result,
+                format_schema(&result.schema())
             );
             log::info!(
                 "Success pushing frame update to {}: {}",

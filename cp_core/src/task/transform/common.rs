@@ -2,13 +2,14 @@ use polars::prelude::*;
 
 use super::config::{
     DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig, SqlTransformConfig,
-    UnnestTransformConfig,
+    TimeConvertConfig, UniformIdTypeConfig, UnnestTransformConfig, WithColTransformConfig,
 };
 use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
 use crate::parser::keyword::Keyword;
 use crate::task::stage::StageTaskConfig;
 use crate::try_deserialize_stage;
+use crate::util::common::format_schema;
 use crate::{
     frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle, FrameListenHandle, FrameUpdateType},
     pipeline::context::{DefaultPipelineContext, PipelineContext},
@@ -62,7 +63,12 @@ impl Stage for RootTransform {
         );
         let output = self.run(input, ctx.clone())?;
         let df = output.clone().collect().expect("transform");
-        log::info!("OUTPUT `{}`: {:?}", &self.label, df);
+        log::info!(
+            "[Transform] OUTPUT `{}`: {:?}\n{}",
+            &self.label,
+            &df,
+            format_schema(&df.schema())
+        );
         ctx.insert_result(&self.output, output)
     }
     /// The synchronous, concurrent execution listens to input for the initial frame, and broadcasts to output
@@ -138,7 +144,10 @@ impl RootTransformConfig {
                     JoinTransformConfig,
                     DropTransformConfig,
                     SqlTransformConfig,
-                    UnnestTransformConfig
+                    UnnestTransformConfig,
+                    WithColTransformConfig,
+                    TimeConvertConfig,
+                    UniformIdTypeConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(

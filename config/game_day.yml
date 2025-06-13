@@ -3,7 +3,35 @@ pipeline:
 
   shifts: []
 
-  scores:
+  roster:
+    - label: score_nhlapi
+      task_type: source
+      task_name: load_score_source
+      emplace: {}
+    - label: extract_games
+      task_type: transform
+      task_name: unnest_games_and_get_url
+      emplace: {}
+    - label: load_plays
+      task_type: request
+      task_name: fetch_play_by_play
+      emplace: 
+        input: NHL_GAMES
+    - label: process_roster
+      task_type: transform
+      task_name: process_roster
+      emplace: 
+        input: RAW_PLAY_BY_PLAY
+    - label: save_roster_to_clickhouse
+      task_type: sink
+      task_name: to_clickhouse
+      emplace:
+        to_save: NHL_ROSTER
+        model: roster
+        table: roster
+
+
+  scores_sample:
     - label: score_nhlapi
       task_type: source
       task_name: load_score_source
@@ -47,13 +75,57 @@ source:
           url: "https://api-web.nhle.com/v1/score/2024-10-30"
           output: SCORE_RAW
 
+request:
+  fetch_play_by_play:
+    max_threads: 8
+    input: $input
+    requests:
+      - http_batch:
+          method: GET
+          content_type: application/json
+          url_column: url
+          output: RAW_PLAY_BY_PLAY
+
 transform:
   unnest_games_and_get_url:
     input: SCORE_RAW
     output: NHL_GAMES
     steps:
       - unnest_list_of_struct: games
+      - with_columns: 
+          url: 
+            format:
+              template: "https://api-web.nhle.com/v1/gamecenter/{}/play-by-play"
+              columns: [id]
       - drop: [ prevDate, nextDate, gameWeek, oddsPartners ]
+
+  process_roster:
+    input: $input
+    output: NHL_ROSTER
+    steps:
+      - select:
+          game_id: id 
+          rosterSpots: rosterSpots
+      - unnest_list_of_struct: rosterSpots
+      - select:
+          team_id: teamId
+          player_id: playerId
+          first_name: firstName.default
+          last_name: lastName.default
+          position: positionCode
+          headshot: headshot
+          game_id: game_id
+          jersey_number: sweaterNumber
+      - uniform_id_type:
+          include: [team_id, player_id, game_id]
+      - uniform_id_type:
+          include: [jersey_number]
+          into: uint8
+
+  process_plays:
+    input: $input
+    output: CLEAN_PLAYS
+    steps: []
 
   process_scores:
     input: NHL_GAMES
@@ -90,7 +162,7 @@ transform:
           time_in_period: timeInPeriod
           player_id: playerId
           player_name: name.default
-          team: teamAbbrev
+          team_abbrev: teamAbbrev
           away_score: awayScore
           away_team: away_team
           home_score: homeScore
@@ -98,6 +170,16 @@ transform:
           goal_type: goalModifier
           date: date
           
+model:
+  roster:
+    team_id: uint64
+    player_id: uint64
+    game_id: uint64
+    first_name: str
+    last_name: str
+    position: str
+    headshot: str
+    jersey_number: uint8
 
 sink:
   save_json_file: 
@@ -115,3 +197,13 @@ sink:
       - csv: 
           filepath: $filepath
           merge_type: replace
+
+  to_clickhouse:
+    input: $to_save
+    max_threads: 8
+    sinks:
+      - clickhouse:
+          url: http://default:password@localhost:8123/
+          table: $table
+          merge_type: replace
+          model: $model

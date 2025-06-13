@@ -33,7 +33,7 @@ pub struct ClickhouseTableOptions {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ClickhouseSinkConfig {
     pub clickhouse: SqlConnection,
-    pub options: ClickhouseTableOptions,
+    pub options: Option<ClickhouseTableOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -106,7 +106,7 @@ options:
             db_name: None,
             create_table_if_not_exists: None,
         };
-        let expected = ClickhouseSinkConfig { clickhouse, options };
+        let expected = ClickhouseSinkConfig { clickhouse, options: Some(options) };
         assert_eq!(
             serde_yaml_ng::from_str::<ClickhouseSinkConfig>(config).unwrap(),
             expected

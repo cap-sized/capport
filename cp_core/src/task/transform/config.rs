@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::parser::{
+    dtype::DType,
+    filter_fields::FilterFields,
     jtype::JType,
     keyword::{PolarsExprKeyword, StrKeyword},
 };
@@ -59,6 +61,16 @@ pub struct UnnestTransformConfig {
     pub unnest_struct: Option<PolarsExprKeyword>,
     pub unnest_list: Option<PolarsExprKeyword>,
     pub unnest_list_of_struct: Option<PolarsExprKeyword>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UniformIdTypeConfig {
+    pub uniform_id_type: FilterFields<Option<DType>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct TimeConvertConfig {
+    pub time: FilterFields<String>,
 }
 
 #[cfg(test)]

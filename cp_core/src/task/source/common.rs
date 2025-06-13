@@ -9,7 +9,7 @@ use crate::{
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
     try_deserialize_stage,
-    util::error::{CpError, CpResult},
+    util::{common::format_schema, error::{CpError, CpResult}},
 };
 
 use super::config::{
@@ -89,10 +89,12 @@ impl Stage for SourceGroup {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
         for source in &self.sources {
             run_source(&self.label, source, ctx.clone())?;
+            let result = ctx.extract_clone_result(source.0.name()).expect("source");
             log::info!(
-                "OUTPUT `{}`: {:?}",
+                "[Source] OUTPUT `{}`: {:?}\n{}",
                 &self.label,
-                ctx.extract_clone_result(source.0.name()).expect("source")
+                &result,
+                format_schema(&result.schema())
             );
         }
         Ok(())

@@ -248,14 +248,19 @@ impl SinkConfig for ClickhouseSinkConfig {
                 .collect();
             if parts.len() > 3 {
                 if let Some(db_name) = parts.pop() {
-                    if self.options.db_name.is_none() {
-                        let _ = self.options.db_name.insert(StrKeyword::with_value(db_name.to_string()));
+                    if let Some(options) = self.options.as_mut() {
+                        if options.db_name.is_none() {
+                            let _ = options.db_name.insert(StrKeyword::with_value(db_name.to_string()));
+                        }
                     }
                 }
             }
             let _ = self.clickhouse.url.insert(StrKeyword::with_value(parts.join("/")));
         };
-        self.options.emplace(context)
+        if let Some(options) = self.options.as_mut() {
+            options.emplace(context)?;
+        }
+        Ok(())
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
@@ -268,8 +273,10 @@ impl SinkConfig for ClickhouseSinkConfig {
                 .expect("source[clickhouse].url not provided or deduced"),
             "source[clickhouse].url"
         );
-        if let Some(db_name) = &self.options.db_name {
-            valid_or_insert_error!(errors, db_name, "source[clickhouse].db_name");
+        if let Some(options) = &self.options {
+            if let Some(db_name) = &options.db_name {
+                valid_or_insert_error!(errors, db_name, "source[clickhouse].db_name");
+            }
         }
         if let Some(output) = &self.clickhouse.output {
             log::warn!("Output {:?} ignored in ClickhouseSinkConfig", output);
@@ -293,7 +300,9 @@ impl SinkConfig for ClickhouseSinkConfig {
             valid_or_insert_error!(errors, key_kw, "source[clickhouse].model.key");
             valid_or_insert_error!(errors, field_kw, "source[clickhouse].model.field");
         }
-        self.options.validate(&mut errors);
+        if let Some(options) = &self.options {
+            options.validate(&mut errors);
+        }
         errors
     }
     fn transform(&self) -> Box<dyn Sink> {
@@ -304,7 +313,7 @@ impl SinkConfig for ClickhouseSinkConfig {
         ch = if let Some(merge_type) = self.clickhouse.merge_type {
             let (engine, creator) = from_merge_type(merge_type);
             let tmp = ch.with_engine(engine);
-            if self.options.create_table_if_not_exists.unwrap_or(false) {
+            if self.options.is_some() && self.options.clone().unwrap().create_table_if_not_exists.unwrap_or(false) {
                 tmp.with_create_method(creator)
             } else {
                 tmp
@@ -312,14 +321,16 @@ impl SinkConfig for ClickhouseSinkConfig {
         } else {
             ch.with_create_method("CREATE TABLE")
         };
-        ch = ch.with_order_by(self.options.get_order_keys());
-        ch = ch.with_primary_key(self.options.get_primary_keys());
-        ch = ch.with_not_null(self.options.get_not_null());
-        ch = if let Some(db_name_kw) = &self.options.db_name {
-            ch.with_dbname(db_name_kw.value().expect("source[clickhouse].db_name"))
-        } else {
-            ch
-        };
+        if let Some(options)  = &self.options {
+            ch = ch.with_order_by(options.get_order_keys());
+            ch = ch.with_primary_key(options.get_primary_keys());
+            ch = ch.with_not_null(options.get_not_null());
+            ch = if let Some(db_name_kw) = &options.db_name {
+                ch.with_dbname(db_name_kw.value().expect("source[clickhouse].db_name"))
+            } else {
+                ch
+            };
+        }
         Box::new(ClickhouseSink {
             uri: self
                 .clickhouse
@@ -335,7 +346,7 @@ impl SinkConfig for ClickhouseSinkConfig {
                 .expect("bad queries (ClickhouseInserter)"),
             columns,
             strict: self.clickhouse.strict.unwrap_or(false),
-            create_table_if_not_exists: self.options.create_table_if_not_exists.unwrap_or(false),
+            create_table_if_not_exists: self.options.as_ref().map(|x| x.create_table_if_not_exists.unwrap_or(false)).unwrap_or(false),
             headers: HeaderMap::new(),
         })
     }
@@ -468,13 +479,13 @@ birth_state_province_code: str
                 output: None,
                 strict: Some(true),
             },
-            options: ClickhouseTableOptions {
+            options: Some(ClickhouseTableOptions {
                 db_name: None,
                 order_by: vec![],
                 primary_key: vec![StrKeyword::with_value("id".to_owned())],
                 not_null: None,
                 create_table_if_not_exists: Some(true),
-            },
+            }),
         };
         let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(false));
         let errors = cfg.validate();
@@ -542,13 +553,13 @@ options:
                 env_connection: Some(StrKeyword::with_value("ch".to_owned())),
                 strict: Some(true),
             },
-            options: ClickhouseTableOptions {
+            options: Some(ClickhouseTableOptions {
                 db_name: None,
                 order_by: vec![],
                 primary_key: vec![StrKeyword::with_value("id".to_owned())],
                 not_null: Some(vec![StrKeyword::with_value("birthdate".to_owned())]),
                 create_table_if_not_exists: Some(true),
-            },
+            }),
         };
         let ctx = Arc::new(
             DefaultPipelineContext::new()

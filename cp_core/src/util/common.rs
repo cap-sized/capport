@@ -1,6 +1,6 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 use log::{debug, trace};
-use polars::{frame::DataFrame, io::SerReader, prelude::JsonReader};
+use polars::{frame::DataFrame, io::SerReader, prelude::{JsonReader, Schema, SchemaNamesAndDtypes}};
 use std::{collections::HashMap, io::Cursor};
 
 use rand::{Rng, distr::Alphanumeric};
@@ -145,6 +145,16 @@ pub fn rng_str(len: usize) -> String {
         .take(len)
         .map(char::from)
         .collect()
+}
+
+
+pub fn format_schema(schema: &Schema) -> String {
+    let mut rows = vec![format!("Schema:")];
+    let max_len = schema.iter_names().fold(0, |len, name| std::cmp::max(len, name.len()));
+    schema.iter_names_and_dtypes().for_each(|(name, dtype)| {
+        rows.push(format!("\t{:width$}\t\t{}", name, dtype, width = max_len));
+    });
+    rows.join("\n")
 }
 
 /// This macro allows us to run n async tasks and gather the results

@@ -15,7 +15,7 @@ fern = { version = "0.7.1", features = ["date-based", "colored"] }
 futures = "0.3.31"
 log = "0.4.27"
 multiqueue = "0.3.2"
-polars = { version = "0.45.1", features = [ "lazy", "concat_str", "strings", "sql", "json", "csv", "dtype-datetime", "dtype-date", "dtype-time" ] }
+polars = { version = "0.45.1", features = [ "lazy", "concat_str", "strings", "sql", "json", "csv", "dtype-full" ] }
 rand = "0.9.0"
 regex = "1.11.1"
 serde = { version = "1.0", features = ["derive"] }

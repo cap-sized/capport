@@ -250,7 +250,7 @@ impl StageTaskConfig<SinkGroup> for SinkGroupConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
+    use std::{sync::Arc, thread::sleep, time::Duration};
 
     use async_trait::async_trait;
     use polars::{
@@ -264,7 +264,7 @@ mod tests {
         async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-        model::common::ModelConfig,
+        model::common::{ModelConfig, ModelFields},
         parser::keyword::{Keyword, StrKeyword},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
         task::{
@@ -430,7 +430,7 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "SAMPLE".to_owned(),
-            fields: HashMap::new(),
+            fields: ModelFields::new(),
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
         let actual = sgconfig.parse(&ctx, &context);
@@ -462,7 +462,7 @@ mod tests {
             let mut model_registry = ModelRegistry::new();
             model_registry.insert(ModelConfig {
                 label: "input".to_owned(),
-                fields: HashMap::new(),
+                fields: ModelFields::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
             let actual = sgconfig.parse(&ctx, &context);

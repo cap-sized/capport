@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::{
     model::common::{ModelConfig, ModelFields},
-    parser::keyword::{ModelFieldKeyword, StrKeyword},
     util::error::{CpError, CpResult},
 };
 
@@ -101,12 +100,11 @@ impl Configurable for ModelRegistry {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use polars::prelude::{DataType, TimeUnit};
 
     use crate::{
-        model::common::{ModelConfig, ModelFieldInfo},
+        model::common::{ModelConfig, ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -138,7 +136,7 @@ irrelevant_node:
             actual.get_model("model_b").unwrap(),
             ModelConfig {
                 label: "model_b".to_owned(),
-                fields: HashMap::from([
+                fields: ModelFields::from([
                     (
                         StrKeyword::with_value("dt".to_owned()),
                         ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Datetime(
@@ -167,7 +165,7 @@ irrelevant_node:
             actual.get_model("model_a").unwrap(),
             ModelConfig {
                 label: "model_a".to_owned(),
-                fields: HashMap::from([
+                fields: ModelFields::from([
                     (
                         StrKeyword::with_symbol("field1"),
                         ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))
@@ -187,7 +185,7 @@ irrelevant_node:
         let mut reg = ModelRegistry::new();
         reg.insert(ModelConfig {
             label: "model_a".to_owned(),
-            fields: HashMap::from([
+            fields: ModelFields::from([
                 (
                     StrKeyword::with_symbol("field1"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
@@ -211,7 +209,7 @@ value:
         // TODO:
         assert_eq!(
             fields,
-            HashMap::from([
+            ModelFields::from([
                 (
                     StrKeyword::with_value("sub1".to_owned()).and_symbol("field1"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64)))

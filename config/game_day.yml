@@ -174,12 +174,12 @@ model:
   roster:
     team_id: uint64
     player_id: uint64
-    game_id: uint64
     first_name: str
     last_name: str
-    position: str
     headshot: str
+    game_id: uint64
     jersey_number: uint8
+    position: str
 
 sink:
   save_json_file: 

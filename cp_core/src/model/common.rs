@@ -1,7 +1,5 @@
-use std::{collections::HashMap, iter::Enumerate};
-
 use polars::prelude::{Expr, Null, Schema, coalesce, col, lit};
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de};
 
 use crate::{
     parser::{
@@ -33,14 +31,19 @@ impl ModelFieldInfo {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelFields {
     list: Vec<(StrKeyword, ModelFieldKeyword)>,
 }
 
+impl Default for ModelFields {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelFields {
-    pub fn iter(&self) -> std::slice::Iter<(StrKeyword, ModelFieldKeyword)>{
+    pub fn iter(&self) -> std::slice::Iter<(StrKeyword, ModelFieldKeyword)> {
         self.list.iter()
     }
 
@@ -48,19 +51,29 @@ impl ModelFields {
         self.list.len()
     }
 
-    pub fn from<I>(fields: I) -> Self where I: IntoIterator<Item = (StrKeyword, ModelFieldKeyword)>  {
+    pub fn is_empty(&self) -> bool {
+        self.list.is_empty()
+    }
+
+    pub fn new() -> Self {
+        Self { list: vec![] }
+    }
+
+    pub fn from<I>(fields: I) -> Self
+    where
+        I: IntoIterator<Item = (StrKeyword, ModelFieldKeyword)>,
+    {
         let mut list = vec![];
         for namefield in fields {
             list.push(namefield);
         }
-        Self {list}
+        Self { list }
     }
-
 }
 
-impl Into<ModelFields> for Vec<(StrKeyword, ModelFieldKeyword)> {
-    fn into(self) -> ModelFields {
-        ModelFields { list: self }
+impl From<Vec<(StrKeyword, ModelFieldKeyword)>> for ModelFields {
+    fn from(val: Vec<(StrKeyword, ModelFieldKeyword)>) -> Self {
+        ModelFields { list: val }
     }
 }
 
@@ -82,15 +95,11 @@ impl<'de> Deserialize<'de> for ModelFields {
                 for (left_node, right_node) in mapping {
                     let strkw = match serde_yaml_ng::from_value::<StrKeyword>(left_node) {
                         Ok(x) => x,
-                        Err(e) => {
-                            return Err(de::Error::custom(e.to_string()))
-                        }
+                        Err(e) => return Err(de::Error::custom(e.to_string())),
                     };
                     let fieldkw = match serde_yaml_ng::from_value::<ModelFieldKeyword>(right_node) {
                         Ok(x) => x,
-                        Err(e) => {
-                            return Err(de::Error::custom(e.to_string()))
-                        }
+                        Err(e) => return Err(de::Error::custom(e.to_string())),
                     };
                     list.push((strkw, fieldkw));
                 }
@@ -149,11 +158,14 @@ impl ModelConfig {
 mod tests {
     use polars::prelude::{DataType, Field, TimeUnit};
 
-    use crate::{model::common::ModelFields, parser::{
-        dtype::DType,
-        keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-        model::ModelConstraint,
-    }};
+    use crate::{
+        model::common::ModelFields,
+        parser::{
+            dtype::DType,
+            keyword::{Keyword, ModelFieldKeyword, StrKeyword},
+            model::ModelConstraint,
+        },
+    };
 
     use super::{ModelConfig, ModelFieldInfo};
 

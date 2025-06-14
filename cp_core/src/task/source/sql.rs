@@ -91,7 +91,7 @@ impl SourceConfig for MySqlSourceConfig {
             ));
         }
         if let Some(model_fields) = &self.mysql.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[mysql].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[mysql].model.field");
             }
@@ -122,7 +122,7 @@ impl SourceConfig for MySqlSourceConfig {
                 .to_string(),
             queries,
             columns,
-            strict: self.mysql.strict.unwrap_or(false),
+            strict: self.mysql.strict.unwrap_or(true),
         })
     }
 }
@@ -144,7 +144,7 @@ impl SourceConfig for PostgresSourceConfig {
             ));
         }
         if let Some(model_fields) = &self.postgres.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[postgres].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[postgres].model.field");
             }
@@ -175,7 +175,7 @@ impl SourceConfig for PostgresSourceConfig {
                 .to_string(),
             queries,
             columns,
-            strict: self.postgres.strict.unwrap_or(false),
+            strict: self.postgres.strict.unwrap_or(true),
         })
     }
 }

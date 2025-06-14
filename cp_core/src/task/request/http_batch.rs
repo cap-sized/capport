@@ -250,7 +250,7 @@ impl RequestConfig for HttpBatchConfig {
         valid_or_insert_error!(errors, self.http_batch.url_column, "source[http_batch].url_column");
         valid_or_insert_error!(errors, self.http_batch.output, "source[http_batch].output");
         if let Some(model_fields) = &self.http_batch.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[http_batch].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[http_batch].model.field");
             }

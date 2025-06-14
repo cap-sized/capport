@@ -84,7 +84,7 @@ impl SourceConfig for JsonSourceConfig {
         valid_or_insert_error!(errors, self.json.filepath, "source[json].filepath");
         valid_or_insert_error!(errors, self.json.output, "source[json].output");
         if let Some(model_fields) = &self.json.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[json].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[json].model.field");
             }
@@ -115,7 +115,7 @@ impl SourceConfig for JsonSourceConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     use polars::{
         df,
@@ -127,7 +127,7 @@ mod tests {
     use crate::{
         async_st,
         context::model::ModelRegistry,
-        model::common::{ModelConfig, ModelFieldInfo},
+        model::common::{ModelConfig, ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -153,7 +153,7 @@ mod tests {
     fn example_model() -> ModelConfig {
         ModelConfig {
             label: "S".to_string(),
-            fields: HashMap::from([
+            fields: ModelFields::from([
                 (
                     StrKeyword::with_value("a".to_owned()),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int32))),

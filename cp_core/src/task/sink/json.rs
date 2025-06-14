@@ -144,7 +144,7 @@ impl SinkConfig for JsonSinkConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io::Read, sync::Arc};
+    use std::{io::Read, sync::Arc};
 
     use polars::{
         df,
@@ -156,7 +156,7 @@ mod tests {
     use crate::{
         async_st,
         context::model::ModelRegistry,
-        model::common::{ModelConfig, ModelFieldInfo},
+        model::common::{ModelConfig, ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -257,7 +257,7 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "test".to_string(),
-            fields: HashMap::from([(
+            fields: ModelFields::from([(
                 StrKeyword::with_value("a".to_owned()),
                 ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
             )]),

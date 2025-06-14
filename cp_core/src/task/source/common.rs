@@ -9,7 +9,10 @@ use crate::{
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
     try_deserialize_stage,
-    util::{common::format_schema, error::{CpError, CpResult}},
+    util::{
+        common::format_schema,
+        error::{CpError, CpResult},
+    },
 };
 
 use super::config::{
@@ -265,7 +268,7 @@ impl StageTaskConfig<SourceGroup> for SourceGroupConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use polars::{
@@ -280,7 +283,7 @@ mod tests {
         async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameBroadcastHandle},
-        model::common::{ModelConfig, ModelFieldInfo},
+        model::common::{ModelConfig, ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -521,7 +524,7 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "test".to_owned(),
-            fields: HashMap::new(),
+            fields: ModelFields::new(),
         });
         let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
         let actual = sgconfig.parse(&ctx, &context).unwrap();
@@ -562,7 +565,7 @@ mod tests {
             let mut model_registry = ModelRegistry::new();
             model_registry.insert(ModelConfig {
                 label: "test".to_owned(),
-                fields: HashMap::new(),
+                fields: ModelFields::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
             let actual = sgconfig.parse(&ctx, &context);
@@ -603,7 +606,7 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "CD".to_owned(),
-            fields: HashMap::from([(
+            fields: ModelFields::from([(
                 StrKeyword::with_value("c".to_owned()),
                 ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String))),
             )]),

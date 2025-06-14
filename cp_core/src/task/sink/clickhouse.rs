@@ -296,7 +296,7 @@ impl SinkConfig for ClickhouseSinkConfig {
             .model_fields
             .as_ref()
             .expect("source[clickhouse].model not provided or deduced");
-        for (key_kw, field_kw) in model_fields {
+        for (key_kw, field_kw) in model_fields.iter() {
             valid_or_insert_error!(errors, key_kw, "source[clickhouse].model.key");
             valid_or_insert_error!(errors, field_kw, "source[clickhouse].model.field");
         }
@@ -313,7 +313,14 @@ impl SinkConfig for ClickhouseSinkConfig {
         ch = if let Some(merge_type) = self.clickhouse.merge_type {
             let (engine, creator) = from_merge_type(merge_type);
             let tmp = ch.with_engine(engine);
-            if self.options.is_some() && self.options.clone().unwrap().create_table_if_not_exists.unwrap_or(false) {
+            if self.options.is_some()
+                && self
+                    .options
+                    .clone()
+                    .unwrap()
+                    .create_table_if_not_exists
+                    .unwrap_or(false)
+            {
                 tmp.with_create_method(creator)
             } else {
                 tmp
@@ -321,7 +328,7 @@ impl SinkConfig for ClickhouseSinkConfig {
         } else {
             ch.with_create_method("CREATE TABLE")
         };
-        if let Some(options)  = &self.options {
+        if let Some(options) = &self.options {
             ch = ch.with_order_by(options.get_order_keys());
             ch = ch.with_primary_key(options.get_primary_keys());
             ch = ch.with_not_null(options.get_not_null());
@@ -345,8 +352,12 @@ impl SinkConfig for ClickhouseSinkConfig {
                 .build_queries()
                 .expect("bad queries (ClickhouseInserter)"),
             columns,
-            strict: self.clickhouse.strict.unwrap_or(false),
-            create_table_if_not_exists: self.options.as_ref().map(|x| x.create_table_if_not_exists.unwrap_or(false)).unwrap_or(false),
+            strict: self.clickhouse.strict.unwrap_or(true),
+            create_table_if_not_exists: self
+                .options
+                .as_ref()
+                .map(|x| x.create_table_if_not_exists.unwrap_or(false))
+                .unwrap_or(false),
             headers: HeaderMap::new(),
         })
     }

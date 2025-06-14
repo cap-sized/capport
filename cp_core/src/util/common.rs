@@ -1,6 +1,10 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 use log::{debug, trace};
-use polars::{frame::DataFrame, io::SerReader, prelude::{JsonReader, Schema, SchemaNamesAndDtypes}};
+use polars::{
+    frame::DataFrame,
+    io::SerReader,
+    prelude::{JsonReader, Schema, SchemaNamesAndDtypes},
+};
 use std::{collections::HashMap, io::Cursor};
 
 use rand::{Rng, distr::Alphanumeric};
@@ -146,7 +150,6 @@ pub fn rng_str(len: usize) -> String {
         .map(char::from)
         .collect()
 }
-
 
 pub fn format_schema(schema: &Schema) -> String {
     let mut rows = vec![format!("Schema:")];

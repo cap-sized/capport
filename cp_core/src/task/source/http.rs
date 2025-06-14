@@ -79,7 +79,7 @@ impl SourceConfig for HttpSourceConfig {
         valid_or_insert_error!(errors, self.http.url, "source[http].url");
         valid_or_insert_error!(errors, self.http.output, "source[http].output");
         if let Some(model_fields) = &self.http.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[http].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[http].model.field");
             }

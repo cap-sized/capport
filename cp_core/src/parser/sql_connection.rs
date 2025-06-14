@@ -49,7 +49,7 @@ impl SqlConnection {
 
     pub fn src_query(&self) -> Vec<CXQuery> {
         let query = self.sql.clone().unwrap_or_else(|| {
-            let selector = if self.strict.unwrap_or(false) && self.model_fields.is_some() {
+            let selector = if self.strict.unwrap_or(true) && self.model_fields.is_some() {
                 let vals = self
                     .model_fields
                     .as_ref()
@@ -95,12 +95,10 @@ impl SqlConnection {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use polars::prelude::DataType;
 
     use crate::{
-        model::common::ModelFieldInfo,
+        model::common::{ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -130,7 +128,7 @@ mod tests {
                 url: Some(StrKeyword::with_symbol("first_priority")),
                 model: Some(StrKeyword::with_value("mymod".to_owned())),
                 output: Some(StrKeyword::with_symbol("actual")),
-                model_fields: Some(HashMap::from([(
+                model_fields: Some(ModelFields::from([(
                     StrKeyword::with_symbol("test"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),

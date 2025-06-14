@@ -69,12 +69,11 @@ pub struct HttpSourceConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use polars::prelude::DataType;
 
     use crate::{
-        model::common::ModelFieldInfo,
+        model::common::{ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             http::HttpOptionsConfig,
@@ -97,7 +96,7 @@ mod tests {
                 filepath: StrKeyword::with_symbol("fp"),
                 output: StrKeyword::with_value("OUT".to_string()),
                 model: Some(StrKeyword::with_value("mymod".to_string())),
-                model_fields: Some(HashMap::from([(
+                model_fields: Some(ModelFields::from([(
                     StrKeyword::with_value("test".to_owned()),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),
@@ -118,7 +117,7 @@ mod tests {
                 filepath: StrKeyword::with_value("fp".to_string()),
                 output: StrKeyword::with_value("output".to_string()),
                 model: Some(StrKeyword::with_value("test".to_string())),
-                model_fields: Some(HashMap::from([
+                model_fields: Some(ModelFields::from([
                     (
                         StrKeyword::with_value("aaa".to_owned()),
                         ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),
@@ -255,7 +254,7 @@ http:
                         url: StrKeyword::with_value("http://mywebsite.com".to_owned()),
                         output: StrKeyword::with_symbol("example"),
                         model: None,
-                        model_fields: Some(HashMap::from([(
+                        model_fields: Some(ModelFields::from([(
                             StrKeyword::with_symbol("test"),
                             ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8)))
                         )])),

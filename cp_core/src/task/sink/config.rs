@@ -49,12 +49,10 @@ pub struct CsvSinkConfig {
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
-
     use polars::prelude::DataType;
 
     use crate::{
-        model::common::ModelFieldInfo,
+        model::common::{ModelFieldInfo, ModelFields},
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
@@ -89,7 +87,7 @@ options:
             url: Some(StrKeyword::with_symbol("first_priority")),
             model: Some(StrKeyword::with_value("mymod".to_owned())),
             output: None,
-            model_fields: Some(HashMap::from([(
+            model_fields: Some(ModelFields::from([(
                 StrKeyword::with_symbol("test"),
                 ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
             )])),
@@ -106,7 +104,10 @@ options:
             db_name: None,
             create_table_if_not_exists: None,
         };
-        let expected = ClickhouseSinkConfig { clickhouse, options: Some(options) };
+        let expected = ClickhouseSinkConfig {
+            clickhouse,
+            options: Some(options),
+        };
         assert_eq!(
             serde_yaml_ng::from_str::<ClickhouseSinkConfig>(config).unwrap(),
             expected
@@ -119,7 +120,7 @@ options:
                 filepath: StrKeyword::with_symbol("fp"),
                 merge_type: MergeTypeEnum::MakeNext,
                 model: None,
-                model_fields: Some(HashMap::from([(
+                model_fields: Some(ModelFields::from([(
                     StrKeyword::with_value("a".to_owned()),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
                 )])),

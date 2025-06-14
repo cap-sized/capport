@@ -119,7 +119,7 @@ impl SinkConfig for JsonSinkConfig {
     }
 
     fn transform(&self) -> Box<dyn Sink> {
-        let fp = match get_full_path(self.json.filepath.value().expect("filepath"), true) {
+        let fp = match get_full_path(self.json.filepath.value().expect("filepath"), false) {
             Ok(x) => x,
             Err(e) => panic!("bad filepath `{:?}`: {}", self.json.filepath.value(), e),
         };

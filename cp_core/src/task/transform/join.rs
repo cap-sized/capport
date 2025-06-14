@@ -119,7 +119,7 @@ impl TransformConfig for JoinTransformConfig {
                 .map(|(alias_kw, expr_kw)| {
                     let alias = alias_kw.value().expect("alias").clone();
                     let expr = expr_kw.value().expect("expr").clone();
-                    coalesce(&[expr, col(format!("^{}$", alias)), lit(Null {})]).alias(alias)
+                    coalesce(&[expr, lit(Null {})]).alias(alias)
                 })
                 .collect()
         } else {

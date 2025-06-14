@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use polars::prelude::{Expr, LazyFrame, Null, coalesce, col, lit};
+use polars::prelude::{Expr, LazyFrame, Null, coalesce, lit};
 
 use crate::{
     parser::keyword::Keyword,
@@ -70,7 +70,7 @@ impl TransformConfig for WithColTransformConfig {
         for (alias_kw, expr_kw) in &self.with_columns {
             let alias = alias_kw.value().expect("alias").clone();
             let expr = expr_kw.value().expect("expr").clone();
-            with_columns.push(coalesce(&[expr, col(format!("^{}$", alias)), lit(Null {})]).alias(alias));
+            with_columns.push(coalesce(&[expr, lit(Null {})]).alias(alias));
         }
         Box::new(WithColTransform { with_columns })
     }

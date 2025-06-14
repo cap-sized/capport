@@ -14,7 +14,10 @@ use crate::{
         merge_type::MergeTypeEnum,
     },
     pipeline::context::DefaultPipelineContext,
-    util::error::{CpError, CpResult},
+    util::{
+        common::format_schema,
+        error::{CpError, CpResult},
+    },
     valid_or_insert_error,
 };
 
@@ -111,7 +114,11 @@ impl Sink for ClickhouseSink {
             lf.with_columns(&self.columns)
         })
         .collect()?;
-        log::debug!("Pushing to clickhouse: {:?}", final_frame);
+        log::debug!(
+            "Pushing to clickhouse: {:?}\n{}",
+            final_frame,
+            format_schema(&final_frame.schema())
+        );
         if self.create_table_if_not_exists {
             let create = self.inserter.get_create_query()?;
             let request = client

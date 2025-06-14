@@ -150,7 +150,6 @@ impl Pipeline {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use httpmock::{Method::GET, Mock, MockServer};
     use polars::{df, frame::DataFrame, io::SerReader, prelude::CsvReader};
@@ -162,7 +161,7 @@ mod tests {
             connection::ConnectionRegistry, model::ModelRegistry, request::RequestRegistry, sink::SinkRegistry,
             source::SourceRegistry, transform::TransformRegistry,
         },
-        model::common::ModelConfig,
+        model::common::{ModelConfig, ModelFields},
         parser::keyword::{Keyword, StrKeyword},
         pipeline::{
             context::{DefaultPipelineContext, PipelineContext},
@@ -185,7 +184,7 @@ mod tests {
         let mut model_registry = ModelRegistry::new();
         model_registry.insert(ModelConfig {
             label: "instrument".to_owned(),
-            fields: HashMap::from([
+            fields: ModelFields::from([
                 (
                     StrKeyword::with_value("ric".to_owned()),
                     serde_yaml_ng::from_str("str").unwrap(),

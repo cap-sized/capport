@@ -13,7 +13,10 @@ use crate::{
     pipeline::context::{DefaultPipelineContext, PipelineContext},
     task::stage::{Stage, StageTaskConfig},
     try_deserialize_stage,
-    util::{common::format_schema, error::{CpError, CpResult}},
+    util::{
+        common::format_schema,
+        error::{CpError, CpResult},
+    },
     valid_or_insert_error,
 };
 
@@ -259,7 +262,7 @@ impl StageTaskConfig<RequestGroup> for RequestGroupConfig {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use httpmock::{Method::GET, Mock, MockServer};
@@ -275,7 +278,7 @@ mod tests {
         async_st,
         context::model::ModelRegistry,
         frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle},
-        model::common::ModelConfig,
+        model::common::{ModelConfig, ModelFields},
         parser::keyword::{Keyword, StrKeyword},
         pipeline::context::{DefaultPipelineContext, PipelineContext},
         task::{
@@ -547,7 +550,7 @@ mod tests {
             let mut model_registry = ModelRegistry::new();
             model_registry.insert(ModelConfig {
                 label: "input".to_owned(),
-                fields: HashMap::new(),
+                fields: ModelFields::new(),
             });
             let ctx = Arc::new(DefaultPipelineContext::new().with_model_registry(model_registry));
             let actual = sgconfig.parse(&ctx, &context);

@@ -171,7 +171,7 @@ impl RequestConfig for HttpSingleConfig {
         }
         valid_or_insert_error!(errors, self.http_single.output, "source[http_single].output");
         if let Some(model_fields) = &self.http_single.model_fields {
-            for (key_kw, field_kw) in model_fields {
+            for (key_kw, field_kw) in model_fields.iter() {
                 valid_or_insert_error!(errors, key_kw, "source[http_single].model.key");
                 valid_or_insert_error!(errors, field_kw, "source[http_single].model.field");
             }

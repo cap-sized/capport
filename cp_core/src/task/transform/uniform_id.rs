@@ -62,8 +62,7 @@ mod tests {
         )
         .unwrap()
         .lazy();
-        let config: UniformIdTypeConfig =
-            serde_yaml_ng::from_str(r#"uniform_id_type: {include: [id]}"#).unwrap();
+        let config: UniformIdTypeConfig = serde_yaml_ng::from_str(r#"uniform_id_type: {include: [id]}"#).unwrap();
         let errors = config.validate();
         assert!(errors.is_empty());
         let node = config.transform();

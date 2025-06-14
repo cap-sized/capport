@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::Enumerate};
 
 use polars::prelude::{Expr, Null, Schema, coalesce, col, lit};
-use serde::Deserialize;
+use serde::{de, Deserialize, Deserializer};
 
 use crate::{
     parser::{
@@ -33,7 +33,72 @@ impl ModelFieldInfo {
     }
 }
 
-pub type ModelFields = HashMap<StrKeyword, ModelFieldKeyword>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelFields {
+    list: Vec<(StrKeyword, ModelFieldKeyword)>,
+}
+
+impl ModelFields {
+    pub fn iter(&self) -> std::slice::Iter<(StrKeyword, ModelFieldKeyword)>{
+        self.list.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.list.len()
+    }
+
+    pub fn from<I>(fields: I) -> Self where I: IntoIterator<Item = (StrKeyword, ModelFieldKeyword)>  {
+        let mut list = vec![];
+        for namefield in fields {
+            list.push(namefield);
+        }
+        Self {list}
+    }
+
+}
+
+impl Into<ModelFields> for Vec<(StrKeyword, ModelFieldKeyword)> {
+    fn into(self) -> ModelFields {
+        ModelFields { list: self }
+    }
+}
+
+impl<'de> Deserialize<'de> for ModelFields {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            List(Vec<(StrKeyword, ModelFieldKeyword)>),
+            Map(serde_yaml_ng::Mapping),
+        }
+        match Helper::deserialize(deserializer)? {
+            Helper::List(list) => Ok(list.into()),
+            Helper::Map(mapping) => {
+                let mut list = vec![];
+                for (left_node, right_node) in mapping {
+                    let strkw = match serde_yaml_ng::from_value::<StrKeyword>(left_node) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return Err(de::Error::custom(e.to_string()))
+                        }
+                    };
+                    let fieldkw = match serde_yaml_ng::from_value::<ModelFieldKeyword>(right_node) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return Err(de::Error::custom(e.to_string()))
+                        }
+                    };
+                    list.push((strkw, fieldkw));
+                }
+                Ok(list.into())
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ModelConfig {
@@ -56,7 +121,7 @@ impl ModelConfig {
     }
     pub fn columns(&self) -> CpResult<Vec<Expr>> {
         let mut cols = vec![];
-        for (field_name, field_detail) in &self.fields {
+        for (field_name, field_detail) in self.fields.iter() {
             let name = field_name
                 .value()
                 .expect("value not present for model field_name")
@@ -67,30 +132,28 @@ impl ModelConfig {
         Ok(cols)
     }
     pub fn substitute_model_fields(&self, context: &serde_yaml_ng::Mapping) -> CpResult<ModelFields> {
-        let mut fields = HashMap::new();
+        let mut fields = vec![];
         log::debug!("original model: {:?}", self);
-        for (colname, coldetail) in &self.fields {
+        for (colname, coldetail) in self.fields.iter() {
             let mut name = colname.clone();
             name.insert_value_from_context(context)?;
             let mut detail = coldetail.clone();
             detail.insert_value_from_context(context)?;
-            fields.insert(name, detail);
+            fields.push((name, detail));
         }
-        Ok(fields)
+        Ok(fields.into())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use polars::prelude::{DataType, Field, TimeUnit};
 
-    use crate::parser::{
+    use crate::{model::common::ModelFields, parser::{
         dtype::DType,
         keyword::{Keyword, ModelFieldKeyword, StrKeyword},
         model::ModelConstraint,
-    };
+    }};
 
     use super::{ModelConfig, ModelFieldInfo};
 
@@ -129,7 +192,7 @@ fields:
 "#;
         let expected = ModelConfig {
             label: "OUTPUT".to_owned(),
-            fields: HashMap::from([
+            fields: ModelFields::from([
                 (
                     StrKeyword::with_symbol("sym"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(DataType::Int64), &[])),
@@ -167,7 +230,7 @@ fields:
 ";
         let expected = ModelConfig {
             label: "OUTPUT".to_owned(),
-            fields: HashMap::from([
+            fields: ModelFields::from([
                 (
                     StrKeyword::with_symbol("sym"),
                     ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int64))),

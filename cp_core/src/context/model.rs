@@ -70,7 +70,7 @@ impl Configurable for ModelRegistry {
         let configs = config_pack.remove(ModelRegistry::get_node_name()).unwrap_or_default();
         let mut errors = vec![];
         for (config_name, fields) in configs {
-            match serde_yaml_ng::from_value::<HashMap<StrKeyword, ModelFieldKeyword>>(fields) {
+            match serde_yaml_ng::from_value::<ModelFields>(fields) {
                 Ok(model_fields) => {
                     self.configs.insert(
                         config_name.clone(),

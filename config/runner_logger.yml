@@ -20,4 +20,4 @@ runner:
     logger: higher
     mode: loop
     schedule: "1/5 * * * * *"
-    kill_at: "*/25 * * * * *"
+    kill_at: "* * 3 * * *"

@@ -72,12 +72,23 @@ impl Source for CsvSource {
             ));
         }
         let reader = if let Some(schema) = &self.schema {
-            let headers = read_headers_from_file(&self.filepath, self.separator)?;
+            let final_schema = match read_headers_from_file(&self.filepath, self.separator) {
+                Ok(headers) => schema.try_project(headers).map_err(|x| x.into()),
+                Err(e) => Err(e)
+            };
             // IMPORTANT: schema does not read header. MUST be in order!
-            let final_schema = Arc::new(schema.try_project(headers)?);
-            LazyCsvReader::new(&self.filepath)
-                .with_separator(self.separator)
-                .with_schema(Some(final_schema))
+            match final_schema {
+                Ok(schema) => LazyCsvReader::new(&self.filepath)
+                    .with_separator(self.separator)
+                    .with_schema(Some(schema.into())),
+                Err(e) => {
+                    log::warn!("Schema failed: {}. Fallback on full schema inference", e);
+                    LazyCsvReader::new(&self.filepath)
+                        .with_separator(self.separator)
+                        .with_try_parse_dates(true)
+                        .with_infer_schema_length(None)
+                }
+            }
         } else {
             LazyCsvReader::new(&self.filepath)
                 .with_separator(self.separator)

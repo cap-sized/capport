@@ -7,6 +7,7 @@ edition = "2024"
 argh = "0.1.13"
 async-trait = "0.1.88"
 async-broadcast = "0.7.2"
+bson = { version = "2.14.0", features = ["chrono-0_4"] }
 chrono = { version = "=0.4.38", features = ["serde"] }
 chrono-tz = "0.10.3"
 connectorx = { version = "0.4.3", features = [ "src_mysql", "src_postgres", "dst_polars" ] }
@@ -14,6 +15,7 @@ crossbeam = "0.8.4"
 fern = { version = "0.7.1", features = ["date-based", "colored"] }
 futures = "0.3.31"
 log = "0.4.27"
+mongodb = { version = "3.2.3", features = ["sync"] }
 multiqueue = "0.3.2"
 polars = { version = "0.45.1", features = [ "lazy", "concat_str", "strings", "sql", "json", "csv", "dtype-full" ] }
 rand = "0.9.0"

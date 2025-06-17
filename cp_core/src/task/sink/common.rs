@@ -68,7 +68,13 @@ impl SinkGroup {
 impl Stage for SinkGroup {
     fn linear(&self, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
         log::info!("Stage initialized [single-thread]: {}", &self.label);
-        let dataframe = ctx.extract_clone_result(&self.result_name).expect("sink");
+        let dataframe = match ctx.extract_clone_result(&self.result_name) {
+            Ok(x) => x,
+            Err(e) => {
+                log::error!("Bad result, skipping sink stage: {}", e);
+                return Ok(());
+            }
+        };
         log::info!("INPUT `{}`: {:?}", &self.label, dataframe);
         for sink in &self.sinks {
             sink.0.run(dataframe.clone(), ctx.clone())?;
@@ -95,7 +101,12 @@ impl Stage for SinkGroup {
         let mut dataframe: Option<DataFrame> = None;
         {
             let fread = update.frame.read()?;
-            let _ = dataframe.insert(fread.clone().collect()?);
+            match fread.clone().collect() {
+                Ok(x) => {
+                    let _ = dataframe.insert(x);
+                }
+                Err(e) => log::error!("Bad result, skipping sink stage: {}", e)
+            }
         }
         ctx_run_n_threads!(
             self.max_threads,
@@ -104,18 +115,21 @@ impl Stage for SinkGroup {
                 for sink in sinks {
                     let s: &BoxedSink = sink;
                     let sink = &s.0;
-                    match sink.run(dfh.clone().expect("sink.df"), ictx.clone()) {
+                    let result = match dfh.clone() {
+                        Some(val) => sink.run(val, ictx.clone()),
+                        None => Err(CpError::PipelineError("no valid result found", format!(
+                            "Bad result, failed to fetch frame `{}` of type `{}`",
+                            result_name,
+                            &s.0.connection_type(),
+                        )))
+                    };
+                    match result {
                         Ok(_) => log::info!(
                             "pushed frame `{}` on connection `{}`",
                             result_name,
                             &s.0.connection_type(),
                         ),
-                        Err(e) => log::error!(
-                            "Failed fetch frame `{}` of type `{}`: {:?}",
-                            result_name,
-                            &s.0.connection_type(),
-                            e
-                        ),
+                        Err(e) => log::error!("{}", e)
                     };
                 }
             },
@@ -151,16 +165,27 @@ impl Stage for SinkGroup {
                                     Ok(x) => {
                                         let _ = dataframe.insert(x);
                                     }
-                                    Err(e) => log::error!("{}", e),
+                                    Err(e) => log::error!("Bad result, skipping sink stage: {}", e)
                                 }
                             }
                             if let Some(frame) = dataframe.take() {
-                                sink.fetch(frame, ctx.clone()).await?;
-                                log::info!(
-                                    "Success pushing frame update via {}: {}",
-                                    sink.connection_type(),
-                                    result_name
-                                );
+                                match sink.fetch(frame, ctx.clone()).await {
+                                    Ok(_) => {
+                                        log::info!(
+                                            "Success pushing frame update via {}: {}",
+                                            sink.connection_type(),
+                                            result_name
+                                        );
+                                    }
+                                    Err(e) => {
+                                        log::error!(
+                                            "Failed to run sink stage [{}] for result `{}`: {}",
+                                            sink.connection_type(),
+                                            result_name,
+                                            e
+                                        );
+                                    }
+                                };
                             }
                         }
                         FrameUpdateType::Kill => {

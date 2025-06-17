@@ -250,7 +250,7 @@ impl Request for HttpBatchRequest {
                 vec![]
             }
         };
-        let frame = match sync_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type) {
+        let frame = match async_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type).await {
             Ok(x) => x,
             Err(e) => {
                 log::error!("{}", e);

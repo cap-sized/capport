@@ -40,10 +40,12 @@ impl TransformConfig for TimeConvertConfig {
         let is_time = fmt.contains("%M");
         match fmt.as_str() {
             "%Y-%m-%dT%H:%M:%SZ" => include.iter().for_each(|expr| {
-                cast.push(col(expr).cast(polars::prelude::DataType::Datetime(
-                    TimeUnit::Nanoseconds,
-                    None,
-                )).dt().replace_time_zone(Some("UTC".into()), col(expr), NonExistent::Null));
+                cast.push(
+                    col(expr)
+                        .cast(polars::prelude::DataType::Datetime(TimeUnit::Nanoseconds, None))
+                        .dt()
+                        .replace_time_zone(Some("UTC".into()), col(expr), NonExistent::Null),
+                );
             }),
             "%M:%S" => include.iter().for_each(|expr| {
                 cast.push(
@@ -78,7 +80,7 @@ mod tests {
 
     use polars::{
         df,
-        prelude::{col, DatetimeArgs, datetime, lit, IntoLazy, StrptimeOptions, TimeUnit},
+        prelude::{DatetimeArgs, IntoLazy, StrptimeOptions, TimeUnit, col, datetime, lit},
     };
 
     use crate::{
@@ -134,20 +136,23 @@ mod tests {
             "min" => [20],
             "sec" => [40],
             "tz" => ["UTC"],
-        ).unwrap().lazy().select([
-            datetime(DatetimeArgs {
-                year: col("year"),
-                month: col("month"),
-                day: col("day"),
-                hour: col("hr"),
-                minute: col("min"),
-                second: col("sec"),
-                microsecond: lit(0),
-                time_unit: TimeUnit::Nanoseconds,
-                time_zone: Some("UTC".into()),
-                ambiguous: col("year"),
-            })
-        ]).collect().unwrap();
+        )
+        .unwrap()
+        .lazy()
+        .select([datetime(DatetimeArgs {
+            year: col("year"),
+            month: col("month"),
+            day: col("day"),
+            hour: col("hr"),
+            minute: col("min"),
+            second: col("sec"),
+            microsecond: lit(0),
+            time_unit: TimeUnit::Nanoseconds,
+            time_zone: Some("UTC".into()),
+            ambiguous: col("year"),
+        })])
+        .collect()
+        .unwrap();
 
         assert_eq!(actual, expected);
     }

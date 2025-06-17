@@ -1,4 +1,4 @@
-use polars::prelude::{concat_str, format_str, DataType, Expr};
+use polars::prelude::{DataType, Expr, concat_str, format_str};
 use serde::Deserialize;
 
 use crate::{

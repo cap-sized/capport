@@ -1,0 +1,105 @@
+model:
+  rosters:
+    team_id: uint64
+    player_id: uint64
+    first_name: str
+    last_name: str
+    headshot: str
+    game_id: uint64
+    jersey_number: uint8
+    position: str
+
+  plays:
+    event_id: uint64
+    period_type: str
+    time_in_period: time
+    time_remaining: time
+    situation_code: uint64
+    type_code: uint64
+    type_desc_key: str
+    sort_order: int64
+    ppt_replay_url: str
+    period: uint8
+    game_id: uint64
+
+  play_events:
+    game_id: uint64
+    event_id: uint64
+    sort_order: int64
+    x_coord: double
+    y_coord: double
+    zone_code: str
+    reason: str
+    secondary_reason: str
+    shot_type: str
+    shooting_player_id: uint64
+    goalie_in_net_id: uint64
+    event_owner_team_id: uint64
+    losing_player_id: uint64
+    winning_player_id: uint64
+    hitting_player_id: uint64
+    hittee_player_id: uint64
+    desc_key: str
+    duration: int64
+    committed_by_player_id: uint64
+    drawn_by_player_id: uint64
+    away_sog: uint64
+    home_sog: uint64
+    blocking_player_id: uint64
+    scoring_player_id: uint64
+    scoring_player_total: uint64
+    assist1_player_id: uint64
+    assist1_player_total: uint64
+    assist2_player_id: uint64
+    assist2_player_total: uint64
+    away_score: uint64
+    home_score: uint64
+    highlight_clip: uint64
+    highlight_clip_fr: uint64
+    discrete_clip: uint64
+    discrete_clip_fr: uint64
+    penalty_type_code: uint64
+    served_by_player_id: uint64
+
+  shifts:
+    id: uint64
+    detail_code: uint64
+    duration: time
+    start_time: time
+    end_time: time
+    event_description: str
+    event_details: str
+    event_number: uint64
+    game_id: uint64
+    period: uint8
+    playerId: uint64
+    shift_number: uint64
+    type_code: uint64
+
+  games:
+    id: uint64
+    season: uint64
+    game_type: uint8
+    venue: uint8
+    venue_location: str
+    start_time_utc: datetime_utc
+    eastern_utc_offset: str
+    venue_utc_offset: str
+    game_schedule_state: str
+    away_team_id: uint64
+    home_team_id: uint64
+
+  game_clocks:
+    game_id: uint64
+    time_remaining: time
+    seconds_remaining: uint64
+    running: bool
+    in_intermission: bool
+    period: uint8
+    period_type: str
+    shootout_in_use: bool
+    ot_in_use: bool
+    game_state: str
+    display_period: uint8
+    reg_periods: uint8
+

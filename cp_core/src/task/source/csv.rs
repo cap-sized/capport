@@ -74,7 +74,7 @@ impl Source for CsvSource {
         let reader = if let Some(schema) = &self.schema {
             let final_schema = match read_headers_from_file(&self.filepath, self.separator) {
                 Ok(headers) => schema.try_project(headers).map_err(|x| x.into()),
-                Err(e) => Err(e)
+                Err(e) => Err(e),
             };
             // IMPORTANT: schema does not read header. MUST be in order!
             match final_schema {

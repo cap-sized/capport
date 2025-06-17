@@ -105,7 +105,7 @@ impl Stage for SinkGroup {
                 Ok(x) => {
                     let _ = dataframe.insert(x);
                 }
-                Err(e) => log::error!("Bad result, skipping sink stage: {}", e)
+                Err(e) => log::error!("Bad result, skipping sink stage: {}", e),
             }
         }
         ctx_run_n_threads!(
@@ -117,11 +117,14 @@ impl Stage for SinkGroup {
                     let sink = &s.0;
                     let result = match dfh.clone() {
                         Some(val) => sink.run(val, ictx.clone()),
-                        None => Err(CpError::PipelineError("no valid result found", format!(
-                            "Bad result, failed to fetch frame `{}` of type `{}`",
-                            result_name,
-                            &s.0.connection_type(),
-                        )))
+                        None => Err(CpError::PipelineError(
+                            "no valid result found",
+                            format!(
+                                "Bad result, failed to fetch frame `{}` of type `{}`",
+                                result_name,
+                                &s.0.connection_type(),
+                            ),
+                        )),
                     };
                     match result {
                         Ok(_) => log::info!(
@@ -129,7 +132,7 @@ impl Stage for SinkGroup {
                             result_name,
                             &s.0.connection_type(),
                         ),
-                        Err(e) => log::error!("{}", e)
+                        Err(e) => log::error!("{}", e),
                     };
                 }
             },
@@ -165,7 +168,7 @@ impl Stage for SinkGroup {
                                     Ok(x) => {
                                         let _ = dataframe.insert(x);
                                     }
-                                    Err(e) => log::error!("Bad result, skipping sink stage: {}", e)
+                                    Err(e) => log::error!("Bad result, skipping sink stage: {}", e),
                                 }
                             }
                             if let Some(frame) = dataframe.take() {

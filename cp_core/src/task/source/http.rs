@@ -2,7 +2,9 @@ use std::{io::Cursor, sync::Arc};
 
 use async_trait::async_trait;
 use polars::{
-    frame::DataFrame, io::SerReader, prelude::{IntoLazy, JsonReader, LazyFrame, Schema}
+    frame::DataFrame,
+    io::SerReader,
+    prelude::{IntoLazy, JsonReader, LazyFrame, Schema},
 };
 
 use crate::{
@@ -54,9 +56,9 @@ impl Source for HttpSource {
             }
         };
         let res = if let Some(schema) = &self.schema {
-            let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone()); 
+            let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone());
             reader.finish().map_err(|e| e.into())
-        } else { 
+        } else {
             str_json_to_df(&body)
         };
         Ok(match res {
@@ -85,9 +87,9 @@ impl Source for HttpSource {
             }
         };
         let res = if let Some(schema) = &self.schema {
-            let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone()); 
+            let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone());
             reader.finish().map_err(|e| e.into())
-        } else { 
+        } else {
             str_json_to_df(&body)
         };
         Ok(match res {

@@ -1,7 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use polars::{frame::DataFrame, prelude::{Expr, IntoLazy, LazyFrame}};
+use polars::{
+    frame::DataFrame,
+    prelude::{Expr, IntoLazy, LazyFrame},
+};
 use reqwest::header::HeaderValue;
 
 use crate::{
@@ -179,7 +182,7 @@ async fn async_urls(urls: Vec<String>, max_retry: u8, retry_interval: u64, conte
 
 pub fn get_urls(base: LazyFrame, url_column: Expr) -> CpResult<Vec<String>> {
     let df = match base.select([url_column.alias("url")]).collect() {
-        Ok(x) => x, 
+        Ok(x) => x,
         Err(e) => {
             log::error!("{}", e);
             DataFrame::empty()

@@ -472,7 +472,8 @@ format:
                     .struct_()
                     .field_by_name("not")
                     .struct_()
-                    .field_by_name("nested").cast(DataType::String),
+                    .field_by_name("nested")
+                    .cast(DataType::String),
             ],
         )
         .unwrap();
@@ -495,7 +496,8 @@ concat:
                     .struct_()
                     .field_by_name("not")
                     .struct_()
-                    .field_by_name("nested").cast(DataType::String),
+                    .field_by_name("nested")
+                    .cast(DataType::String),
             ],
             ",",
             false,

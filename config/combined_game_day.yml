@@ -6,6 +6,7 @@ pipeline:
       emplace:
         url: "https://api-web.nhle.com/v1/score/now"
         output: RAW_SCORE
+        # url: "https://api-web.nhle.com/v1/score/2025-06-14"
     - label: extract_games_from_scores
       task_type: transform
       task_name: unnest_games_and_get_url
@@ -23,19 +24,19 @@ pipeline:
       emplace:
         input: NHL_GAMES
         output: NHL_PLAYS_EVENTS_ROSTER
-#   - label: process_games # games are only populated once here
-#     task_type: transform
-#     task_name: process_games
-#     emplace: 
-#       input: NHL_PLAYS_EVENTS_ROSTER
-#       output: CLEAN_GAMES
-#   - label: save_games
-#     task_type: sink
-#     task_name: save_clickhouse_csv
-#     emplace: 
-#       input: CLEAN_GAMES
-#       filepath: games.csv
-#       model: games
+    - label: process_games # games are only populated once here
+      task_type: transform
+      task_name: process_games
+      emplace: 
+        input: NHL_PLAYS_EVENTS_ROSTER
+        output: CLEAN_GAMES
+    - label: save_games
+      task_type: sink
+      task_name: save_clickhouse_csv
+      emplace: 
+        input: CLEAN_GAMES
+        filepath: games.csv
+        model: games
 
   game_day:
     - label: score_nhlapi

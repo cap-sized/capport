@@ -18,13 +18,19 @@ fn main() {
     let ok = Arc::new(AtomicBool::new(false));
     while !ok.load(std::sync::atomic::Ordering::Relaxed) {
         match std::panic::catch_unwind(|| {
-                exec().expect("runner");
+            match exec() {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("Failed to execute pipeline: {:?}.\nRestarting in {} seconds", e, RESTART_INTERVAL_SECS);
+                    std::thread::sleep(std::time::Duration::from_secs(RESTART_INTERVAL_SECS));
+                }
+            }
         }) {
             Ok(_) => {
                 ok.clone().store(true, std::sync::atomic::Ordering::Relaxed);
             },
             Err(e) => {
-                log::warn!("Failed to execute pipeline: {:?}.\nRestarting in {} seconds", e, RESTART_INTERVAL_SECS);
+                log::warn!("Pipeline panicked: {:?}.\nRestarting in {} seconds", e, RESTART_INTERVAL_SECS);
                 std::thread::sleep(std::time::Duration::from_secs(RESTART_INTERVAL_SECS));
             }
         }

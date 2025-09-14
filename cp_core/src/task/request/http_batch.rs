@@ -1,7 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use polars::prelude::{Expr, IntoLazy, LazyFrame};
+use polars::{
+    frame::DataFrame,
+    prelude::{Expr, IntoLazy, LazyFrame},
+};
 use reqwest::header::HeaderValue;
 
 use crate::{
@@ -178,7 +181,13 @@ async fn async_urls(urls: Vec<String>, max_retry: u8, retry_interval: u64, conte
 }
 
 pub fn get_urls(base: LazyFrame, url_column: Expr) -> CpResult<Vec<String>> {
-    let df = base.select([url_column.alias("url")]).collect()?;
+    let df = match base.select([url_column.alias("url")]).collect() {
+        Ok(x) => x,
+        Err(e) => {
+            log::error!("{}", e);
+            DataFrame::empty()
+        }
+    };
     let df_type = df.column("url")?.dtype().clone();
     let url_column = df.column("url")?.drop_nulls().unique()?;
     let url_series = match url_column.try_str() {
@@ -209,8 +218,20 @@ impl Request for HttpBatchRequest {
     }
 
     fn run(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let urls = get_urls(frame, self.url_column.clone())?;
-        let frame = sync_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type)?;
+        let urls = match get_urls(frame, self.url_column.clone()) {
+            Ok(x) => x,
+            Err(e) => {
+                log::error!("{}", e);
+                vec![]
+            }
+        };
+        let frame = match sync_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type) {
+            Ok(x) => x,
+            Err(e) => {
+                log::error!("{}", e);
+                DataFrame::empty().lazy()
+            }
+        };
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
@@ -222,8 +243,20 @@ impl Request for HttpBatchRequest {
     }
 
     async fn fetch(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let urls = get_urls(frame, self.url_column.clone())?;
-        let frame = async_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type).await?;
+        let urls = match get_urls(frame, self.url_column.clone()) {
+            Ok(x) => x,
+            Err(e) => {
+                log::error!("{}", e);
+                vec![]
+            }
+        };
+        let frame = match async_urls(urls, self.max_retry, self.init_retry_interval_ms, &self.content_type).await {
+            Ok(x) => x,
+            Err(e) => {
+                log::error!("{}", e);
+                DataFrame::empty().lazy()
+            }
+        };
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {

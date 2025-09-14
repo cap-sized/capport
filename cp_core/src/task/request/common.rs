@@ -20,7 +20,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{HttpBatchConfig, HttpSingleConfig, RequestGroupConfig};
+use super::config::{HttpBatchConfig, RequestGroupConfig};
 
 /// Base sink trait. Importantly, certain requests may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -206,7 +206,7 @@ impl RequestGroupConfig {
         self.requests
             .iter()
             .map(|transform| {
-                let config = try_deserialize_stage!(transform, dyn RequestConfig, HttpBatchConfig, HttpSingleConfig);
+                let config = try_deserialize_stage!(transform, dyn RequestConfig, HttpBatchConfig);
                 config.ok_or_else(|| {
                     CpError::ConfigError(
                         "Request config parsing error",

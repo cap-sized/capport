@@ -466,13 +466,14 @@ format:
         let expected_expr = format_str(
             "Hi {} {} {}",
             [
-                col("one"),
-                col("two"),
+                col("one").cast(DataType::String),
+                col("two").cast(DataType::String),
                 col("three")
                     .struct_()
                     .field_by_name("not")
                     .struct_()
-                    .field_by_name("nested"),
+                    .field_by_name("nested")
+                    .cast(DataType::String),
             ],
         )
         .unwrap();
@@ -489,13 +490,14 @@ concat:
         let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
         let expected_expr = concat_str(
             [
-                col("one"),
-                col("two"),
+                col("one").cast(DataType::String),
+                col("two").cast(DataType::String),
                 col("three")
                     .struct_()
                     .field_by_name("not")
                     .struct_()
-                    .field_by_name("nested"),
+                    .field_by_name("nested")
+                    .cast(DataType::String),
             ],
             ",",
             false,

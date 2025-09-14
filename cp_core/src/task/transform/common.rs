@@ -61,7 +61,13 @@ impl Stage for RootTransform {
             &self.label,
             input.clone().collect().expect("before transform")
         );
-        let output = self.run(input, ctx.clone())?;
+        let output = match self.run(input, ctx.clone()) {
+            Ok(lf) => lf,
+            Err(e) => {
+                log::error!("{}", e);
+                DataFrame::empty().lazy()
+            }
+        };
         let df = output.clone().collect().expect("transform");
         log::info!(
             "[Transform] OUTPUT `{}`: {:?}\n{}",
@@ -81,7 +87,13 @@ impl Stage for RootTransform {
         let mut output_broadcast = bctx.get_broadcast(&self.output, &self.label)?;
         let update = input_listener.force_listen();
         let input = update.frame.read()?.clone();
-        let output = self.run(input, ctx)?;
+        let output = match self.run(input, ctx.clone()) {
+            Ok(lf) => lf,
+            Err(e) => {
+                log::error!("{}. Returning empty frame", e);
+                DataFrame::empty().lazy()
+            }
+        };
         output_broadcast.broadcast(output)
     }
     /// The asynchronous, concurrent execution executes until it receives a Kill message.
@@ -97,7 +109,13 @@ impl Stage for RootTransform {
             match update.info.msg_type {
                 FrameUpdateType::Replace => {
                     let input = update.frame.read()?.clone();
-                    let output = self.run(input, ctx.clone())?;
+                    let output = match self.run(input, ctx.clone()) {
+                        Ok(lf) => lf,
+                        Err(e) => {
+                            log::error!("{}. Returning empty frame", e);
+                            DataFrame::empty().lazy()
+                        }
+                    };
                     log::trace!("BCAST RootTransform handle {} to: {:?}", &self.label, &self.output);
                     match output_broadcast.broadcast(output) {
                         Ok(_) => log::info!("Sent update for frame {}", &self.output),

@@ -190,20 +190,13 @@ macro_rules! ctx_run_n_threads {
         log::trace!("Started {} threads", n);
         let (quo, rem) = (len / n, len % n);
         let split = (quo + 1) * rem;
-        match crossbeam::thread::scope(|scope| {
+        crossbeam::thread::scope(|scope| {
             let chunks = slice[..split].chunks(quo + 1).chain(slice[split..].chunks(quo));
             for chunk in chunks {
                 let items = (chunk, $($i.clone()),*);
                 scope.spawn(move |_| ($action)(items));
             }
-        }) {
-            Ok(_) => {
-                log::trace!("Joined {} threads", n);
-            }
-            Err(e) => {
-                log::error!("Thread err:\n{:?}", e);
-            }
-        };
+        }).expect("failed to join threads");
     };
 }
 

@@ -11,6 +11,7 @@ use crate::util::common::{
 use crate::util::error::{CpError, CpResult};
 use crate::{model_emplace, valid_or_insert_error};
 use async_trait::async_trait;
+use polars::frame::DataFrame;
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use serde_yaml_ng::Mapping;
 use std::sync::Arc;
@@ -119,8 +120,17 @@ impl Request for HttpSingleRequest {
     }
 
     fn run(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let url = self.construct_url(&frame, &ctx)?;
-        let frame = sync_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type)?;
+        let frame_result = match self.construct_url(&frame, &ctx) {
+            Ok(url) => sync_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type),
+            Err(e) => Err(e),
+        };
+        let frame = match frame_result {
+            Ok(f) => f,
+            Err(e) => {
+                log::error!("{}", e);
+                DataFrame::empty().lazy()
+            }
+        };
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {
@@ -132,8 +142,17 @@ impl Request for HttpSingleRequest {
     }
 
     async fn fetch(&self, frame: LazyFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
-        let url = self.construct_url(&frame, &ctx)?;
-        let frame = async_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type).await?;
+        let frame_result = match self.construct_url(&frame, &ctx) {
+            Ok(url) => async_url(&url, self.max_retry, self.init_retry_interval_ms, &self.content_type).await,
+            Err(e) => Err(e),
+        };
+        let frame = match frame_result {
+            Ok(f) => f,
+            Err(e) => {
+                log::error!("{}", e);
+                DataFrame::empty().lazy()
+            }
+        };
         let frame_modelled = if let Some(schema) = &self.schema {
             frame.with_columns(schema.clone())
         } else {

@@ -1,4 +1,4 @@
-use polars::prelude::{Expr, concat_str, format_str};
+use polars::prelude::{DataType, Expr, concat_str, format_str};
 use serde::Deserialize;
 
 use crate::{
@@ -57,7 +57,7 @@ impl ExprAction for ConcatAction {
             .iter()
             .map(|x| x.value())
             .filter(|x| x.is_some())
-            .map(|x| x.unwrap().to_owned())
+            .map(|x| x.unwrap().to_owned().cast(DataType::String))
             .collect::<Vec<Expr>>();
 
         Ok(concat_str(
@@ -99,7 +99,7 @@ impl ExprAction for FormatAction {
             .iter()
             .map(|x| x.value())
             .filter(|x| x.is_some())
-            .map(|x| x.unwrap().to_owned())
+            .map(|x| x.unwrap().to_owned().cast(DataType::String))
             .collect::<Vec<Expr>>();
         Ok(format_str(self.template.value().unwrap(), args)?)
     }

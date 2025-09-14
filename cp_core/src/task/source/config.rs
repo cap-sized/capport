@@ -57,9 +57,22 @@ pub struct MySqlSourceConfig {
 pub struct SingleLinkConfig {
     pub url: StrKeyword,
     pub output: StrKeyword,
+    // todo: add specification of content-type and request type (optional)
     pub model: Option<StrKeyword>,
     pub model_fields: Option<ModelFields>,
     pub options: Option<HttpOptionsConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct MongoConnection {
+    pub url: Option<StrKeyword>,
+    pub env_connection: Option<StrKeyword>, // use a preset
+    pub output: Option<StrKeyword>,
+    pub collection: StrKeyword,
+    pub find: mongodb::bson::Document,
+    pub projection: Option<mongodb::bson::Document>,
+    pub model: Option<StrKeyword>,
+    pub model_fields: Option<ModelFields>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -67,9 +80,17 @@ pub struct HttpSourceConfig {
     pub http: SingleLinkConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct MongoSourceConfig {
+    pub mongo: MongoConnection,
+}
+
+impl Eq for MongoConnection {}
+
 #[cfg(test)]
 mod tests {
 
+    use bson::doc;
     use polars::prelude::DataType;
 
     use crate::{
@@ -82,7 +103,9 @@ mod tests {
         task::source::config::{CsvSourceConfig, JsonSourceConfig},
     };
 
-    use super::{_CsvSourceConfig, HttpSourceConfig, LocalFileSourceConfig, SingleLinkConfig};
+    use super::{
+        _CsvSourceConfig, HttpSourceConfig, LocalFileSourceConfig, MongoConnection, MongoSourceConfig, SingleLinkConfig,
+    };
 
     fn get_locals() -> [LocalFileSourceConfig; 5] {
         [
@@ -222,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_http_config_csv() {
+    fn valid_source_config_http() {
         let configs = [
             "
 http:
@@ -263,6 +286,60 @@ http:
                 },
                 serde_yaml_ng::from_str::<HttpSourceConfig>(configs[i]).unwrap()
             )
+        }
+    }
+
+    #[test]
+    fn valid_source_config_mongo() {
+        let configs = [
+            r#"
+mongo:
+    url: mongo+src://
+    output: $output
+    collection: table
+    model: model
+    find: { "a": { "$ne": "b" } }
+"#,
+            r#"
+mongo:
+    env_connection: $fallback
+    output: $output
+    collection: table
+    model: model
+    find: {}
+    projection: { id : 1 }
+"#,
+        ];
+        let expected = [
+            MongoConnection {
+                url: Some(StrKeyword::with_value("mongo+src://".to_owned())),
+                env_connection: None,
+                output: Some(StrKeyword::with_symbol("output")),
+                collection: StrKeyword::with_value("table".to_owned()),
+                model: Some(StrKeyword::with_value("model".to_owned())),
+                model_fields: None,
+                find: doc! { "a": { "$ne" : "b" } },
+                projection: None,
+            },
+            MongoConnection {
+                url: None,
+                env_connection: Some(StrKeyword::with_symbol("fallback")),
+                output: Some(StrKeyword::with_symbol("output")),
+                collection: StrKeyword::with_value("table".to_owned()),
+                model: Some(StrKeyword::with_value("model".to_owned())),
+                model_fields: None,
+                find: doc! {},
+                projection: Some(doc! { "id" : 1 }),
+            },
+        ];
+
+        for i in 0..2 {
+            assert_eq!(
+                MongoSourceConfig {
+                    mongo: expected[i].to_owned()
+                },
+                serde_yaml_ng::from_str::<MongoSourceConfig>(configs[i]).unwrap()
+            );
         }
     }
 }

@@ -2,6 +2,7 @@ use std::{io::Cursor, sync::Arc};
 
 use async_trait::async_trait;
 use polars::{
+    frame::DataFrame,
     io::SerReader,
     prelude::{IntoLazy, JsonReader, LazyFrame, Schema},
 };
@@ -40,26 +41,64 @@ impl Source for HttpSource {
     fn run(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let client = reqwest::blocking::Client::new();
         let request = client.get(&self.url);
-        let response = request.send()?;
-        let body = response.text()?;
-        if let Some(schema) = &self.schema {
+        let response = request.send();
+        let body = match response {
+            Ok(resp) => match resp.text() {
+                Ok(text) => text,
+                Err(e) => {
+                    log::error!("{}", e);
+                    String::new()
+                }
+            },
+            Err(e) => {
+                log::error!("{}", e);
+                String::new()
+            }
+        };
+        let res = if let Some(schema) = &self.schema {
             let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone());
-            Ok(reader.finish()?.lazy())
+            reader.finish().map_err(|e| e.into())
         } else {
-            Ok(str_json_to_df(&body)?.lazy())
-        }
+            str_json_to_df(&body)
+        };
+        Ok(match res {
+            Ok(d) => d.lazy(),
+            Err(e) => {
+                log::error!("{}. Returning empty frame", e);
+                DataFrame::empty().lazy()
+            }
+        })
     }
     async fn fetch(&self, _ctx: Arc<DefaultPipelineContext>) -> CpResult<LazyFrame> {
         let client = reqwest::Client::new();
         let request = client.get(&self.url);
-        let response = request.send().await?;
-        let body = response.text().await?;
-        if let Some(schema) = &self.schema {
+        let response = request.send();
+        let body = match response.await {
+            Ok(resp) => match resp.text().await {
+                Ok(text) => text,
+                Err(e) => {
+                    log::error!("{}", e);
+                    String::new()
+                }
+            },
+            Err(e) => {
+                log::error!("{}", e);
+                String::new()
+            }
+        };
+        let res = if let Some(schema) = &self.schema {
             let reader = JsonReader::new(Cursor::new(body.trim())).with_schema(schema.clone());
-            Ok(reader.finish()?.lazy())
+            reader.finish().map_err(|e| e.into())
         } else {
-            Ok(str_json_to_df(&body)?.lazy())
-        }
+            str_json_to_df(&body)
+        };
+        Ok(match res {
+            Ok(d) => d.lazy(),
+            Err(e) => {
+                log::error!("{}. Returning empty frame", e);
+                DataFrame::empty().lazy()
+            }
+        })
     }
 }
 

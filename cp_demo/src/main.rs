@@ -8,8 +8,7 @@ use cp_core::{
 const RESTART_INTERVAL_SECS: u64 = 10;
 
 fn exec() -> CpResult<()> {
-    let mut runner = Runner::init(get_args())?;
-    runner.start_log()?;
+    let runner = Runner::init(get_args())?;
     runner.print_env()?;
     runner.run()
 }
@@ -20,8 +19,8 @@ fn main() {
         match std::panic::catch_unwind(|| match exec() {
             Ok(_) => {}
             Err(e) => {
-                log::error!(
-                    "Failed to execute pipeline: {:?}.\nRestarting in {} seconds",
+                std::println!(
+                    "[ERROR] Failed to execute pipeline: {:?}.\nRestarting in {} seconds",
                     e,
                     RESTART_INTERVAL_SECS
                 );

@@ -43,31 +43,31 @@ pub struct RunnerConfig {
 
 pub struct Runner {
     config: RunnerConfig,
-    logger_registry: LoggerRegistry,
     pipeline_context: DefaultPipelineContext,
     pipeline_config: PipelineConfig,
     env_registry: EnvironmentVariableRegistry,
-    cli_args: RunPipelineArgs,
+}
+
+fn start_log(config: &RunnerConfig, console: bool, pipeline_config: &PipelineConfig, logger_registry: &mut LoggerRegistry) -> CpResult<()> {
+    let logger_name = config.logger.as_str();
+    let console_logger_name = if logger_registry.get_logger(logger_name).is_some() {
+        logger_name
+    } else {
+        DEFAULT_CONSOLE_LOGGER_NAME
+    };
+    let pipeline_name = &pipeline_config.label;
+    logger_registry.start_logger(console_logger_name, pipeline_name, console)
 }
 
 impl Runner {
     pub fn init(cli_args: RunPipelineArgs) -> CpResult<Runner> {
         let config_files = read_configs(&cli_args.config, &["yml", "yaml"])?;
         let mut pack = pack_configs_from_files(&config_files).unwrap();
-        let pipeline_registry = PipelineRegistry::from(&mut pack)?;
-        let logger_registry = LoggerRegistry::from(&mut pack)?;
-        let env_registry = EnvironmentVariableRegistry::from_args(&cli_args)?;
-        let model_registry = ModelRegistry::from(&mut pack)?;
-        let transform_registry = TransformRegistry::from(&mut pack)?;
-        let source_registry = SourceRegistry::from(&mut pack)?;
-        let sink_registry = SinkRegistry::from(&mut pack)?;
-        let request_registry = RequestRegistry::from(&mut pack)?;
-        let connection_registry = ConnectionRegistry::from(&mut pack)?;
         let runner_raw = pack
             .get("runner")
             .map(|runners| runners.get(&cli_args.runner))
             .unwrap_or(None);
-        let runner = if let Some(config) = runner_raw {
+        let runner_config = if let Some(config) = runner_raw {
             serde_yaml_ng::from_value::<RunnerConfig>(config.clone())?
         } else {
             return Err(crate::util::error::CpError::ComponentError(
@@ -75,6 +75,25 @@ impl Runner {
                 format!("runner `{}` not found", &cli_args.runner),
             ));
         };
+        let mut logger_registry = LoggerRegistry::from(&mut pack)?;
+        let pipeline_registry = PipelineRegistry::from(&mut pack)?;
+        let pipeline_config = match pipeline_registry.get_pipeline_config(&cli_args.pipeline) {
+            Some(x) => x,
+            None => {
+                return Err(crate::util::error::CpError::ComponentError(
+                    "Input CLI Args",
+                    format!("pipeline `{}` not found", &cli_args.pipeline),
+                ));
+            }
+        };
+        start_log(&runner_config, cli_args.console, &pipeline_config, &mut logger_registry).expect("Could not start log");
+        let env_registry = EnvironmentVariableRegistry::from_args(&cli_args)?;
+        let model_registry = ModelRegistry::from(&mut pack)?;
+        let transform_registry = TransformRegistry::from(&mut pack)?;
+        let source_registry = SourceRegistry::from(&mut pack)?;
+        let sink_registry = SinkRegistry::from(&mut pack)?;
+        let request_registry = RequestRegistry::from(&mut pack)?;
+        let connection_registry = ConnectionRegistry::from(&mut pack)?;
         let results = PipelineResults::new();
         let pipeline_context = DefaultPipelineContext::from(
             results,
@@ -86,22 +105,11 @@ impl Runner {
             connection_registry,
             cli_args.execute,
         );
-        let pipeline_config = match pipeline_registry.get_pipeline_config(&cli_args.pipeline) {
-            Some(x) => x,
-            None => {
-                return Err(crate::util::error::CpError::ComponentError(
-                    "Input CLI Args",
-                    format!("pipeline `{}` not found", &cli_args.pipeline),
-                ));
-            }
-        };
         Ok(Runner {
-            config: runner,
-            logger_registry,
+            config: runner_config,
             env_registry,
             pipeline_context,
             pipeline_config,
-            cli_args,
         })
     }
     pub fn print_env(&self) -> CpResult<()> {
@@ -110,17 +118,6 @@ impl Runner {
             log::info!("[ENV] {}: {}", key, get_env_var_str(&key)?);
         }
         Ok(())
-    }
-    pub fn start_log(&mut self) -> CpResult<()> {
-        let logger_name = self.config.logger.as_str();
-        let console_logger_name = if self.logger_registry.get_logger(logger_name).is_some() {
-            logger_name
-        } else {
-            DEFAULT_CONSOLE_LOGGER_NAME
-        };
-        let pipeline_name = &self.pipeline_config.label;
-        self.logger_registry
-            .start_logger(console_logger_name, pipeline_name, self.cli_args.console)
     }
     pub fn run(self) -> CpResult<()> {
         let mode = self.config.mode;

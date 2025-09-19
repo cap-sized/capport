@@ -6,7 +6,7 @@ use crate::{
     util::error::{CpError, CpResult},
 };
 
-use super::keyword::{PolarsExprKeyword, StrKeyword};
+use super::{dtype::DType, keyword::{PolarsExprKeyword, StrKeyword}};
 
 pub trait ExprAction {
     fn expr(&self) -> CpResult<polars::prelude::Expr>;
@@ -24,6 +24,12 @@ pub struct ConcatAction {
     pub separator: StrKeyword,
     pub columns: Vec<PolarsExprKeyword>,
     pub ignore_nulls: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct CastAction {
+    pub dtype: DType,
+    pub column: PolarsExprKeyword,
 }
 
 impl ExprAction for ConcatAction {
@@ -104,3 +110,16 @@ impl ExprAction for FormatAction {
         Ok(format_str(self.template.value().unwrap(), args)?)
     }
 }
+
+impl ExprAction for CastAction {
+    fn validate(&self) -> CpResult<()> {
+        if self.column.value().is_none() {
+            return Err(CpError::TaskError(
+                "CastActionConfig.template not materialized",
+                format!("symbol not replaced: {:?}", self.template.symbol()),
+            ));
+        }
+        Ok(())
+    }
+}
+

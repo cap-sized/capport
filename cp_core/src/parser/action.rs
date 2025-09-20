@@ -32,6 +32,12 @@ pub struct CastAction {
     pub column: PolarsExprKeyword,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct IsEqAction {
+    pub left: PolarsExprKeyword,
+    pub right: PolarsExprKeyword,
+}
+
 impl ExprAction for ConcatAction {
     fn validate(&self) -> CpResult<()> {
         if self.separator.value().is_none() {
@@ -115,11 +121,37 @@ impl ExprAction for CastAction {
     fn validate(&self) -> CpResult<()> {
         if self.column.value().is_none() {
             return Err(CpError::TaskError(
-                "CastActionConfig.template not materialized",
-                format!("symbol not replaced: {:?}", self.template.symbol()),
+                "CastActionConfig.column not materialized",
+                format!("symbol not replaced: {:?}", self.column.symbol()),
             ));
         }
         Ok(())
+    }
+    fn expr(&self) -> CpResult<polars::prelude::Expr> {
+        self.validate()?;
+        Ok(self.column.value().unwrap().clone().cast(self.dtype.clone().0))
+    }
+}
+
+impl ExprAction for IsEqAction {
+    fn validate(&self) -> CpResult<()> {
+        if self.left.value().is_none() {
+            return Err(CpError::TaskError(
+                "CastActionConfig.left not materialized",
+                format!("symbol not replaced: {:?}", self.left.symbol()),
+            ));
+        }
+        if self.right.value().is_none() {
+            return Err(CpError::TaskError(
+                "CastActionConfig.right not materialized",
+                format!("symbol not replaced: {:?}", self.right.symbol()),
+            ));
+        }
+        Ok(())
+    }
+    fn expr(&self) -> CpResult<polars::prelude::Expr> {
+        self.validate()?;
+        Ok(self.left.value().unwrap().clone().eq(self.right.value().unwrap().clone()))
     }
 }
 

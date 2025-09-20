@@ -17,7 +17,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{ClickhouseSinkConfig, CsvSinkConfig, JsonSinkConfig, SinkGroupConfig};
+use super::config::{ClickhouseSinkConfig, CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -227,7 +227,8 @@ impl SinkGroupConfig {
                     dyn SinkConfig,
                     CsvSinkConfig,
                     ClickhouseSinkConfig,
-                    JsonSinkConfig
+                    JsonSinkConfig,
+                    ParquetSinkConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(

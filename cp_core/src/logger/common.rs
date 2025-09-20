@@ -1,10 +1,10 @@
 use fern::colors::{Color, ColoredLevelConfig};
 use serde::{Deserialize, Deserializer, de};
 
-use crate::util::{
+use crate::{util::{
     common::{get_fmt_time_str_now, get_full_path, get_utc_time_str_now},
     error::{CpError, CpResult},
-};
+}};
 
 pub const DEFAULT_CONSOLE_LOGGER_NAME: &str = "__stdout__";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;

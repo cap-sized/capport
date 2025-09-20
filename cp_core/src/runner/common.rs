@@ -86,8 +86,8 @@ impl Runner {
                 ));
             }
         };
-        start_log(&runner_config, cli_args.console, &pipeline_config, &mut logger_registry).expect("Could not start log");
         let env_registry = EnvironmentVariableRegistry::from_args(&cli_args)?;
+        start_log(&runner_config, cli_args.console, &pipeline_config, &mut logger_registry).expect("Could not start log");
         let model_registry = ModelRegistry::from(&mut pack)?;
         let transform_registry = TransformRegistry::from(&mut pack)?;
         let source_registry = SourceRegistry::from(&mut pack)?;

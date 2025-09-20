@@ -1,35 +1,20 @@
 use std::{fs::OpenOptions, path::PathBuf, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use polars::{
-    frame::DataFrame,
-    io::SerWriter,
-    prelude::{CsvWriter, Expr, IntoLazy},
-};
+use polars::{frame::DataFrame, prelude::{Expr, IntoLazy, ParquetWriter}};
 
-use crate::{
-    model::common::ModelConfig,
-    model_emplace,
-    parser::{keyword::Keyword, merge_type::MergeTypeEnum},
-    pipeline::context::{DefaultPipelineContext, PipelineContext},
-    util::{
-        common::{get_full_path, get_utc_time_str_now, rng_str},
-        error::{CpError, CpResult},
-    },
-};
+use crate::{model::common::ModelConfig, model_emplace, parser::{keyword::Keyword, merge_type::MergeTypeEnum}, pipeline::context::{DefaultPipelineContext, PipelineContext}, util::{common::{get_full_path, get_utc_time_str_now, rng_str}, error::{CpError, CpResult}}};
 
-use super::{
-    common::{Sink, SinkConfig},
-    config::CsvSinkConfig,
-};
+use super::{common::{Sink, SinkConfig}, config::ParquetSinkConfig};
 
-pub struct CsvSink {
+
+pub struct ParquetSink {
     merge_type: MergeTypeEnum,
     filepath: PathBuf,
     schema: Option<Vec<Expr>>,
 }
 
-impl CsvSink {
+impl ParquetSink {
     pub fn new(filepath: &str, merge_type: Option<MergeTypeEnum>) -> Self {
         Self {
             filepath: std::path::PathBuf::from_str(filepath).expect("bad filepath"),
@@ -45,9 +30,9 @@ impl CsvSink {
 }
 
 #[async_trait]
-impl Sink for CsvSink {
+impl Sink for ParquetSink {
     fn connection_type(&self) -> &str {
-        "csv"
+        "pq"
     }
 
     async fn fetch(&self, dataframe: DataFrame, ctx: Arc<DefaultPipelineContext>) -> CpResult<()> {
@@ -65,13 +50,13 @@ impl Sink for CsvSink {
             MergeTypeEnum::MakeNext => {
                 let mut fp = self.filepath.clone();
                 fp.set_file_name(format!(
-                    "{}_{}.csv",
+                    "{}_{}.pq",
                     fp.file_stem().expect("filename").to_str().unwrap_or("_"),
                     get_utc_time_str_now()
                 ));
                 if std::fs::exists(&fp)? {
                     fp.set_file_name(format!(
-                        "{}_{}.csv",
+                        "{}_{}.fp",
                         fp.file_stem().expect("filename").to_str().unwrap_or("_"),
                         rng_str(6)
                     ));
@@ -85,7 +70,7 @@ impl Sink for CsvSink {
             dataframe
         };
         if ctx.is_executing_sink() {
-            let mut writer = CsvWriter::new(filepath);
+            let writer = ParquetWriter::new(filepath);
             writer.finish(&mut df_to_write)?;
         } else {
             log::info!(
@@ -98,34 +83,34 @@ impl Sink for CsvSink {
     }
 }
 
-impl SinkConfig for CsvSinkConfig {
+impl SinkConfig for ParquetSinkConfig {
     fn emplace(&mut self, ctx: &DefaultPipelineContext, context: &serde_yaml_ng::Mapping) -> CpResult<()> {
-        self.csv.filepath.insert_value_from_context(context)?;
-        model_emplace!(self.csv, ctx, context);
+        self.pq.filepath.insert_value_from_context(context)?;
+        model_emplace!(self.pq, ctx, context);
         Ok(())
     }
 
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
-        match self.csv.filepath.value() {
+        match self.pq.filepath.value() {
             Some(_) => {}
             None => errors.push(CpError::SymbolMissingValueError(
                 "filepath",
-                self.csv.filepath.symbol().unwrap_or("?").to_owned(),
+                self.pq.filepath.symbol().unwrap_or("?").to_owned(),
             )),
         }
         errors
     }
 
     fn transform(&self) -> Box<dyn Sink> {
-        let fp = match get_full_path(self.csv.filepath.value().expect("filepath"), false) {
+        let fp = match get_full_path(self.pq.filepath.value().expect("filepath"), false) {
             Ok(x) => x,
-            Err(e) => panic!("bad filepath `{:?}`: {}", self.csv.filepath.value(), e),
+            Err(e) => panic!("bad filepath `{:?}`: {}", self.pq.filepath.value(), e),
         };
-        if self.csv.merge_type == MergeTypeEnum::Insert {
-            log::warn!("INSERT merge_type can be costly for csv: {:?}", &fp);
+        if self.pq.merge_type == MergeTypeEnum::Insert {
+            log::warn!("INSERT merge_type can be costly for pq: {:?}", &fp);
         }
-        let schema = self.csv.model_fields.as_ref().map(|x| {
+        let schema = self.pq.model_fields.as_ref().map(|x| {
             ModelConfig {
                 label: "".to_string(),
                 fields: x.clone(),
@@ -133,9 +118,9 @@ impl SinkConfig for CsvSinkConfig {
             .columns()
             .expect("failed to build schema")
         });
-        Box::new(CsvSink {
+        Box::new(ParquetSink {
             filepath: fp,
-            merge_type: self.csv.merge_type,
+            merge_type: self.pq.merge_type,
             schema,
         })
     }
@@ -149,7 +134,7 @@ mod tests {
         df,
         frame::DataFrame,
         io::SerReader,
-        prelude::{CsvReader, DataType, IntoLazy, col},
+        prelude::{ParquetReader, DataType, IntoLazy, col},
     };
 
     use crate::{
@@ -164,12 +149,12 @@ mod tests {
         pipeline::context::DefaultPipelineContext,
         task::sink::{
             common::{Sink, SinkConfig},
-            config::{CsvSinkConfig, LocalFileSinkConfig},
+            config::{ParquetSinkConfig, LocalFileSinkConfig},
         },
         util::{common::rng_str, test::assert_frame_equal, tmp::TempFile},
     };
 
-    use super::CsvSink;
+    use super::ParquetSink;
 
     fn example() -> DataFrame {
         df!(
@@ -188,29 +173,29 @@ mod tests {
     }
 
     #[test]
-    fn valid_csv_sink() {
+    fn valid_pq_sink() {
         let expected = example();
         let tmp = TempFile::default();
-        let csv_sink = CsvSink::new(&tmp.filepath, None);
+        let pq_sink = ParquetSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
-        let _ = csv_sink.run(expected.clone(), ctx);
+        let _ = pq_sink.run(expected.clone(), ctx);
         let buffer = tmp.get().unwrap();
-        let reader = CsvReader::new(buffer);
+        let reader = ParquetReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
-        assert_eq!(csv_sink.connection_type(), "csv");
+        assert_eq!(pq_sink.connection_type(), "pq");
     }
 
     #[test]
-    fn valid_csv_sink_async() {
+    fn valid_pq_sink_async() {
         let expected = example();
         let tmp = TempFile::default();
-        let csv_sink = CsvSink::new(&tmp.filepath, None);
+        let pq_sink = ParquetSink::new(&tmp.filepath, None);
         let ctx = Arc::new(DefaultPipelineContext::new().with_executing_sink(true));
         async_st!(async || {
-            let _ = csv_sink.fetch(expected.clone(), ctx).await;
+            let _ = pq_sink.fetch(expected.clone(), ctx).await;
             let buffer = tmp.get().unwrap();
-            let reader = CsvReader::new(buffer);
+            let reader = ParquetReader::new(buffer);
             let actual = reader.finish().unwrap();
             assert_frame_equal(actual, expected);
         });
@@ -225,8 +210,8 @@ mod tests {
         Box<dyn Sink>,
         TempFile,
     ) {
-        let mut source_config = CsvSinkConfig {
-            csv: LocalFileSinkConfig {
+        let mut source_config = ParquetSinkConfig {
+            pq: LocalFileSinkConfig {
                 filepath: StrKeyword::with_symbol("sample"),
                 merge_type,
                 model: None,
@@ -243,10 +228,10 @@ mod tests {
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_model_fields() {
+    fn valid_pq_sink_config_to_pq_sink_model_fields() {
         let tmp = TempFile::default();
-        let mut source_config = CsvSinkConfig {
-            csv: LocalFileSinkConfig {
+        let mut source_config = ParquetSinkConfig {
+            pq: LocalFileSinkConfig {
                 filepath: StrKeyword::with_value(tmp.filepath.clone()),
                 merge_type: MergeTypeEnum::Replace,
                 model: Some(StrKeyword::with_value("test".to_owned())),
@@ -273,16 +258,16 @@ mod tests {
         let actual_node = source_config.transform();
         actual_node.run(example(), ctx.clone()).unwrap();
         let buffer = tmp.get().unwrap();
-        let reader = CsvReader::new(buffer);
+        let reader = ParquetReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, example().lazy().select(&[col("a")]).collect().unwrap());
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_exec_mode_off() {
+    fn valid_pq_sink_config_to_pq_sink_exec_mode_off() {
         let tmp = TempFile::default();
-        let mut source_config = CsvSinkConfig {
-            csv: LocalFileSinkConfig {
+        let mut source_config = ParquetSinkConfig {
+            pq: LocalFileSinkConfig {
                 filepath: StrKeyword::with_value(tmp.filepath.clone()),
                 merge_type: MergeTypeEnum::Replace,
                 model: None,
@@ -302,36 +287,36 @@ mod tests {
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_replace() {
+    fn valid_pq_sink_config_to_pq_sink_replace() {
         let expected = example();
         let tmp = TempFile::default();
         let (ctx, _, actual_node, tmp) = get_node(MergeTypeEnum::Replace, tmp);
         actual_node.run(expected.clone(), ctx.clone()).unwrap();
         let buffer = tmp.get().unwrap();
-        let reader = CsvReader::new(buffer);
+        let reader = ParquetReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_insert() {
+    fn valid_pq_sink_config_to_pq_sink_insert() {
         let expected = example2();
         let tmp = TempFile::default();
         let (ctx, _, actual_node, tmp) = get_node(MergeTypeEnum::Insert, tmp);
         actual_node.run(expected.clone(), ctx.clone()).unwrap();
         let buffer = tmp.get().unwrap();
-        let reader = CsvReader::new(buffer);
+        let reader = ParquetReader::new(buffer);
         let actual = reader.finish().unwrap();
         assert_frame_equal(actual, expected);
     }
 
     #[test]
-    fn valid_csv_sink_config_to_csv_sink_make_next() {
+    fn valid_pq_sink_config_to_pq_sink_make_next() {
         let expected = example();
         let dir = format!("/tmp/capport_testing/{}", rng_str(5));
         {
             std::fs::create_dir(&dir).unwrap();
-            let tmp = TempFile::default_in_dir(&dir, "csv").unwrap();
+            let tmp = TempFile::default_in_dir(&dir, "pq").unwrap();
             let (ctx, _, actual_node, _) = get_node(MergeTypeEnum::MakeNext, tmp);
             let files_created = 3i32;
             for _ in 0..files_created {
@@ -339,7 +324,7 @@ mod tests {
             }
             let count = std::fs::read_dir(&dir).unwrap().fold(0i32, |idx, file| {
                 let buffer = file.unwrap().path();
-                let reader = CsvReader::new(std::fs::File::open(buffer).unwrap());
+                let reader = ParquetReader::new(std::fs::File::open(buffer).unwrap());
                 let actual = reader.finish().unwrap();
                 assert_frame_equal(actual, expected.clone());
                 idx + 1

@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use polars::prelude::{Expr, lit};
 use serde::{Deserialize, Deserializer, Serialize, de, ser};
 
+use crate::parser::action::{CastAction, IsEqAction};
 use crate::parser::dtype::DType;
 use crate::util::error::{CpError, CpResult};
 use crate::{model::common::ModelFieldInfo, parser::expr::parse_str_to_col_expr};
@@ -129,6 +130,8 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                 let action: Result<CpResult<Expr>, serde_yaml_ng::Error> = match action_name.as_str() {
                     "format" => serde_yaml_ng::from_value::<FormatAction>(action_args).map(|x| x.expr()),
                     "concat" => serde_yaml_ng::from_value::<ConcatAction>(action_args).map(|x| x.expr()),
+                    "cast" => serde_yaml_ng::from_value::<CastAction>(action_args).map(|x| x.expr()),
+                    "eq" => serde_yaml_ng::from_value::<IsEqAction>(action_args).map(|x| x.expr()),
                     "int8" => serde_yaml_ng::from_value::<i8>(action_args).map(|x| Ok(lit(x))),
                     "int16" => serde_yaml_ng::from_value::<i16>(action_args).map(|x| Ok(lit(x))),
                     "int32" => serde_yaml_ng::from_value::<i32>(action_args).map(|x| Ok(lit(x))),
@@ -138,6 +141,8 @@ impl<'de> Deserialize<'de> for PolarsExprKeyword {
                     "uint32" => serde_yaml_ng::from_value::<u32>(action_args).map(|x| Ok(lit(x))),
                     "uint64" => serde_yaml_ng::from_value::<u64>(action_args).map(|x| Ok(lit(x))),
                     "bool" => serde_yaml_ng::from_value::<bool>(action_args).map(|x| Ok(lit(x))),
+                    "float" => serde_yaml_ng::from_value::<f32>(action_args).map(|x| Ok(lit(x))),
+                    "double" => serde_yaml_ng::from_value::<f64>(action_args).map(|x| Ok(lit(x))),
                     "str" => serde_yaml_ng::from_value::<String>(action_args).map(|x| Ok(lit(x))),
                     x => {
                         return Err(de::Error::custom(format!("Unrecognized action: {}", x)));
@@ -453,6 +458,31 @@ mod tests {
         let myconfig = "{symbol: $mysymb, simple: test, complex: test.another}";
         let actual: PolarsExprKeywordExample = serde_yaml_ng::from_str(myconfig).unwrap();
         assert_eq!(actual, default_polars_expr_keyword());
+    }
+
+    #[test]
+    fn pl_expr_keyword_cast_action_de() {
+        let action_config = "
+cast:
+    column: test
+    dtype: uint8
+";
+        let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
+        let expected_expr = col("test").cast(DataType::UInt8);
+        assert_eq!(action.value().unwrap(), &expected_expr);
+    }
+
+    #[test]
+    fn pl_expr_keyword_iseq_action_de() {
+        let action_config = "
+eq:
+    left: test
+    right:
+        str: comp
+";
+        let action: PolarsExprKeyword = serde_yaml_ng::from_str(action_config).unwrap();
+        let expected_expr = col("test").eq(lit("comp"));
+        assert_eq!(action.value().unwrap(), &expected_expr);
     }
 
     #[test]

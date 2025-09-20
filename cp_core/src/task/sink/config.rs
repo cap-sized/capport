@@ -46,6 +46,11 @@ pub struct CsvSinkConfig {
     pub csv: LocalFileSinkConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ParquetSinkConfig {
+    pub pq: LocalFileSinkConfig,
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -59,7 +64,7 @@ mod tests {
             merge_type::MergeTypeEnum,
             sql_connection::SqlConnection,
         },
-        task::sink::config::{CsvSinkConfig, JsonSinkConfig},
+        task::sink::config::{CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig},
     };
 
     use super::{ClickhouseSinkConfig, ClickhouseTableOptions, LocalFileSinkConfig};
@@ -180,6 +185,21 @@ options:
             assert_eq!(
                 CsvSinkConfig { csv: locals[i].clone() },
                 serde_yaml_ng::from_str::<CsvSinkConfig>(&configs[i]).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn valid_sink_config_pq() {
+        let configs = get_configs()
+            .iter()
+            .map(|c| c.replace("{}", "pq"))
+            .collect::<Vec<String>>();
+        let locals = get_locals();
+        for i in 0..2 {
+            assert_eq!(
+                ParquetSinkConfig { pq: locals[i].clone() },
+                serde_yaml_ng::from_str::<ParquetSinkConfig>(&configs[i]).unwrap()
             );
         }
     }

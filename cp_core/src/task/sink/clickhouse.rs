@@ -76,7 +76,9 @@ macro_rules! parse_clickhouse_async {
                 let ss = err.text().await?;
                 return Err(CpError::ConnectionError(ss));
             }
-            Err(_) => {}
+            Err(err) => {
+                log::debug!("Bad response: {:?}", err.to_string());
+            }
         }
     };
 }
@@ -94,7 +96,10 @@ macro_rules! parse_clickhouse_sync {
                     err.read_to_string(&mut buf).unwrap();
                     return Err(CpError::ConnectionError(buf));
                 }
-                Err(_) => {}
+                Err(err) => {
+                    log::error!("Bad response: {:?}", err);
+                    return Err(CpError::ConnectionError(std::format!("{:?}", err.to_string())));
+                }
             }
         }
     };
@@ -126,11 +131,10 @@ impl Sink for ClickhouseSink {
                 .query(&[("query", create)])
                 .headers(self.headers.clone())
                 .header("Content-Length", 0);
-            log::debug!("Table update: {}", create);
+            log::debug!("Table update: {:?}", request);
             parse_clickhouse_sync!(request);
         }
         let insert = self.inserter.get_insert_query()?;
-        log::debug!("Inserting: {}", insert);
         let body = self.inserter.get_arrow_body(&final_frame)?;
         let request = client
             .post(&self.uri)
@@ -138,6 +142,7 @@ impl Sink for ClickhouseSink {
             .headers(self.headers.clone())
             .header("Content-Length", body.len())
             .body(body);
+        log::debug!("Inserting: {:?}", &request);
         parse_clickhouse_sync!(request);
         Ok(())
     }

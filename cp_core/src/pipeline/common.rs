@@ -383,7 +383,7 @@ stages:
         price: f64,
     }
 
-    fn mock_server(server: &MockServer) -> Vec<Mock> {
+    fn mock_server(server: &MockServer) -> Vec<Mock<'_>> {
         DummyData::json_instrument_prices()
             .iter()
             .map(|j| {

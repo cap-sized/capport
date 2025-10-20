@@ -351,7 +351,7 @@ mod tests {
         label: Option<String>,
     }
 
-    fn mock_server(server: &MockServer) -> Vec<Mock> {
+    fn mock_server(server: &MockServer) -> Vec<Mock<'_>> {
         DummyData::json_actions()
             .iter()
             .map(|j| {

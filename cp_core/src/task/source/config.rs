@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::{
     model::common::ModelFields,
-    parser::{http::HttpOptionsConfig, keyword::StrKeyword, sql_connection::SqlConnection},
+    parser::{http::HttpOptionsConfig, keyword::StrKeyword},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -16,7 +16,6 @@ pub struct SourceGroupConfig {
 pub struct LocalFileSourceConfig {
     pub filepath: StrKeyword,
     pub output: StrKeyword,
-    // model name, takes precedence over model_fields
     pub model: Option<StrKeyword>,
     // holds a fully substituted ModelConfig
     pub model_fields: Option<ModelFields>,
@@ -26,7 +25,6 @@ pub struct LocalFileSourceConfig {
 pub struct _CsvSourceConfig {
     pub filepath: StrKeyword,
     pub output: StrKeyword,
-    // model name, takes precedence over model_fields
     pub model: Option<StrKeyword>,
     // holds a fully substituted ModelConfig
     pub model_fields: Option<ModelFields>,
@@ -61,7 +59,6 @@ pub struct HttpSourceConfig {
 #[cfg(test)]
 mod tests {
 
-    use bson::doc;
     use polars::prelude::DataType;
 
     use crate::{

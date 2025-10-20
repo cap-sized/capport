@@ -96,6 +96,41 @@ mod tests {
     use super::PipelineRegistry;
 
     #[test]
+    fn add_to_pipeline_registry() {
+        let mut reg = PipelineRegistry::default();
+        reg.insert(PipelineConfig { label: "test".to_owned(), stages: vec![] });
+        let pipeline = reg.get_pipeline_config("test").unwrap();
+        assert_eq!(pipeline.label, "test");
+        assert_eq!(pipeline.stages.len(), 0);
+    }
+
+    #[test]
+    fn invalid_unpack_pipeline_registry() {
+        let configs = ["
+pipeline:
+  players:
+    - task_type: source # missing label!
+      task_name: load_sources
+      emplace: 
+        fp_player_ids: nhl_player_ids.csv
+        fp_state_province: state_province.csv
+        df_state_province: STATE_PROVINCE
+    - label: nhl_urls
+      task_type: transform
+      task_name: player_ids_to_urls # user defined
+      emplace:
+        input: PLAYER_IDS
+        output: NHL_URLS
+        url_column: nhl_url
+irrelevant_node:
+    for_testing:
+        a: b
+        "];
+        let mut config_pack = create_config_pack(configs);
+        PipelineRegistry::from(&mut config_pack).unwrap_err();
+    }
+
+    #[test]
     fn valid_unpack_pipeline_registry() {
         let configs = [
             "

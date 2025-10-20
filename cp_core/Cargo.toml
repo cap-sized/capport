@@ -15,7 +15,6 @@ crossbeam = "0.8.4"
 fern = { version = "0.7.1", features = ["date-based", "colored"] }
 futures = "0.3.31"
 log = "0.4.27"
-mongodb = { version = "3.2.3", features = ["sync"] }
 multiqueue = "0.3.2"
 polars = { version = "0.45.1", features = [ "lazy", "concat_str", "strings", "sql", "json", "csv", "dtype-full", "polars-io" ] }
 polars-io = { version = "0.45.1", features = ["parquet"] }
@@ -27,7 +26,6 @@ thiserror = "2.0.12"
 tokio = { version = "1.45.0", features = ["rt", "net", "rt-multi-thread", "signal", "macros"] }
 tokio-cron-scheduler = "0.14.0"
 reqwest = { version = "0.12.19", features = ["blocking"] }
-inserter-x = "0.1.2"
 
 [dev-dependencies]
 httpmock = "0.7.0-rc.1"

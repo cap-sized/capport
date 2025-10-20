@@ -22,18 +22,17 @@ pub struct LocalFileSinkConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct ClickhouseTableOptions {
+pub struct TableOptions {
     pub order_by: Vec<StrKeyword>,
     pub primary_key: Vec<StrKeyword>,
     pub not_null: Option<Vec<StrKeyword>>,
     pub db_name: Option<StrKeyword>,
-    pub create_table_if_not_exists: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ClickhouseSinkConfig {
     pub clickhouse: SqlConnection,
-    pub options: Option<ClickhouseTableOptions>,
+    pub options: Option<TableOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -67,39 +66,21 @@ mod tests {
         task::sink::config::{CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig},
     };
 
-    use super::{ClickhouseSinkConfig, ClickhouseTableOptions, LocalFileSinkConfig};
+    use super::{ClickhouseSinkConfig, TableOptions, LocalFileSinkConfig};
 
     #[test]
     fn valid_clickhouse_sink_config() {
         let config = "
 clickhouse:
-    sql: $test
-    table: table
-    url: $first_priority
-    env_connection: fallback
-    model: mymod
-    model_fields: 
-        $test: int8
-    merge_type: insert
+    merge_type: Insert
 options:
     order_by: [first]
     primary_key: [second, $key]
             ";
         let clickhouse = SqlConnection {
-            table: StrKeyword::with_value("table".to_string()),
-            sql: Some(StrKeyword::with_symbol("test")),
-            env_connection: Some(StrKeyword::with_value("fallback".to_owned())),
-            url: Some(StrKeyword::with_symbol("first_priority")),
-            model: Some(StrKeyword::with_value("mymod".to_owned())),
-            output: None,
-            model_fields: Some(ModelFields::from([(
-                StrKeyword::with_symbol("test"),
-                ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::Int8))),
-            )])),
-            strict: None,
             merge_type: Some(MergeTypeEnum::Insert),
         };
-        let options = ClickhouseTableOptions {
+        let options = TableOptions {
             order_by: vec![StrKeyword::with_value("first".to_owned())],
             primary_key: vec![
                 StrKeyword::with_value("second".to_owned()),
@@ -107,7 +88,6 @@ options:
             ],
             not_null: None,
             db_name: None,
-            create_table_if_not_exists: None,
         };
         let expected = ClickhouseSinkConfig {
             clickhouse,

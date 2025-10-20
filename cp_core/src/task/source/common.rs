@@ -16,7 +16,7 @@ use crate::{
 };
 
 use super::config::{
-    CsvSourceConfig, HttpSourceConfig, JsonSourceConfig, MySqlSourceConfig, PostgresSourceConfig, SourceGroupConfig,
+    CsvSourceConfig, HttpSourceConfig, JsonSourceConfig, SourceGroupConfig,
 };
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
@@ -215,9 +215,7 @@ impl SourceGroupConfig {
                     dyn SourceConfig,
                     JsonSourceConfig,
                     CsvSourceConfig,
-                    HttpSourceConfig,
-                    MySqlSourceConfig,
-                    PostgresSourceConfig
+                    HttpSourceConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(

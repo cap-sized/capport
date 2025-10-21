@@ -353,6 +353,7 @@ mod tests {
 
     #[test]
     fn success_mock_sink_linear_exec() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next1", "next2"], 1));
         let mut df_handle = ctx.get_broadcast("df", "orig").unwrap();
         df_handle.broadcast(default_df().lazy()).unwrap();

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Duration};
 
 use async_trait::async_trait;
 use polars::{
@@ -155,7 +155,7 @@ async fn async_urls(urls: Vec<String>, max_retry: u8, retry_interval: u64, conte
         urls.len(),
         urls.as_slice(),
         async move |url: &String, resps: Arc<Mutex<Vec<String>>>, errs: Arc<Mutex<Vec<CpError>>>| {
-            let client = reqwest::Client::new();
+            let client = reqwest::ClientBuilder::new().read_timeout(Duration::from_millis(retry_interval)).build().unwrap();
             match async_url(&client, url, max_retry, retry_interval, content_type).await {
                 Ok(result) => resps.lock()?.push(result),
                 Err(e) => errs.lock()?.push(e),
@@ -373,9 +373,61 @@ mod tests {
             .collect::<Vec<String>>();
         df!( "url" => urls ).unwrap()
     }
+
     fn get_expected() -> DataFrame {
         vec_str_json_to_df(&DummyData::json_actions()).unwrap()
     }
+
+    /*
+    fn get_wrong_url_df() -> DataFrame {
+        let urls = DummyData::json_actions()
+            .iter()
+            .map(|j| {
+                let act: SampleAct = serde_yaml_ng::from_str(j).unwrap();
+                format!("localhost:56291/battalion?id={}", act.id)
+            })
+            .collect::<Vec<String>>();
+        df!( "url" => urls ).unwrap()
+    }
+
+    #[test]
+    fn invalid_http_batch_config_to_http_batch_request_sync_bad_connection() {
+        let source_configs = vec![HttpBatchConfig {
+            http_batch: HttpReqConfig {
+                content_type: "application/json".to_owned(),
+                model: None,
+                method: HttpMethod::Get,
+                output: StrKeyword::with_symbol("output"),
+                options: Some(HttpOptionsConfig {
+                    max_retry: None,
+                    init_retry_interval_ms: serde_yaml_ng::from_str("1").unwrap()
+                }),
+                url_column: serde_yaml_ng::from_str("url").unwrap(),
+                url_params: None,
+                model_fields: Some(serde_yaml_ng::from_str("{id: str, label: str}").unwrap()),
+            },
+        }];
+        let context = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("output: OUT").unwrap();
+        let ctx = Arc::new(DefaultPipelineContext::with_results(&["OUT"], 2));
+        for mut source_config in source_configs {
+            let _ = source_config.emplace(&ctx, &context);
+            let errors = source_config.validate();
+            assert!(errors.is_empty());
+            // with connection sync
+            {
+                let actual_node = source_config.transform();
+                let server = MockServer::start();
+                let mocks = mock_server(&server);
+                let url_df = get_wrong_url_df();
+                assert!(actual_node.run(url_df.lazy(), ctx.clone()).is_ok());
+                mocks.iter().for_each(|m| {
+                    m.assert();
+                });
+                assert!(ctx.extract_clone_result("OUT").unwrap().is_err());
+            }
+        }
+    }
+    */
 
     #[test]
     fn valid_http_batch_config_to_http_batch_request_sync() {

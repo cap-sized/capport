@@ -516,7 +516,7 @@ stages:
             };
             let terminator = async move || {
                 iictx.signal_replace().unwrap();
-                iictx.signal_terminate().await.unwrap();
+                iictx.signal_terminate().unwrap();
             };
             tokio::join!(action_path(), terminator());
         });

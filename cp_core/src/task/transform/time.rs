@@ -114,6 +114,33 @@ mod tests {
     }
 
     #[test]
+    fn valid_time_emplace() {
+        let main = df!(
+            "time" => ["10:09", "08:20", "19:33"],
+        )
+        .unwrap()
+        .lazy();
+        let mut config: TimeConvertConfig = serde_yaml_ng::from_str(r#"time: {include: [$blank], into: "%M:%S"}"#).unwrap();
+        let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("blank: time").unwrap();
+        config.emplace(&mapping).unwrap();
+        let errors = config.validate();
+        assert!(errors.is_empty());
+        let node = config.transform();
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let result = node.run(main, ctx);
+        let actual = result.unwrap().collect().unwrap();
+        let expected = df!(
+            "time" => ["00:10:09", "00:08:20", "00:19:33"],
+        )
+        .unwrap()
+        .lazy()
+        .with_columns([col("time").str().to_time(StrptimeOptions::default())])
+        .collect()
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn valid_date_convert() {
         let main = df!(
             "datetime" => ["2025-04-06T10:20:40Z"],

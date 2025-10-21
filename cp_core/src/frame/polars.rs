@@ -17,7 +17,9 @@ pub struct PolarsPipelineFrame {
     df: Arc<RwLock<DataFrame>>,
     df_dirty: Arc<AtomicBool>,
     ssender: tokio::sync::broadcast::Sender<FrameUpdateInfo>,
+    _sreceiver: tokio::sync::broadcast::Receiver<FrameUpdateInfo>,
     asender: async_broadcast::Sender<FrameUpdateInfo>,
+    _areceiver: async_broadcast::InactiveReceiver<FrameUpdateInfo>,
 }
 
 pub struct PolarsBroadcastHandle<'a> {
@@ -177,8 +179,8 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
 
 impl PolarsPipelineFrame {
     pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
-        let (ssender, _) = tokio::sync::broadcast::channel(bufsize);
-        let (mut asender, _) = async_broadcast::broadcast(bufsize);
+        let (ssender, _sreceiver) = tokio::sync::broadcast::channel(bufsize);
+        let (mut asender, _areceiver) = async_broadcast::broadcast(bufsize);
         asender.set_overflow(true);
         Self {
             label: label.to_owned(),
@@ -186,7 +188,9 @@ impl PolarsPipelineFrame {
             df: Arc::new(RwLock::new(lf.collect().unwrap())),
             df_dirty: Arc::new(AtomicBool::new(false)),
             ssender,
+            _sreceiver,
             asender,
+            _areceiver: _areceiver.deactivate(),
         }
     }
 
@@ -284,7 +288,7 @@ mod tests {
 
     use crate::{
         async_st,
-        frame::common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame},
+        frame::{common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame}, polars::PolarsAsyncListenHandle},
     };
 
     use super::PolarsPipelineFrame;
@@ -316,19 +320,19 @@ mod tests {
         const RECEIVER: &str = "B";
         async_st!(async || {
             let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 1);
-            let mut listener = result.get_async_listen_handle(RECEIVER);
+            let listener = result.get_async_listen_handle(RECEIVER);
             let mut broadcast = result.get_async_broadcast_handle(SENDER);
             let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
             let mut bhandle = async move || {
                 broadcast.broadcast(expected().lazy()).unwrap();
             };
-            let lhandle = async move || {
-                let update = listener.listen().await.unwrap();
+            let lhandle = async move |mut l: PolarsAsyncListenHandle<'_>| {
+                let update = l.listen().await.unwrap();
                 let lf = update.frame.read().unwrap().clone();
                 let actual = lf.collect().unwrap();
                 assert_eq!(actual, expected().clone());
             };
-            tokio::join!(bhandle(), lhandle());
+            tokio::join!(bhandle(), lhandle(listener));
         });
     }
 

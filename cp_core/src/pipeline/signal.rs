@@ -41,24 +41,36 @@ impl SignalState {
         }) {
             Ok(_) => Ok(()),
             Err(e) => Err(CpError::ComponentError(
-                "Signal replace failed",
+                "Failed to send signal",
                 format!("{}\n{:?}", e, self.sig_recver),
             )),
         }
     }
 
-    pub async fn send_terminate_signal(&self) -> CpResult<()> {
+    pub fn send_terminate_signal(&self) -> CpResult<()> {
         match self
             .sig_sender
-            .broadcast(FrameUpdateInfo {
+            .try_broadcast(FrameUpdateInfo {
                 source: "SIGTERM".to_owned(),
                 timestamp: Utc::now(),
                 msg_type: FrameUpdateType::Kill,
             })
-            .await
         {
             Ok(_) => Ok(()),
             Err(e) => Err(CpError::ComponentError("Signal terminating failed", e.to_string())),
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SignalState;
+
+    #[test]
+    fn signal_no_subscribers() {
+        let signal = SignalState::default();
+        assert!(signal.send_replace_signal().is_err());
+        assert!(signal.send_terminate_signal().is_err());
+    }
+}
+

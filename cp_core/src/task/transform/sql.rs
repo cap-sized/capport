@@ -1,7 +1,9 @@
+use crate::parser::keyword::{Keyword};
 use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
 use crate::task::transform::common::{Transform, TransformConfig};
 use crate::task::transform::config::SqlTransformConfig;
 use crate::util::error::{CpError, CpResult};
+use crate::valid_or_insert_error;
 use polars::prelude::LazyFrame;
 use polars::sql::SQLContext;
 use serde_yaml_ng::Mapping;
@@ -31,12 +33,14 @@ impl Transform for SqlTransform {
 }
 
 impl TransformConfig for SqlTransformConfig {
-    fn emplace(&mut self, _context: &Mapping) -> CpResult<()> {
+    fn emplace(&mut self, context: &Mapping) -> CpResult<()> {
+        self.sql.insert_value_from_context(context)?;
         Ok(())
     }
     fn validate(&self) -> Vec<CpError> {
         let mut errors = vec![];
-        if self.sql.is_empty() {
+        valid_or_insert_error!(errors, self.sql, "source[sql].sql");
+        if self.sql.value().is_some() && self.sql.value().unwrap().is_empty() {
             errors.push(CpError::ConfigError(
                 "SqlTransformConfig parsing error",
                 "Empty sql - sql cannot be empty".to_string(),
@@ -47,7 +51,7 @@ impl TransformConfig for SqlTransformConfig {
 
     fn transform(&self) -> Box<dyn Transform> {
         Box::new(SqlTransform {
-            sql: self.sql.clone(),
+            sql: self.sql.value().unwrap().clone(),
             sql_context: self.sql_context.clone(),
         })
     }
@@ -55,6 +59,7 @@ impl TransformConfig for SqlTransformConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::keyword::{Keyword, StrKeyword};
     use crate::pipeline::context::{DefaultPipelineContext, PipelineContext};
     use crate::task::transform::common::TransformConfig;
     use crate::task::transform::config::SqlTransformConfig;
@@ -66,7 +71,7 @@ mod tests {
     #[test]
     fn valid_sql_transform_basic() {
         let config = SqlTransformConfig {
-            sql: "select * from self join BASIC on self.col = BASIC.my_col".to_owned(),
+            sql: StrKeyword::with_value("select * from self join BASIC on self.col = BASIC.my_col".to_owned()),
             sql_context: Some(vec!["BASIC".to_owned()]),
         };
 
@@ -101,11 +106,27 @@ mod tests {
     }
 
     #[test]
-    fn invalid_sql_transform_basic() {
-        let config = SqlTransformConfig {
-            sql: "".to_owned(),
+    fn valid_sql_transform_emplace_basic() {
+        let mut config = SqlTransformConfig {
+            sql: StrKeyword::with_symbol("empty"),
             sql_context: None,
         };
-        assert_eq!(config.validate().len(), 1);
+        let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("empty: select now()").unwrap();
+        config.emplace(&mapping).unwrap();
+        assert_eq!(config.validate().len(), 0);
+    }
+
+    #[test]
+    fn invalid_sql_transform_basic() {
+        let configs = vec![SqlTransformConfig {
+            sql: StrKeyword::with_value("".to_owned()),
+            sql_context: None,
+        }, SqlTransformConfig {
+            sql: StrKeyword::with_symbol("empty"),
+            sql_context: None,
+        }];
+        for config in configs {
+            assert_eq!(config.validate().len(), 1);
+        }
     }
 }

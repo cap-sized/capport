@@ -48,6 +48,8 @@ impl<T> FilterFields<T> {
 
 #[cfg(test)]
 mod tests {
+    use serde_yaml_ng::Mapping;
+
     use crate::parser::{
         dtype::DType,
         keyword::{Keyword, StrKeyword},
@@ -61,16 +63,20 @@ mod tests {
 include: [test, $one, two]
 into: uint64
             ";
+        let mut one = StrKeyword::with_symbol("one");
+        one.insert_value("actual".into());
 
         let expected = FilterFields::<DType> {
             include: vec![
                 StrKeyword::with_value("test".into()),
-                StrKeyword::with_symbol("one"),
+                one,
                 StrKeyword::with_value("two".into()),
             ],
             into: DType(polars::prelude::DataType::UInt64),
         };
-        let actual = serde_yaml_ng::from_str::<FilterFields<DType>>(config).unwrap();
+        let mut actual = serde_yaml_ng::from_str::<FilterFields<DType>>(config).unwrap();
+        let mapping = serde_yaml_ng::from_str::<Mapping>("one: actual").unwrap();
+        actual.emplace(&mapping).unwrap();
         assert_eq!(expected, actual);
     }
     #[test]

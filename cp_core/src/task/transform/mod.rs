@@ -1,3 +1,4 @@
+pub mod cast;
 pub mod common;
 pub mod config;
 pub mod drop;
@@ -5,6 +6,5 @@ pub mod join;
 pub mod select;
 pub mod sql;
 pub mod time;
-pub mod uniform_id;
 pub mod unnest;
 pub mod with;

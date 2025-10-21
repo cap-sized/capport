@@ -56,6 +56,17 @@ pub struct HttpSourceConfig {
     pub http: SingleLinkConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct RawValuesConfig {
+    pub data: serde_yaml_ng::Value,
+    pub output: StrKeyword,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct InlineDataSourceConfig {
+    pub inline: RawValuesConfig,
+}
+
 #[cfg(test)]
 mod tests {
 

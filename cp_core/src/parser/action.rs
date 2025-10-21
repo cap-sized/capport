@@ -155,3 +155,60 @@ impl ExprAction for IsEqAction {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use polars::prelude::col;
+
+    use crate::parser::{action::{CastAction, ConcatAction, FormatAction}, dtype::DType, keyword::{Keyword, PolarsExprKeyword, StrKeyword}};
+
+    use super::{IsEqAction, ExprAction};
+
+    fn value_pl_kw() ->PolarsExprKeyword {
+        PolarsExprKeyword::with_value(col("demo"))
+    }
+
+    fn c(val: &str) ->PolarsExprKeyword {
+        PolarsExprKeyword::with_value(col(val))
+    }
+
+    fn s(val: &str) -> StrKeyword {
+        StrKeyword::with_value(val.to_string())
+    }
+
+    fn empty_pl_kw() -> PolarsExprKeyword{
+        PolarsExprKeyword::with_symbol("nope")
+    }
+
+    fn empty_s_kw() -> StrKeyword{
+        StrKeyword::with_symbol("nope")
+    }
+
+    fn sample_dtype() -> DType { 
+        DType(polars::prelude::DataType::Int8)
+    }
+
+    #[test]
+    fn invalid_action_is_eq() {
+        assert!((IsEqAction { left: value_pl_kw(), right: empty_pl_kw() }).validate().is_err());
+        assert!((IsEqAction { left: empty_pl_kw(), right: value_pl_kw() }).validate().is_err());
+    }
+
+    #[test]
+    fn invalid_action_cast() {
+        assert!((CastAction { column: empty_pl_kw(), dtype: sample_dtype() }).validate().is_err());
+    }
+
+    #[test]
+    fn invalid_action_format() {
+        assert!((FormatAction { template: empty_s_kw(), columns: vec![ c("y"), c("e"), c("e"), c("t")] }).validate().is_err());
+        assert!((FormatAction { template: s("okay"), columns: vec![ c("y"), empty_pl_kw(), c("e"), c("t")] }).validate().is_err());
+        assert!((FormatAction { template: empty_s_kw(), columns: vec![] }).expr().is_err());
+    }
+
+    #[test]
+    fn invalid_action_concat() {
+        assert!((ConcatAction { separator: empty_s_kw(), columns: vec![ c("y"), c("e"), c("e"), c("t")] , ignore_nulls: Option::None}).validate().is_err());
+        assert!((ConcatAction { separator: s(";"), columns: vec![ c("y"), empty_pl_kw(), c("e"), c("t")], ignore_nulls: Option::Some(true)}).validate().is_err());
+        assert!((ConcatAction { separator: empty_s_kw(), columns: vec![] , ignore_nulls: Option::None}).expr().is_err());
+    }
+}

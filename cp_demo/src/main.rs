@@ -17,7 +17,8 @@ fn main() {
     let ok = Arc::new(AtomicBool::new(false));
     while !ok.load(std::sync::atomic::Ordering::Relaxed) {
         match std::panic::catch_unwind(|| match exec() {
-            Ok(_) => {}
+            Ok(_) => {
+            }
             Err(e) => {
                 std::println!(
                     "[ERROR] Failed to execute pipeline: {:?}.\nRestarting in {} seconds",

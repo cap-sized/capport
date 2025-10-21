@@ -81,6 +81,16 @@ mod tests {
     }
 
     #[test]
+    fn valid_drop_transform_emplace_basic() {
+        let mut config = DropTransformConfig {
+            drop: vec![PolarsExprKeyword::with_symbol("price")],
+        };
+        let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("price: \\#REF").unwrap();
+        config.emplace(&mapping).unwrap();
+        assert_eq!(config.validate().len(), 0);
+    }
+
+    #[test]
     fn invalid_drop_transform_basic() {
         let config = DropTransformConfig {
             drop: vec![PolarsExprKeyword::with_symbol("price")],

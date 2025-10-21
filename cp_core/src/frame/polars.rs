@@ -16,26 +16,24 @@ pub struct PolarsPipelineFrame {
     lf: Arc<RwLock<LazyFrame>>,
     df: Arc<RwLock<DataFrame>>,
     df_dirty: Arc<AtomicBool>,
-    sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
-    receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
+    ssender: tokio::sync::broadcast::Sender<FrameUpdateInfo>,
+    _sreceiver: tokio::sync::broadcast::Receiver<FrameUpdateInfo>,
     asender: async_broadcast::Sender<FrameUpdateInfo>,
-    areceiver: async_broadcast::InactiveReceiver<FrameUpdateInfo>,
+    _areceiver: async_broadcast::InactiveReceiver<FrameUpdateInfo>,
 }
 
-#[derive(Clone)]
 pub struct PolarsBroadcastHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    sender: multiqueue::BroadcastSender<FrameUpdateInfo>,
+    sender: tokio::sync::broadcast::Sender<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
     df_dirty: Arc<AtomicBool>,
 }
 
-#[derive(Clone)]
 pub struct PolarsListenHandle<'a> {
     handle_name: String,
     result_label: &'a str,
-    receiver: multiqueue::BroadcastReceiver<FrameUpdateInfo>,
+    receiver: tokio::sync::broadcast::Receiver<FrameUpdateInfo>,
     lf: Arc<RwLock<LazyFrame>>,
 }
 
@@ -66,7 +64,7 @@ impl<'a> FrameBroadcastHandle<'a, LazyFrame> for PolarsBroadcastHandle<'a> {
         // informs all readers
         let update = FrameUpdateInfo::new(self.handle_name.as_str());
         log::debug!("Frame sent from {}: {}", &self.handle_name, &self.result_label);
-        while let Err(e) = self.sender.try_send(update.clone()) {
+        while let Err(e) = self.sender.send(update.clone()) {
             log::warn!("{}: {:?}", self.handle_name, e);
             thread::sleep(std::time::Duration::from_millis(100));
         }
@@ -145,7 +143,7 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
         // listens for first change.
         // NOTE: if the channel size is NOT 1, the change read from the frame now may NOT be
         // the one corresponding to the message received.
-        let info = match self.receiver.recv() {
+        let info = match self.receiver.blocking_recv() {
             Ok(x) => x,
             Err(e) => {
                 return Err(CpError::PipelineError(
@@ -181,18 +179,18 @@ impl<'a> FrameListenHandle<'a, LazyFrame> for PolarsListenHandle<'a> {
 
 impl PolarsPipelineFrame {
     pub fn from(label: &str, bufsize: usize, lf: LazyFrame) -> Self {
-        let (sender, receiver) = multiqueue::broadcast_queue(bufsize as u64);
-        let (mut asender, areceiver) = async_broadcast::broadcast(bufsize);
+        let (ssender, _sreceiver) = tokio::sync::broadcast::channel(bufsize);
+        let (mut asender, _areceiver) = async_broadcast::broadcast(bufsize);
         asender.set_overflow(true);
         Self {
             label: label.to_owned(),
             lf: Arc::new(RwLock::new(lf.clone())),
             df: Arc::new(RwLock::new(lf.collect().unwrap())),
             df_dirty: Arc::new(AtomicBool::new(false)),
-            sender,
-            receiver,
+            ssender,
+            _sreceiver,
             asender,
-            areceiver: areceiver.deactivate(),
+            _areceiver: _areceiver.deactivate(),
         }
     }
 
@@ -225,7 +223,7 @@ impl<'a>
         PolarsListenHandle {
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
-            receiver: self.receiver.clone(),
+            receiver: self.ssender.subscribe(),
             lf: self.lf.clone(),
         }
     }
@@ -233,7 +231,7 @@ impl<'a>
         PolarsBroadcastHandle {
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
-            sender: self.sender.clone(),
+            sender: self.ssender.clone(),
             df_dirty: self.df_dirty.clone(),
             lf: self.lf.clone(),
         }
@@ -242,7 +240,7 @@ impl<'a>
         PolarsAsyncListenHandle {
             handle_name: handle_name.to_owned(),
             result_label: self.label(),
-            receiver: self.areceiver.clone().activate(),
+            receiver: self.asender.new_receiver(),
             lf: self.lf.clone(),
         }
     }
@@ -290,7 +288,7 @@ mod tests {
 
     use crate::{
         async_st,
-        frame::common::{FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame},
+        frame::{common::{FrameAsyncBroadcastHandle, FrameAsyncListenHandle, FrameBroadcastHandle, FrameListenHandle, NamedSizedResult, PipelineFrame}, polars::PolarsAsyncListenHandle},
     };
 
     use super::PolarsPipelineFrame;
@@ -322,19 +320,19 @@ mod tests {
         const RECEIVER: &str = "B";
         async_st!(async || {
             let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 1);
-            let listener = result.get_listen_handle(RECEIVER);
-            let mut broadcast = result.get_broadcast_handle(SENDER);
+            let listener = result.get_async_listen_handle(RECEIVER);
+            let mut broadcast = result.get_async_broadcast_handle(SENDER);
             let expected = || df!( "a" => [1, 2, 3], "b" => [4, 5, 6] ).unwrap();
             let mut bhandle = async move || {
                 broadcast.broadcast(expected().lazy()).unwrap();
             };
-            let lhandle = async move || {
-                let update = listener.clone().listen().unwrap();
+            let lhandle = async move |mut l: PolarsAsyncListenHandle<'_>| {
+                let update = l.listen().await.unwrap();
                 let lf = update.frame.read().unwrap().clone();
                 let actual = lf.collect().unwrap();
                 assert_eq!(actual, expected().clone());
             };
-            tokio::join!(bhandle(), lhandle());
+            tokio::join!(bhandle(), lhandle(listener));
         });
     }
 
@@ -345,7 +343,7 @@ mod tests {
         const RECEIVER: &str = "B";
         // NOTE: e.g. here we have a size two channel.
         let result: PolarsPipelineFrame = PolarsPipelineFrame::new("result", 2);
-        let listener = result.get_listen_handle(RECEIVER);
+        let mut listener = result.get_listen_handle(RECEIVER);
         let mut broadcast1 = result.get_broadcast_handle(SENDER1);
         let mut broadcast2 = result.get_broadcast_handle(SENDER2);
         assert!(!result.is_cache_dirty());
@@ -380,7 +378,7 @@ mod tests {
         {
             // NOTE: here the listener only sees the LAST update, even though it reads the FIRST
             // message.
-            let update = listener.clone().listen().unwrap();
+            let update = listener.listen().unwrap();
             let lf = update.frame.read().unwrap().clone();
             let actual = lf.collect().unwrap();
             assert_eq!(actual, DataFrame::empty());

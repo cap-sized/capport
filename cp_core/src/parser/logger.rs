@@ -25,3 +25,23 @@ pub fn parse_logger(name: &str, mut node: serde_yaml_ng::Value) -> CpResult<Logg
     }
     Ok(logger)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::logger::parse_logger;
+
+
+    #[test]
+    fn invalid_logger() {
+        let config = "
+label: test
+level: debug
+output_path_prefix: debug
+_final_output_path: invasion
+            ";
+        assert!(parse_logger("test", serde_yaml_ng::from_str::<serde_yaml_ng::Value>(config).unwrap()).is_err());
+
+    }
+
+}
+

@@ -64,7 +64,7 @@ pub trait PipelineContext<
     /// The signalling channels are unusable without calling `with_signal()` previously.
     fn signal_propagator(&self) -> async_broadcast::Receiver<FrameUpdateInfo>;
     fn signal_replace(&self) -> CpResult<()>;
-    async fn signal_terminate(&self) -> CpResult<()>;
+    fn signal_terminate(&self) -> CpResult<()>;
 }
 
 /// The pipeline context contains the universe of results.
@@ -269,8 +269,8 @@ impl<'a>
     fn signal_replace(&self) -> CpResult<()> {
         self.signal().send_replace_signal()
     }
-    async fn signal_terminate(&self) -> CpResult<()> {
-        self.signal().send_terminate_signal().await
+    fn signal_terminate(&self) -> CpResult<()> {
+        self.signal().send_terminate_signal()
     }
     fn get_model(&self, model_name: &str) -> CpResult<ModelConfig> {
         match self.model_registry.get_model(model_name) {
@@ -361,5 +361,81 @@ impl<'a>
     }
     fn is_executing_sink(&self) -> bool {
         self.execute_sink
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use polars::{frame::DataFrame, prelude::IntoLazy};
+
+    use super::{DefaultPipelineContext, PipelineContext};
+
+
+    fn context() -> DefaultPipelineContext {
+        DefaultPipelineContext::new()
+    }
+
+    #[test]
+    fn invalid_context_listener() {
+        assert!(context().get_listener("result_not_found", "ignored").is_err());
+    }
+
+    #[test]
+    fn invalid_context_broadcast() {
+        assert!(context().get_broadcast("result_not_found", "ignored").is_err());
+    }
+
+    #[test]
+    fn invalid_context_async_listener() {
+        assert!(context().get_async_listener("result_not_found", "ignored").is_err());
+    }
+
+    #[test]
+    fn invalid_context_async_broadcast() {
+        assert!(context().get_async_broadcast("result_not_found", "ignored").is_err());
+    }
+
+    #[test]
+    fn invalid_context_extract_result() {
+        assert!(context().extract_result("result_not_found").is_err());
+    }
+
+    #[test]
+    fn invalid_context_extract_clone_result() {
+        assert!(context().extract_clone_result("result_not_found").is_err());
+    }
+
+    #[test]
+    fn invalid_context_insert_result() {
+        assert!(context().insert_result("result_not_found", DataFrame::empty().lazy()).is_err());
+    }
+
+    #[test]
+    fn invalid_context_get_connection() {
+        assert!(context().get_connection("result_not_found").is_err());
+    }
+
+    #[test]
+    fn invalid_context_get_sink() {
+        let mmp = serde_yaml_ng::Mapping::new();
+        assert!(context().get_sink("result_not_found", &mmp).is_err());
+    }
+ 
+    #[test]
+    fn invalid_context_get_request() {
+        let mmp = serde_yaml_ng::Mapping::new();
+        assert!(context().get_request("result_not_found", &mmp).is_err());
+    }
+ 
+    #[test]
+    fn invalid_context_get_source() {
+        let mmp = serde_yaml_ng::Mapping::new();
+        assert!(context().get_source("result_not_found", &mmp).is_err());
+    }
+  
+    #[test]
+    fn invalid_context_get_transform() {
+        let mmp = serde_yaml_ng::Mapping::new();
+        assert!(context().get_transform("result_not_found", &mmp).is_err());
     }
 }

@@ -62,10 +62,11 @@ mod tests {
                 }
             }
         }
-        let mut res = PipelineResults::<Noop>::new();
+        let mut res = PipelineResults::<Noop>::default();
         assert_eq!(res.get("a"), None);
         let exp = Noop::new("a", 10);
         assert_eq!(res.insert("a", 10), Some(exp.clone()).as_ref());
         assert_eq!(res.get("a"), Some(exp.clone()).as_ref());
+        assert_eq!(res.keys(), vec![exp.label().to_owned()]);
     }
 }

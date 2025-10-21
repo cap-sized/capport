@@ -43,7 +43,7 @@ impl Default for ModelFields {
 }
 
 impl ModelFields {
-    pub fn iter(&self) -> std::slice::Iter<(StrKeyword, ModelFieldKeyword)> {
+    pub fn iter(&self) -> std::slice::Iter<'_, (StrKeyword, ModelFieldKeyword)> {
         self.list.iter()
     }
 
@@ -173,7 +173,7 @@ mod tests {
         ($key:expr, $value:expr) => {
             (
                 StrKeyword::with_value(($key).to_owned()),
-                ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(($value)))),
+                ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType($value))),
             )
         };
     }
@@ -182,7 +182,7 @@ mod tests {
         ($key:expr, $value:expr, $constraints:expr) => {
             (
                 StrKeyword::with_value(($key).to_owned()),
-                ModelFieldKeyword::with_value(ModelFieldInfo::new(DType(($value)), ($constraints))),
+                ModelFieldKeyword::with_value(ModelFieldInfo::new(DType($value), ($constraints))),
             )
         };
     }

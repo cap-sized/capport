@@ -190,7 +190,7 @@ pub fn async_runner(
                     Job::new_async_tz(kill_at, timezone, move |_, mut l| {
                         let asctx = sctx.clone();
                         Box::pin(async move {
-                            match asctx.clone().signal_terminate() {
+                            match asctx.clone().signal_terminate().await {
                                 Ok(_) => {
                                     log::info!("sent kill signal");
                                     l.shutdown().await.expect("failed to shutdown scheduler");

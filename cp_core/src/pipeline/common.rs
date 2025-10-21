@@ -383,7 +383,7 @@ stages:
         price: f64,
     }
 
-    fn mock_server(server: &MockServer) -> Vec<Mock> {
+    fn mock_server(server: &MockServer) -> Vec<Mock<'_>> {
         DummyData::json_instrument_prices()
             .iter()
             .map(|j| {
@@ -516,7 +516,7 @@ stages:
             };
             let terminator = async move || {
                 iictx.signal_replace().unwrap();
-                iictx.signal_terminate().await.unwrap();
+                iictx.signal_terminate().unwrap();
             };
             tokio::join!(action_path(), terminator());
         });

@@ -51,7 +51,7 @@ pub struct DropTransformConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SqlTransformConfig {
-    pub sql: String,
+    pub sql: StrKeyword,
     pub sql_context: Option<Vec<String>>,
 }
 
@@ -64,8 +64,8 @@ pub struct UnnestTransformConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct UniformIdTypeConfig {
-    pub uniform_id_type: FilterFields<Option<DType>>,
+pub struct CastConfig {
+    pub cast: FilterFields<Option<DType>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -282,7 +282,7 @@ join:
         assert_eq!(
             actual,
             SqlTransformConfig {
-                sql: "select col from data".to_string(),
+                sql: StrKeyword::with_value("select col from data".to_string()),
                 sql_context: None
             }
         );

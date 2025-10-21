@@ -2,7 +2,7 @@ use polars::prelude::*;
 
 use super::config::{
     DropTransformConfig, JoinTransformConfig, RootTransformConfig, SelectTransformConfig, SqlTransformConfig,
-    TimeConvertConfig, UniformIdTypeConfig, UnnestTransformConfig, WithColTransformConfig,
+    TimeConvertConfig, CastConfig, UnnestTransformConfig, WithColTransformConfig
 };
 use crate::frame::common::{FrameAsyncListenHandle, FrameUpdate};
 use crate::frame::polars::PolarsAsyncListenHandle;
@@ -165,7 +165,7 @@ impl RootTransformConfig {
                     UnnestTransformConfig,
                     WithColTransformConfig,
                     TimeConvertConfig,
-                    UniformIdTypeConfig
+                    CastConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
@@ -227,6 +227,9 @@ impl StageTaskConfig<RootTransform> for RootTransformConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::thread::sleep;
+    use std::time::Duration;
     use std::{sync::Arc, thread};
 
     use polars::{df, frame::DataFrame, prelude::IntoLazy};
@@ -272,18 +275,29 @@ mod tests {
         let bctx = ctx.clone();
         let fctx = ctx.clone();
         let mut broadcast = bctx.get_broadcast("orig", "source").unwrap();
-        broadcast.broadcast(expected().lazy()).unwrap();
         thread::scope(|s| {
-            let _t = s.spawn(move || {
-                let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
-                trf.sync_exec(lctx).unwrap();
-            });
+            let listener_ok = Arc::new(AtomicBool::new(false));
+            let s_listen = listener_ok.clone();
+            let t_listen = listener_ok.clone();
             let _s = s.spawn(move || {
                 let mut listener = fctx.get_listener("actual", "dest").unwrap();
+                s_listen.store(true, std::sync::atomic::Ordering::Release);
+                sleep(Duration::new(0, 100000));
                 let update = listener.listen().unwrap();
                 let lf = update.frame.read().unwrap();
                 let actual = lf.clone().collect().unwrap();
                 assert_eq!(actual, expected());
+            });
+            let _t = s.spawn(move || {
+                loop {
+                    match t_listen.compare_exchange_weak(true, false, std::sync::atomic::Ordering::Acquire, std::sync::atomic::Ordering::Relaxed) {
+                        Ok(_) => break,
+                        Err(_) => sleep(Duration::new(0, 100000)),
+                    }
+                }
+                broadcast.broadcast(expected().lazy()).unwrap();
+                let trf = RootTransform::new("trf", "orig", "actual", Vec::new());
+                trf.sync_exec(lctx).unwrap();
             });
         });
     }

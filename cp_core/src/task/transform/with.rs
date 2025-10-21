@@ -137,6 +137,33 @@ mod tests {
     }
 
     #[test]
+    fn valid_with_columns_transform_emplace_basic() {
+        let mut config = serde_yaml_ng::from_str::<WithColTransformConfig>("
+with_columns:
+    $first: two
+    three: $second
+            ").unwrap();
+        let mapping = serde_yaml_ng::from_str::<serde_yaml_ng::Mapping>("{first: one, second: two}").unwrap();
+        config.emplace(&mapping).unwrap();
+        assert!(config.validate().is_empty());
+        let with_columns = config.transform();
+        let ctx = Arc::new(DefaultPipelineContext::new());
+        let main = df!(
+            "two" => [1, 2, 3]
+        )
+        .unwrap()
+        .lazy();
+        let actual = with_columns.run(main, ctx).unwrap();
+        let expected = df!(
+            "one" => [1, 2, 3],
+            "two" => [1, 2, 3],
+            "three" => [1, 2, 3],
+        )
+        .unwrap();
+        assert_eq!(actual.collect().unwrap(), expected);
+    }
+
+    #[test]
     fn invalid_with_columns_transform_basic() {
         let config = WithColTransformConfig {
             with_columns: create_with_columns_bad_config(

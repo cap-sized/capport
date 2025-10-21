@@ -17,7 +17,7 @@ use crate::{
     valid_or_insert_error,
 };
 
-use super::config::{ClickhouseSinkConfig, CsvSinkConfig, JsonSinkConfig, SinkGroupConfig};
+use super::config::{CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig, SinkGroupConfig};
 
 /// Base sink trait. Importantly, certain sinks may have dependencies as well.
 /// If it receives a termination signal, it is the sink type's responsibility to clean up and
@@ -226,8 +226,8 @@ impl SinkGroupConfig {
                     transform,
                     dyn SinkConfig,
                     CsvSinkConfig,
-                    ClickhouseSinkConfig,
-                    JsonSinkConfig
+                    JsonSinkConfig,
+                    ParquetSinkConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
@@ -353,6 +353,7 @@ mod tests {
 
     #[test]
     fn success_mock_sink_linear_exec() {
+        // fern::Dispatch::new().level(log::LevelFilter::Trace).chain(std::io::stdout()).apply().unwrap();
         let ctx = Arc::new(DefaultPipelineContext::with_results(&["df", "next1", "next2"], 1));
         let mut df_handle = ctx.get_broadcast("df", "orig").unwrap();
         df_handle.broadcast(default_df().lazy()).unwrap();

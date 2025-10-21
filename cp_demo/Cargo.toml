@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 cp_core = { path = "../cp_core/" }
 log = "0.4.27"
+

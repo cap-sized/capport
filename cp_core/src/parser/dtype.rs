@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::util::{
     common::{NYT, UTC},
-    error::CpResult,
+    error::{CpError, CpResult},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,6 +48,43 @@ impl Serialize for DType {
     }
 }
 
+fn parse_dtype(dstr: &str) -> CpResult<DType> {
+    match dstr {
+        "bool" => Ok(DType(DataType::Boolean)),
+        "int" => Ok(DType(DataType::Int64)),
+        "int8" => Ok(DType(DataType::Int8)),
+        "int16" => Ok(DType(DataType::Int16)),
+        "int32" => Ok(DType(DataType::Int32)),
+        "int64" => Ok(DType(DataType::Int64)),
+        "uint8" => Ok(DType(DataType::UInt8)),
+        "uint16" => Ok(DType(DataType::UInt16)),
+        "uint32" => Ok(DType(DataType::UInt32)),
+        "uint64" => Ok(DType(DataType::UInt64)),
+        "float" => Ok(DType(DataType::Float32)),
+        "double" => Ok(DType(DataType::Float64)),
+        "str" => Ok(DType(DataType::String)),
+        "time" => Ok(DType(DataType::Time)),
+        "date" => Ok(DType(DataType::Date)),
+        "datetime_nyt" => Ok(DType(DataType::Datetime(
+            TimeUnit::Milliseconds,
+            Some(TimeZone::from_str(NYT)),
+        ))),
+        "datetime_utc" => Ok(DType(DataType::Datetime(
+            TimeUnit::Milliseconds,
+            Some(TimeZone::from_str(UTC)),
+        ))),
+        s => {
+            let list_reg = regex::Regex::new("list\\[(.*)\\]").expect("valid list regex: list\\[(.*)\\]");
+            if let Some(v) =  list_reg.captures(s) {
+                let inner_str = &v[1];
+                let inner = parse_dtype(inner_str)?;
+                return Ok(DType(DataType::List(Box::new(inner.0))));
+            };
+            Err(CpError::ConfigError("dtype", format!("Unknown dtype in model: {}", s)))
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for DType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -60,31 +97,9 @@ impl<'de> Deserialize<'de> for DType {
             Full(HashMap<String, serde_yaml_ng::Value>),
         }
         match Helper::deserialize(deserializer)? {
-            Helper::Short(s) => match s.as_str() {
-                "bool" => Ok(DType(DataType::Boolean)),
-                "int" => Ok(DType(DataType::Int64)),
-                "int8" => Ok(DType(DataType::Int8)),
-                "int16" => Ok(DType(DataType::Int16)),
-                "int32" => Ok(DType(DataType::Int32)),
-                "int64" => Ok(DType(DataType::Int64)),
-                "uint8" => Ok(DType(DataType::UInt8)),
-                "uint16" => Ok(DType(DataType::UInt16)),
-                "uint32" => Ok(DType(DataType::UInt32)),
-                "uint64" => Ok(DType(DataType::UInt64)),
-                "float" => Ok(DType(DataType::Float32)),
-                "double" => Ok(DType(DataType::Float64)),
-                "str" => Ok(DType(DataType::String)),
-                "time" => Ok(DType(DataType::Time)),
-                "date" => Ok(DType(DataType::Date)),
-                "datetime_nyt" => Ok(DType(DataType::Datetime(
-                    TimeUnit::Milliseconds,
-                    Some(TimeZone::from_str(NYT)),
-                ))),
-                "datetime_utc" => Ok(DType(DataType::Datetime(
-                    TimeUnit::Milliseconds,
-                    Some(TimeZone::from_str(UTC)),
-                ))),
-                s => Err(de::Error::custom(format!("Unknown dtype in model: {}", s))),
+            Helper::Short(s) => match parse_dtype(s.as_str()) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(de::Error::custom(e))
             },
             Helper::Full(full) => {
                 if full.len() != 1 {

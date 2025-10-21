@@ -32,7 +32,8 @@ pipeline:
         output: CLEAN_GAMES
     - label: save_games
       task_type: sink
-      task_name: save_clickhouse_csv
+      task_name: save_csv_file
+      # task_name: save_clickhouse_csv
       emplace: 
         input: CLEAN_GAMES
         filepath: games.csv

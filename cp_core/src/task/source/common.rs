@@ -16,7 +16,7 @@ use crate::{
 };
 
 use super::config::{
-    CsvSourceConfig, HttpSourceConfig, JsonSourceConfig, MySqlSourceConfig, PostgresSourceConfig, SourceGroupConfig,
+    CsvSourceConfig, HttpSourceConfig, JsonSourceConfig, SourceGroupConfig, InlineDataSourceConfig
 };
 
 /// Base source trait. Importantly, certain sources may have dependencies as well.
@@ -216,8 +216,7 @@ impl SourceGroupConfig {
                     JsonSourceConfig,
                     CsvSourceConfig,
                     HttpSourceConfig,
-                    MySqlSourceConfig,
-                    PostgresSourceConfig
+                    InlineDataSourceConfig
                 );
                 config.ok_or_else(|| {
                     CpError::ConfigError(
@@ -475,7 +474,7 @@ mod tests {
                     Ok(_) => log::info!("Replace signal successfully sent"),
                     Err(e) => log::error!("Error signalling replace: {}", e),
                 };
-                match ictx.signal_terminate().await {
+                match ictx.signal_terminate() {
                     Ok(_) => log::info!("Termination successfully sent"),
                     Err(e) => log::error!("Error terminating: {}", e),
                 };

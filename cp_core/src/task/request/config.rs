@@ -4,7 +4,7 @@ use crate::{
     model::common::ModelFields,
     parser::{
         http::{HttpMethod, HttpOptionsConfig},
-        keyword::{PolarsExprKeyword, StrKeyword},
+        keyword::{PolarsExprKeyword, StrKeyword}, sql_connection::{SqlGetModelConnection, SqlReqConnection},
     },
 };
 
@@ -46,14 +46,25 @@ pub struct HttpSingleConfig {
     pub http_single: HttpReqConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ClickhouseReqConfig {
+    pub ch_sql: SqlReqConnection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ClickhouseModelConfig {
+    pub ch_model: SqlGetModelConnection,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::parser::{
-        http::HttpMethod,
-        keyword::{Keyword, StrKeyword},
-    };
+    use polars::prelude::DataType;
 
-    use super::{HttpBatchConfig, HttpOptionsConfig, HttpParamConfig, HttpReqConfig, HttpSingleConfig};
+    use crate::{model::common::{ModelFieldInfo, ModelFields}, parser::{
+        dtype::DType, http::HttpMethod, keyword::{Keyword, ModelFieldKeyword, StrKeyword}, sql_connection::{SqlConnection, SqlGetModelConnection, SqlReqConnection}
+    }, task::request::config::ClickhouseModelConfig};
+
+    use super::{ClickhouseReqConfig, HttpBatchConfig, HttpOptionsConfig, HttpParamConfig, HttpReqConfig, HttpSingleConfig};
     fn get_http() -> [HttpReqConfig; 2] {
         [
             HttpReqConfig {
@@ -137,4 +148,67 @@ http_single:
             }
         );
     }
+
+    #[test]
+    fn valid_source_config_ch_sql() {
+        let config = "
+ch_sql:
+    conn: 
+        label: sample
+        user: default
+    query_column: $query
+            ";
+        let expected = ClickhouseReqConfig {
+            ch_sql: SqlReqConnection {
+                conn: SqlConnection {
+                    label: StrKeyword::with_value("sample".to_owned()),
+                    user: StrKeyword::with_value("default".to_owned()),
+                },
+                query_column: StrKeyword::with_symbol("query")
+            }
+        };
+        assert_eq!(serde_yaml_ng::from_str::<ClickhouseReqConfig>(config).unwrap(), expected);
+    }
+
+    #[test]
+    fn valid_source_config_ch_model() {
+        let config_a = "
+ch_model:
+    conn: 
+        label: $sample
+        user: default
+    table: $table
+    model: PLAYERS
+            ";
+        let expected_a = ClickhouseModelConfig {
+            ch_model: SqlGetModelConnection {
+                conn: SqlConnection {
+                    label: StrKeyword::with_symbol("sample"),
+                    user: StrKeyword::with_value("default".to_owned()),
+                },
+                table: StrKeyword::with_symbol("table"),
+                model: Some(StrKeyword::with_value("PLAYERS".to_owned())),
+                model_fields: None,
+            }
+        };
+        let config_b = "
+ch_model:
+    conn: 
+        label: $sample
+        user: default
+    table: $table
+    model_fields:
+        id: uint64
+        name: str
+        $fake: $field
+            ";
+        let mut expected_b = expected_a.clone();
+        expected_b.ch_model.model_fields.insert(ModelFields::from([
+                (StrKeyword::with_value("id".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::UInt64)))),
+                (StrKeyword::with_symbol("fake"), ModelFieldKeyword::with_symbol("field")),
+        ]));
+        assert_eq!(serde_yaml_ng::from_str::<ClickhouseModelConfig>(config_a).unwrap(), expected_a);
+        assert_eq!(serde_yaml_ng::from_str::<ClickhouseModelConfig>(config_b).unwrap(), expected_b);
+    }
 }
+

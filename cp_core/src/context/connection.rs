@@ -155,13 +155,7 @@ connection:
         );
         assert_eq!(
             actual.get_connection("pwonly", "admin").unwrap(),
-            NetworkConnection {
-                host: "localhost".to_owned(),
-                port: 1988,
-                db_name: "nineteen".to_owned(),
-                username: "admin".to_owned(),
-                password: Some("dummy".to_owned()),
-            }
+            NetworkConnection::new("localhost", 1988, "nineteen", "admin", Some("dummy".to_owned()))
         );
     }
 

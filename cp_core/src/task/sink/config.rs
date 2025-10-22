@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::{
     model::common::ModelFields,
-    parser::{keyword::StrKeyword, merge_type::MergeTypeEnum, sql_connection::SqlConnection},
+    parser::{keyword::StrKeyword, merge_type::MergeTypeEnum, sql_connection::SqlSendConnection},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -31,7 +31,7 @@ pub struct TableOptions {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ClickhouseSinkConfig {
-    pub clickhouse: SqlConnection,
+    pub clickhouse: SqlSendConnection,
     pub options: Option<TableOptions>,
 }
 
@@ -60,8 +60,7 @@ mod tests {
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-            merge_type::MergeTypeEnum,
-            sql_connection::SqlConnection,
+            merge_type::MergeTypeEnum, sql_connection::{SqlReqConnection, SqlSendConnection},
         },
         task::sink::config::{CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig},
     };
@@ -72,13 +71,20 @@ mod tests {
     fn valid_clickhouse_sink_config() {
         let config = "
 clickhouse:
-    merge_type: Insert
+    connection: default
+    user: default
+    input: $test
+    table: $data
 options:
     order_by: [first]
     primary_key: [second, $key]
             ";
-        let clickhouse = SqlConnection {
-            merge_type: Some(MergeTypeEnum::Insert),
+        let clickhouse = SqlSendConnection {
+            connection: StrKeyword::with_value("default".to_owned()),
+            user: StrKeyword::with_value("default".to_owned()),
+            input: StrKeyword::with_symbol("test"),
+            merge_type: None,
+            table: StrKeyword::with_symbol("data"),
         };
         let options = TableOptions {
             order_by: vec![StrKeyword::with_value("first".to_owned())],

@@ -11,6 +11,37 @@ pub struct NetworkConnection {
     pub db_name: String,
     pub username: String,
     pub password: Option<String>,
+    pub readonly: Option<u8>,
+    pub connection_timeout_ms: Option<u16>,
+    pub send_retries: Option<u8>,
+    pub retry_timeout_ms: Option<u16>,
+}
+
+impl NetworkConnection {
+    pub fn new(host: &str, port: u32, db_name: &str, username: &str, password: Option<String>) -> NetworkConnection {
+        NetworkConnection { 
+            host: host.to_owned(), 
+            port, 
+            db_name: db_name.to_owned(), 
+            username: username.to_owned(), 
+            password,
+            readonly: None,
+            connection_timeout_ms: None, 
+            send_retries: None, 
+            retry_timeout_ms: None 
+        }
+    }
+
+    pub fn to_uri(&self) -> String {
+        let password = self.password.as_deref().map(|x| format!(":{}", x)).unwrap_or_default();
+        let readonly = self.readonly.map(|x| format!("&readonly={}", x)).unwrap_or_default();
+        let connection_timeout = self.connection_timeout_ms.map(|x| format!("&connection_timeout={}ms", x)).unwrap_or_default();
+        let retry_timeout = self.retry_timeout_ms.map(|x| format!("&retry_timeout={}ms", x)).unwrap_or_default();
+        let send_retries = self.send_retries.map(|x| format!("&send_retries={}", x)).unwrap_or_default();
+        format!("tcp://{}{}@{}:{}/{}?compression=lz4{}{}{}{}", &self.username, &password, 
+            &self.host, &self.port, &self.db_name, &readonly, &connection_timeout, &retry_timeout, &send_retries
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,7 +61,8 @@ impl ConnectionConfig {
         }
     }
     pub fn get_connection(&self, user: &str) -> NetworkConnection {
-        NetworkConnection { host: self.host.clone().unwrap_or("localhost".to_owned()), port: self.port, db_name: self.db_name.clone(), username: user.to_owned(), password: self.get_user_password(user) }
+        let password = self.get_user_password(user);
+        NetworkConnection::new(self.host.as_deref().unwrap_or("localhost"), self.port, &self.db_name, user, password)
     }
 }
 
@@ -85,20 +117,8 @@ users:
         assert_eq!(test, serde_yaml_ng::from_str(configs[0]).unwrap());
         assert_eq!(hostport, serde_yaml_ng::from_str(configs[1]).unwrap());
         assert_eq!(test.get_user_password("default").unwrap(), "mypass");
-        assert_eq!(test.get_connection("default"), NetworkConnection {
-            host: "localhost".to_owned(),
-            port: 80,
-            db_name: "web".to_owned(),
-            username: "default".to_owned(),
-            password: Some("mypass".to_owned())
-        });
-        assert_eq!(test.get_connection("not_defined"), NetworkConnection {
-            host: "localhost".to_owned(),
-            port: 80,
-            db_name: "web".to_owned(),
-            username: "not_defined".to_owned(),
-            password: None
-        });
+        assert_eq!(test.get_connection("default"), NetworkConnection::new("localhost", 80, "web", "default", Some("mypass".to_owned())));
+        assert_eq!(test.get_connection("not_defined"), NetworkConnection::new("localhost", 80, "web", "not_defined", None));
         assert_eq!(hostport.get_user_password("user").unwrap(), "altdb");
     }
 }

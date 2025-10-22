@@ -14,12 +14,12 @@ use crate::{
         },
     },
     model::common::{ModelConfig, ModelFields},
-    parser::connection::ConnectionConfig,
+    parser::connection::{ConnectionConfig, NetworkConnection},
     task::{
         request::common::RequestGroup, sink::common::SinkGroup, source::common::SourceGroup, stage::StageTaskConfig,
         transform::common::RootTransform,
     },
-    util::error::{CpError, CpResult, config_validation_error},
+    util::error::{config_validation_error, CpError, CpResult},
 };
 
 use super::{results::PipelineResults, signal::SignalState};
@@ -57,7 +57,7 @@ pub trait PipelineContext<
     fn get_source(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SourceGroup>;
     fn get_sink(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<SinkGroup>;
     fn get_request(&self, label: &str, context: &serde_yaml_ng::Mapping) -> CpResult<RequestGroup>;
-    fn get_connection(&self, label: &str) -> CpResult<ConnectionConfig>;
+    fn get_connection(&self, label: &str, user: &str) -> CpResult<NetworkConnection>;
     fn is_executing_sink(&self) -> bool;
 
     /// The set of context signalling tools are meant to be used in async mode only.
@@ -350,8 +350,8 @@ impl<'a>
         });
         Ok(Self { results, ..self })
     }
-    fn get_connection(&self, label: &str) -> CpResult<ConnectionConfig> {
-        match self.connection_registry.get_connection_config(label) {
+    fn get_connection(&self, label: &str, user: &str) -> CpResult<NetworkConnection> {
+        match self.connection_registry.get_connection(label, user) {
             None => Err(CpError::ConfigError(
                 "Missing config for connection",
                 format!("Config required: {}", label),
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn invalid_context_get_connection() {
-        assert!(context().get_connection("result_not_found").is_err());
+        assert!(context().get_connection("result_not_found", "ignored").is_err());
     }
 
     #[test]

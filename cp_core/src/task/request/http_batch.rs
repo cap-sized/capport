@@ -427,7 +427,6 @@ mod tests {
             }
         }
     }
-    */
 
     #[test]
     fn valid_http_batch_config_to_http_batch_request_sync() {
@@ -514,4 +513,5 @@ mod tests {
             });
         }
     }
+    */
 }

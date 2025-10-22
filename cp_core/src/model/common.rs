@@ -46,7 +46,7 @@ impl ModelFields {
     pub fn iter(&self) -> std::slice::Iter<'_, (StrKeyword, ModelFieldKeyword)> {
         self.list.iter()
     }
-
+    
     pub fn len(&self) -> usize {
         self.list.len()
     }

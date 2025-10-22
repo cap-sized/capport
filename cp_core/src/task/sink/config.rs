@@ -60,7 +60,7 @@ mod tests {
         parser::{
             dtype::DType,
             keyword::{Keyword, ModelFieldKeyword, StrKeyword},
-            merge_type::MergeTypeEnum, sql_connection::{SqlReqConnection, SqlSendConnection},
+            merge_type::MergeTypeEnum, sql_connection::{SqlConnection, SqlSendConnection},
         },
         task::sink::config::{CsvSinkConfig, JsonSinkConfig, ParquetSinkConfig},
     };
@@ -71,8 +71,9 @@ mod tests {
     fn valid_clickhouse_sink_config() {
         let config = "
 clickhouse:
-    connection: default
-    user: default
+    conn:
+        label: default
+        user: default
     input: $test
     table: $data
 options:
@@ -80,8 +81,10 @@ options:
     primary_key: [second, $key]
             ";
         let clickhouse = SqlSendConnection {
-            connection: StrKeyword::with_value("default".to_owned()),
-            user: StrKeyword::with_value("default".to_owned()),
+            conn: SqlConnection {
+                label: StrKeyword::with_value("default".to_owned()),
+                user: StrKeyword::with_value("default".to_owned()),
+            },
             input: StrKeyword::with_symbol("test"),
             merge_type: None,
             table: StrKeyword::with_symbol("data"),

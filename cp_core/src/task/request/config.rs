@@ -189,6 +189,7 @@ ch_model:
                 table: StrKeyword::with_symbol("table"),
                 model: Some(StrKeyword::with_value("PLAYERS".to_owned())),
                 model_fields: None,
+                extra_clauses: None
             }
         };
         let config_b = "
@@ -201,12 +202,16 @@ ch_model:
         id: uint64
         name: str
         $fake: $field
+    extra_clauses: $id_list
             ";
         let mut expected_b = expected_a.clone();
-        expected_b.ch_model.model_fields.insert(ModelFields::from([
+        let _ = expected_b.ch_model.model.take();
+        let _ = expected_b.ch_model.model_fields.insert(ModelFields::from([
                 (StrKeyword::with_value("id".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::UInt64)))),
+                (StrKeyword::with_value("name".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String)))),
                 (StrKeyword::with_symbol("fake"), ModelFieldKeyword::with_symbol("field")),
         ]));
+        let _ = expected_b.ch_model.extra_clauses.insert(StrKeyword::with_symbol("id_list"));
         assert_eq!(serde_yaml_ng::from_str::<ClickhouseModelConfig>(config_a).unwrap(), expected_a);
         assert_eq!(serde_yaml_ng::from_str::<ClickhouseModelConfig>(config_b).unwrap(), expected_b);
     }

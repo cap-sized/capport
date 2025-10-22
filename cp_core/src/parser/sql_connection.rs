@@ -24,6 +24,7 @@ pub struct SqlGetModelConnection {
     pub table: StrKeyword,
     pub model: Option<StrKeyword>,
     pub model_fields: Option<ModelFields>,
+    pub extra_clauses: Option<StrKeyword>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -64,6 +65,10 @@ impl SqlGetModelConnection {
     ) -> CpResult<()> {
         self.conn.emplace(context)?;
         self.table.insert_value_from_context(context)?;
+        if let Some(mut extra_clauses) = self.extra_clauses.take() {
+            extra_clauses.insert_value_from_context(context)?;
+            let _ = self.extra_clauses.insert(extra_clauses);
+        }
         model_emplace!(self, ctx, context);
         Ok(())
     }
@@ -103,7 +108,9 @@ impl SqlSendConnection {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{keyword::{Keyword, StrKeyword}, merge_type::MergeTypeEnum, sql_connection::{SqlConnection, SqlReqConnection, SqlSendConnection}};
+    use polars::prelude::DataType;
+
+    use crate::{model::common::{ModelFieldInfo, ModelFields}, parser::{dtype::DType, keyword::{Keyword, ModelFieldKeyword, StrKeyword}, merge_type::MergeTypeEnum, sql_connection::{SqlConnection, SqlGetModelConnection, SqlReqConnection, SqlSendConnection}}};
 
 
     #[test]
@@ -152,17 +159,21 @@ conn:
     user: $user
 table: data
 model_fields:
-    a: uint64
+    a: $to_fill
     b: str
         ";
-        assert_eq!(SqlSendConnection {
+        assert_eq!(SqlGetModelConnection {
             conn: SqlConnection {
                 label: StrKeyword::with_value("abc".to_owned()),
                 user: StrKeyword::with_symbol("user"),
             },
             table: StrKeyword::with_value("data".to_owned()),
-            input: StrKeyword::with_value("data".to_owned()),
-            merge_type: Some(MergeTypeEnum::Insert)
+            model : None,
+            model_fields: Some(ModelFields::from([
+                    (StrKeyword::with_value("a".to_owned()), ModelFieldKeyword::with_symbol("to_fill")),
+                    (StrKeyword::with_value("b".to_owned()), ModelFieldKeyword::with_value(ModelFieldInfo::with_dtype(DType(DataType::String)))),
+            ])),
+            extra_clauses: None
         }, serde_yaml_ng::from_str(config).unwrap());
     }
 }

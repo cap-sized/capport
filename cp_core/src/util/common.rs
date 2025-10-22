@@ -27,13 +27,6 @@ pub const RECOGNIZED_TIME_PATTERNS: [&str; 2] = ["%H:%M:%S", "%H.%M.%S"];
 pub const DEFAULT_HTTP_REQ_MAX_RETRY: u8 = 8;
 pub const DEFAULT_HTTP_REQ_INIT_RETRY_INTERVAL_MS: u64 = 1000;
 
-pub enum EnvKeyType {
-    Host,
-    User,
-    Password,
-    DbName,
-}
-
 pub fn parse_date_str(datetime_str: &str) -> CpResult<NaiveDate> {
     for &pattern in &RECOGNIZED_DATE_PATTERNS {
         match NaiveDate::parse_from_str(datetime_str, pattern) {

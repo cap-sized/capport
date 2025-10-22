@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{common::YamlRead, connection::ConnectionConfig},
+    parser::{common::YamlRead, connection::{ConnectionConfig, NetworkConnection}},
     util::error::{CpError, CpResult},
 };
 
@@ -40,6 +40,9 @@ impl ConnectionRegistry {
     }
     pub fn get_connection_config(&self, conn_name: &str) -> Option<ConnectionConfig> {
         self.configs.get(conn_name).map(|x| x.to_owned())
+    }
+    pub fn get_connection(&self, conn_name: &str, user: &str) -> Option<NetworkConnection> {
+        self.configs.get(conn_name).map(|x| x.get_connection(user))
     }
 }
 
@@ -85,9 +88,11 @@ impl Configurable for ConnectionRegistry {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{
         context::{common::Configurable, envvar::EnvironmentVariableRegistry},
-        parser::connection::ConnectionConfig,
+        parser::connection::{ConnectionConfig, NetworkConnection},
         util::common::create_config_pack,
     };
 
@@ -99,59 +104,63 @@ mod tests {
             "
 connection:
     test:
-        host_env: POSTGRES_URL_ENV
-        user_env: MY_USER_ENV
+        host: localhost
         port: 5432
-        db_env: DB_ENV
+        db_name: default
+        users:
+            admin: MYPASS_ENV
+            public:
 irrelevant_node:
     for_testing:
         a: b
         ",
             "
 connection:
-    pwonly: 
-        password_env: MYPASS_ENV
-        port: 3306
-    nothing: {}
+    pwonly:
+        port: 1988
+        db_name: nineteen
+        users:
+            admin: DUMMY
 ",
         ];
         let mut env_var = EnvironmentVariableRegistry::new();
-        env_var.set_str("POSTGRES_URL_ENV", "postgres:5432".to_owned()).unwrap();
-        env_var.set_str("MY_USER_ENV", "myuser".to_owned()).unwrap();
         env_var.set_str("MYPASS_ENV", "mypass".to_owned()).unwrap();
+        env_var.set_str("DUMMY", "dummy".to_owned()).unwrap();
         let mut config_pack = create_config_pack(configs);
         let actual = ConnectionRegistry::from(&mut config_pack).unwrap();
         assert_eq!(
             actual.get_connection_config("test").unwrap(),
             ConnectionConfig {
                 label: "test".to_owned(),
-                port: Some(5432),
-                host_env: Some("POSTGRES_URL_ENV".to_owned()),
-                user_env: Some("MY_USER_ENV".to_owned()),
-                db_env: Some("DB_ENV".to_owned()),
-                password_env: None
+                port: 5432,
+                host: Some("localhost".to_owned()),
+                db_name: "default".to_owned(),
+                users: HashMap::from([
+                    ("admin".to_owned(), Some("MYPASS_ENV".to_string())),
+                    ("public".to_owned(), None)
+                ])
             }
         );
         assert_eq!(
             actual.get_connection_config("pwonly").unwrap(),
             ConnectionConfig {
                 label: "pwonly".to_owned(),
-                port: Some(3306),
-                password_env: Some("MYPASS_ENV".to_owned()),
-                host_env: None,
-                user_env: None,
-                db_env: None,
+                host: None,
+                port: 1988,
+                db_name: "nineteen".to_owned(),
+                users: HashMap::from([
+                    ("admin".to_owned(), Some("DUMMY".to_string()))
+                ])
             }
         );
         assert_eq!(
-            actual.get_connection_config("nothing").unwrap(),
-            ConnectionConfig {
-                label: "nothing".to_owned(),
-                port: None,
-                password_env: None,
-                host_env: None,
-                user_env: None,
-                db_env: None,
+            actual.get_connection("pwonly", "admin").unwrap(),
+            NetworkConnection {
+                host: "localhost".to_owned(),
+                port: 1988,
+                db_name: "nineteen".to_owned(),
+                username: "admin".to_owned(),
+                password: Some("dummy".to_owned()),
             }
         );
     }
@@ -179,3 +188,4 @@ connection:
         }
     }
 }
+

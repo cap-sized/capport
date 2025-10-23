@@ -68,6 +68,12 @@ impl<T> From<std::sync::PoisonError<T>> for CpError {
     }
 }
 
+impl From<clickhouse_rs::errors::Error> for CpError {
+    fn from(value: clickhouse_rs::errors::Error) -> Self {
+        Self::ConnectionError(value.to_string())
+    }
+}
+
 pub type CpResult<T, E = CpError> = std::result::Result<T, E>;
 
 #[cfg(test)]
